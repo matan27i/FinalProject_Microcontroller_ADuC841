@@ -1,55 +1,54 @@
-# Prerequisites
-*.d
+# ==========================================================
+# Keil uVision Project Ignore Rules
+# ==========================================================
 
-# Object files
-*.o
-*.ko
-*.obj
-*.elf
+# --- Build Output Directories ---
+# These folders contain binary files, object files, and logs 
+# generated during compilation. They should not be tracked.
+Objects/
+Listings/
 
-# Linker output
-*.ilk
-*.map
-*.exp
+# --- Keil User-Specific Files ---
+# These files store local IDE settings like window layout and 
+# debugger options. They vary between computers and cause conflicts.
+*.uvopt
+*.uvoptx
+*.uvgui.*
+*.uvguix.*
 
-# Precompiled Headers
-*.gch
-*.pch
+# --- Temporary & Backup Files ---
+# Keil and other editors create these files as temporary storage.
+*.bak
+*.dep
+*.txt
+*.ls1
+*.err
 
-# Libraries
-*.lib
-*.a
-*.la
-*.lo
-
-# Shared objects (inc. Windows DLLs)
-*.dll
-*.so
-*.so.*
-*.dylib
-
-# Executables
-*.exe
-*.out
-*.app
-*.i*86
-*.x86_64
+# --- Compilation & Linker Outputs ---
+# These are the final results of the build process. 
+# Only the source code (.c, .h) is needed to rebuild them.
 *.hex
+*.bin
+*.elf
+*.axf
+*.htm
+*.map
+*.lst
+*.obj
+*.o
+*.lnp
+*.build_log.htm
 
-# Debug files
-*.dSYM/
-*.su
-*.idb
-*.pdb
+# ==========================================================
+# General C & OS Ignore Rules
+# ==========================================================
 
-# Kernel Module Compile Results
-*.mod*
-*.cmd
-.tmp_versions/
-modules.order
-Module.symvers
-Mkfile.old
-dkms.conf
+# --- Editor & OS Junk ---
+# Ignore system-specific files created by Windows or MacOS.
+Thumbs.db
+Desktop.ini
+.DS_Store
 
-# debug information files
-*.dwo
+# --- VS Code Settings (Optional) ---
+# If you use VS Code for editing, ignore its local workspace settings.
+.vscode/
