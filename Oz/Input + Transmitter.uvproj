@@ -397,9 +397,9 @@
               <FilePath>.\peripherals.c</FilePath>
             </File>
             <File>
-              <FileName>rx_handler.c</FileName>
+              <FileName>tx_handler.c</FileName>
               <FileType>1</FileType>
-              <FilePath>.\rx_handler.c</FilePath>
+              <FilePath>.\tx_handler.c</FilePath>
             </File>
           </Files>
         </Group>

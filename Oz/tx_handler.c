@@ -10,13 +10,13 @@
 #include <aduc841.h>
 #include "header.h"
 
-void rx_handler(uint8_t rx_char)
+void tx_handler(uint8_t tx_char)
 {
     uint8_t parsed_val = 0xFF; // Initialize as invalid (0xFF)
     uint8_t i;
     uint8_t index;
 		// --- 0. Check If We Done To Send Data ---
-		if (rx_char == '\r' || rx_char == '\n')
+		if (tx_char == '\r' || tx_char == '\n')
     {
 			buffer_flag = 1;       
       return; 
@@ -25,14 +25,14 @@ void rx_handler(uint8_t rx_char)
     // --- 1. ASCII to Hex Conversion ---
     
     // Check if character is a digit '0' through '9'
-    if (rx_char >= '0' && rx_char <= '9')       
+    if (tx_char >= '0' && tx_char <= '9')       
     {
-        parsed_val = rx_char - '0';
+        parsed_val = tx_char - '0';
     }
     // Check if character is a letter 'A' through 'F'
-    else if (rx_char >= 'A' && rx_char <= 'F') 
+    else if (tx_char >= 'A' && tx_char <= 'F') 
     {
-        parsed_val = rx_char - 'A' + 10;
+        parsed_val = tx_char - 'A' + 10;
     }
 
     // --- 2. Process Valid Data ---

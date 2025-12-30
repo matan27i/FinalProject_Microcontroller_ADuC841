@@ -28,8 +28,8 @@ void UART_ISR(void) interrupt 4 // ISR
 	if (RI)
     {
 				RI = 0;
-        rx_temp_byte = SBUF;
-        rx_flag = 1;
+        tx_temp_byte = SBUF;
+        tx_flag = 1;
     }
 	if (TI) TI = 0;
 }

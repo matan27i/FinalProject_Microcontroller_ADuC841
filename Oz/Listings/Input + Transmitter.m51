@@ -1,8 +1,8 @@
-BL51 BANKED LINKER/LOCATER V6.22.4.0                                                    12/30/2025  11:29:38  PAGE 1
+BL51 BANKED LINKER/LOCATER V6.22.4.0                                                    12/30/2025  12:11:57  PAGE 1
 
 
 BL51 BANKED LINKER/LOCATER V6.22.4.0, INVOKED BY:
-C:\KEIL_V5\C51\BIN\BL51.EXE .\Objects\main.obj, .\Objects\bus_encoder.obj, .\Objects\peripherals.obj, .\Objects\rx_handl
+C:\KEIL_V5\C51\BIN\BL51.EXE .\Objects\main.obj, .\Objects\bus_encoder.obj, .\Objects\peripherals.obj, .\Objects\tx_handl
 >> er.obj TO .\Objects\Input + Transmitter PRINT (.\Listings\Input + Transmitter.m51) RAMSIZE (256)
 
 
@@ -13,7 +13,7 @@ INPUT MODULES INCLUDED:
   .\Objects\main.obj (MAIN)
   .\Objects\bus_encoder.obj (BUS_ENCODER)
   .\Objects\peripherals.obj (PERIPHERALS)
-  .\Objects\rx_handler.obj (RX_HANDLER)
+  .\Objects\tx_handler.obj (TX_HANDLER)
   C:\KEIL_V5\C51\LIB\C51S.LIB (?C_STARTUP)
   C:\KEIL_V5\C51\LIB\C51S.LIB (?C?CLDOPTR)
   C:\KEIL_V5\C51\LIB\C51S.LIB (?C?CSTOPTR)
@@ -47,7 +47,7 @@ LINK MAP OF MODULE:  .\Objects\Input + Transmitter (MAIN)
             CODE    0800H     008CH     UNIT         ?C_C51STARTUP
             CODE    088CH     007BH     UNIT         ?C?LIB_CODE
             CODE    0907H     0075H     UNIT         ?PR?_GET_X_FROM_S?BUS_ENCODER
-            CODE    097CH     006AH     UNIT         ?PR?_RX_HANDLER?RX_HANDLER
+            CODE    097CH     006AH     UNIT         ?PR?_TX_HANDLER?TX_HANDLER
             CODE    09E6H     0069H     UNIT         ?PR?_GET_MULTI_X_FROM_S?BUS_ENCODER
             CODE    0A4FH     003FH     UNIT         ?PR?MAIN?MAIN
             CODE    0A8EH     0012H     UNIT         ?C_INITSEG
@@ -59,7 +59,7 @@ LINK MAP OF MODULE:  .\Objects\Input + Transmitter (MAIN)
 
 
 OVERLAY MAP OF MODULE:   .\Objects\Input + Transmitter (MAIN)
-BL51 BANKED LINKER/LOCATER V6.22.4.0                                                  12/30/2025  11:29:38  PAGE 2
+BL51 BANKED LINKER/LOCATER V6.22.4.0                                                  12/30/2025  12:11:57  PAGE 2
 
 
 
@@ -75,7 +75,7 @@ SEGMENT                                       DATA_GROUP
   +--> ?PR?GLOBALINT?PERIPHERALS
   +--> ?PR?TIMER3_INIT?PERIPHERALS
   +--> ?PR?UART_INIT?PERIPHERALS
-  +--> ?PR?_RX_HANDLER?RX_HANDLER
+  +--> ?PR?_TX_HANDLER?TX_HANDLER
   +--> ?PR?_GET_MULTI_X_FROM_S?BUS_ENCODER
 
 ?PR?_GET_MULTI_X_FROM_S?BUS_ENCODER         0021H    0013H
@@ -94,39 +94,39 @@ SYMBOL TABLE OF MODULE:  .\Objects\Input + Transmitter (MAIN)
   C:0000H         SYMBOL        _ICE_DUMMY_
   D:0008H         PUBLIC        buffer_count
   B:00A8H.4       PUBLIC        ES
-  D:0009H         PUBLIC        rx_temp_byte
+  D:0009H         PUBLIC        tx_temp_byte
   D:000AH         PUBLIC        Snew
   C:0A4FH         PUBLIC        main
   D:000BH         PUBLIC        R_config_list
   X:0000H         PUBLIC        X_stream_output
-  B:0020H.0       PUBLIC        rx_flag
+  B:0020H.0       PUBLIC        tx_flag
   X:0096H         PUBLIC        S_stream_expanded
   B:0020H.1       PUBLIC        buffer_flag
   -------         PROC          MAIN
   C:0A4FH         LINE#         21
   C:0A4FH         LINE#         22
-  C:0A4FH         LINE#         26
-  C:0A52H         LINE#         27
-  C:0A55H         LINE#         28
-  C:0A58H         LINE#         35
-  C:0A58H         LINE#         36
-  C:0A58H         LINE#         38
-  C:0A5BH         LINE#         39
-  C:0A5BH         LINE#         40
-  C:0A5DH         LINE#         41
-  C:0A62H         LINE#         42
-  C:0A62H         LINE#         45
-  C:0A65H         LINE#         46
-  C:0A65H         LINE#         47
-  C:0A67H         LINE#         48
-BL51 BANKED LINKER/LOCATER V6.22.4.0                                                  12/30/2025  11:29:38  PAGE 3
+  C:0A4FH         LINE#         25
+  C:0A52H         LINE#         26
+  C:0A55H         LINE#         27
+  C:0A58H         LINE#         30
+  C:0A58H         LINE#         31
+  C:0A58H         LINE#         33
+  C:0A5BH         LINE#         34
+  C:0A5BH         LINE#         35
+  C:0A5DH         LINE#         36
+  C:0A62H         LINE#         37
+  C:0A62H         LINE#         40
+  C:0A65H         LINE#         41
+  C:0A65H         LINE#         42
+  C:0A67H         LINE#         43
+BL51 BANKED LINKER/LOCATER V6.22.4.0                                                  12/30/2025  12:11:57  PAGE 3
 
 
-  C:0A69H         LINE#         51
-  C:0A87H         LINE#         53
-  C:0A8AH         LINE#         54
-  C:0A8CH         LINE#         55
-  C:0A8CH         LINE#         56
+  C:0A69H         LINE#         46
+  C:0A87H         LINE#         48
+  C:0A8AH         LINE#         49
+  C:0A8CH         LINE#         50
+  C:0A8CH         LINE#         51
   -------         ENDPROC       MAIN
   -------         ENDMOD        MAIN
 
@@ -179,7 +179,7 @@ SYMBOL TABLE OF MODULE:  .\Objects\Input + Transmitter (MAIN)
   C:09F5H         LINE#         50
   C:09FFH         LINE#         51
   C:09FFH         LINE#         53
-BL51 BANKED LINKER/LOCATER V6.22.4.0                                                  12/30/2025  11:29:38  PAGE 4
+BL51 BANKED LINKER/LOCATER V6.22.4.0                                                  12/30/2025  12:11:57  PAGE 4
 
 
   C:0A10H         LINE#         54
@@ -239,7 +239,7 @@ SYMBOL TABLE OF MODULE:  .\Objects\Input + Transmitter (MAIN)
   C:0AA3H         LINE#         29
   C:0AA3H         LINE#         30
   C:0AA5H         LINE#         31
-BL51 BANKED LINKER/LOCATER V6.22.4.0                                                  12/30/2025  11:29:38  PAGE 5
+BL51 BANKED LINKER/LOCATER V6.22.4.0                                                  12/30/2025  12:11:57  PAGE 5
 
 
   C:0AA8H         LINE#         32
@@ -249,11 +249,11 @@ SYMBOL TABLE OF MODULE:  .\Objects\Input + Transmitter (MAIN)
   -------         ENDPROC       UART_ISR
   -------         ENDMOD        PERIPHERALS
 
-  -------         MODULE        RX_HANDLER
+  -------         MODULE        TX_HANDLER
   C:0000H         SYMBOL        _ICE_DUMMY_
-  C:097CH         PUBLIC        _rx_handler
-  -------         PROC          _RX_HANDLER
-  D:0007H         SYMBOL        rx_char
+  C:097CH         PUBLIC        _tx_handler
+  -------         PROC          _TX_HANDLER
+  D:0007H         SYMBOL        tx_char
   -------         DO            
   D:0006H         SYMBOL        parsed_val
   D:0007H         SYMBOL        i
@@ -288,8 +288,8 @@ SYMBOL TABLE OF MODULE:  .\Objects\Input + Transmitter (MAIN)
   C:09E5H         LINE#         64
   C:09E5H         LINE#         65
   C:09E5H         LINE#         66
-  -------         ENDPROC       _RX_HANDLER
-  -------         ENDMOD        RX_HANDLER
+  -------         ENDPROC       _TX_HANDLER
+  -------         ENDMOD        TX_HANDLER
 
   -------         MODULE        ?C?CLDOPTR
   C:088CH         PUBLIC        ?C?CLDOPTR
@@ -299,7 +299,7 @@ SYMBOL TABLE OF MODULE:  .\Objects\Input + Transmitter (MAIN)
   C:08B9H         PUBLIC        ?C?CSTOPTR
   -------         ENDMOD        ?C?CSTOPTR
 
-BL51 BANKED LINKER/LOCATER V6.22.4.0                                                  12/30/2025  11:29:38  PAGE 6
+BL51 BANKED LINKER/LOCATER V6.22.4.0                                                  12/30/2025  12:11:57  PAGE 6
 
 
   -------         MODULE        ?C?MEMSET

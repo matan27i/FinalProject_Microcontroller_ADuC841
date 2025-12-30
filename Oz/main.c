@@ -6,8 +6,8 @@
 volatile uint8_t Snew = 0;
 volatile uint8_t buffer_count = 0;
 volatile bit buffer_flag = 0;
-volatile bit rx_flag = 0;
-volatile uint8_t rx_temp_byte = 0;
+volatile bit tx_flag = 0;
+volatile uint8_t tx_temp_byte = 0;
 
 // Must be xdata to fit in memory
 volatile uint8_t xdata S_stream_expanded[MAX_PACKETS * 4]; 
@@ -20,25 +20,20 @@ uint8_t R_config_list[] = {4,3};
 
 void main(void)
 {
-    //uint8_t i;
 
     // --- Hardware Init ---
     GlobalINT();
     Timer3_Init();
     UART_Init();
     
-    // --- Config Init ---
-    /*for(i = 0; i < MAX_PACKETS; i++) 
-    {
-        R_config_list[i] = HAMMING_R;
-    }*/
+ 
     while(1)
     {
-        // --- Handle RX ---
-        if (rx_flag == 1)
+        // --- Handle TX ---
+        if (tx_flag == 1)
         {
-            rx_flag = 0; 
-            rx_handler(rx_temp_byte);
+            tx_flag = 0; 
+            tx_handler(tx_temp_byte);
         }
 
         // --- Process Buffer ---
