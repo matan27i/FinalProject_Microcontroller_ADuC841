@@ -1,0 +1,92 @@
+C51 COMPILER V9.60.7.0   BUS_ENCODER                                                       12/30/2025 11:29:38 PAGE 1   
+
+
+C51 COMPILER V9.60.7.0, COMPILATION OF MODULE BUS_ENCODER
+OBJECT MODULE PLACED IN .\Objects\bus_encoder.obj
+COMPILER INVOKED BY: C:\Keil_v5\C51\BIN\C51.EXE bus_encoder.c OPTIMIZE(8,SPEED) BROWSE DEBUG OBJECTEXTEND PRINT(.\Listin
+                    -gs\bus_encoder.lst) TABS(2) OBJECT(.\Objects\bus_encoder.obj)
+
+line level    source
+
+   1          /* File: bus_encoder.c */
+   2          #include <aduc841.h>
+   3          #include <string.h> 
+   4          #include "header.h"
+   5          
+   6          /* Single Packet Decoder */
+   7          uint8_t get_X_from_S(const uint8_t *S_vector, uint8_t hamming_R, uint8_t *X_output)
+   8          {
+   9   1          // Calculate block size N based on R: N = 2^R - 1
+  10   1          uint8_t HAMMING_N_CALC = (1 << hamming_R) - 1;
+  11   1          uint8_t i;
+  12   1          uint8_t col_index = 0; 
+  13   1      
+  14   1          // Reset output vector X to 0 (assume no errors initially)
+  15   1          memset(X_output, 0, HAMMING_N_CALC);
+  16   1      
+  17   1          // Convert the Syndrome vector (S) from binary bits to an integer value.
+  18   1          // This value represents the position column index .
+  19   1          for (i = 0; i < hamming_R; i++)
+  20   1          {
+  21   2              col_index = (col_index << 1) | S_vector[i];
+  22   2          }
+  23   1      
+  24   1          // Safety check: Ensure the calculated index is within the valid block range
+  25   1          if (col_index > HAMMING_N_CALC) return 0;
+  26   1      
+  27   1          // If col_index is 0, the syndrome is zero -> No error occurred.
+  28   1          // If col_index > 0, it points to the bit location of the error (1-based index).
+  29   1          if (col_index > 0)
+  30   1          {
+  31   2              // Mark the error location in the X vector (convert 1-based to 0-based index)
+  32   2              X_output[col_index - 1] = 1;
+  33   2          }
+  34   1      
+  35   1          // Return the calculated error position
+  36   1          return col_index;
+  37   1      }
+  38          
+  39          /* Multi Packet Decoder */
+  40          uint8_t get_multi_X_from_S(const uint8_t *S_stream, const uint8_t *R_list, uint8_t packet_count, uint8_t *
+             -X_stream)
+  41          {
+  42   1          uint8_t p;        
+  43   1          uint8_t current_R; 
+  44   1          uint8_t current_N; 
+  45   1          
+  46   1          // Initialize running pointers to traverse the input/output arrays
+  47   1          const uint8_t *curr_S_ptr = S_stream;
+  48   1          uint8_t *curr_X_ptr = X_stream;
+  49   1      
+  50   1          for (p = 0; p < packet_count; p++)
+  51   1          {
+  52   2              // 1. Get configuration for current packet
+  53   2              current_R = R_list[p];            // Get R (number of parity bits/syndrome length)
+C51 COMPILER V9.60.7.0   BUS_ENCODER                                                       12/30/2025 11:29:38 PAGE 2   
+
+  54   2              current_N = (1 << current_R) - 1; // Calculate block length N = (2^R - 1)
+  55   2      
+  56   2              // 2. Process single packet
+  57   2              // Decodes the Syndrome (S) into Error Vector (X) for the current block
+  58   2              get_X_from_S(curr_S_ptr, current_R, curr_X_ptr);
+  59   2              
+  60   2              // 3. Advance pointers for the next iteration
+  61   2              curr_S_ptr += current_R; // Input pointer moves by R (Syndrome size)
+  62   2              curr_X_ptr += current_N; // Output pointer moves by N (Block size)
+  63   2          }
+  64   1          return 0;
+  65   1      }
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =    222    ----
+   CONSTANT SIZE    =   ----    ----
+   XDATA SIZE       =   ----    ----
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =   ----      28
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)
