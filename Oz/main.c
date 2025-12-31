@@ -44,6 +44,9 @@ void main(void)
             
             // Process/Decode data stream
             get_multi_X_from_S((uint8_t*)S_stream_expanded, R_config_list, buffer_count, X_stream_output);
+
+            transmit_X_to_bus(X_stream_output); // Send output to bus
+            buffer_count = 0;// Reset buffer
             
             buffer_count = 0; // Reset counter
             ES = 1; // Re-enable serial interrupt
