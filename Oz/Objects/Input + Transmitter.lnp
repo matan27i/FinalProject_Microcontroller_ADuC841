@@ -1,6 +1,0 @@
-".\Objects\main.obj",
-".\Objects\bus_encoder.obj",
-".\Objects\peripherals.obj",
-".\Objects\tx_handler.obj" 
-TO ".\Objects\Input + Transmitter" 
-PRINT(".\Listings\Input + Transmitter.m51") RAMSIZE(256) 

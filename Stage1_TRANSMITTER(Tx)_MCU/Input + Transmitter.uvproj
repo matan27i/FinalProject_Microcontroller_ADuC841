@@ -396,6 +396,11 @@
               <FileType>1</FileType>
               <FilePath>.\peripherals.c</FilePath>
             </File>
+            <File>
+              <FileName>tx_handler.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\tx_handler.c</FilePath>
+            </File>
           </Files>
         </Group>
       </Groups>

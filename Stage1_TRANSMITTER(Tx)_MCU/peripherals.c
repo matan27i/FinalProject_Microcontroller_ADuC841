@@ -1,7 +1,6 @@
 /* File: peripherals.c */
 #include <aduc841.h>
 #include "header.h"
-
 void Timer3_Init(void) // Configure Timer 3 for 9600 Baud rate
 {
     T3CON &= 0xFE; 
@@ -9,7 +8,7 @@ void Timer3_Init(void) // Configure Timer 3 for 9600 Baud rate
     T3FD = 0x08;   
 }
 
-void UART_Init(void) // Uart ON
+void UART_Init(void) // Uart 
 {
     SM0 = 0;
     SM1 = 1;
@@ -26,26 +25,13 @@ void GlobalINT(void) // Global Interrupt enable
 
 void UART_ISR(void) interrupt 4 // ISR
 {
-    
-    uint8_t tempsnew = 0xFF; 
-	  int s_rangefillter;
-
-    if (RI)
+	if (RI)
     {
-        RI = 0;
-        tempsnew = SBUF;
-		    s_rangefillter= hexCharToInt(tempsnew);
-        if (s_rangefillter != -1)
-        {
-            Snew = s_rangefillter; 
-            if (buffer_count < Max_in_for_outpins)
-            {
-                buffer_flag = ProcessRxData(Snew);
-            }
-        }
+				RI = 0;
+        tx_temp_byte = SBUF;
+        tx_flag = 1;
     }
-    if (TI) TI = 0; 
-
+	if (TI) TI = 0;
 }
 void Port_Init(void)
 {
