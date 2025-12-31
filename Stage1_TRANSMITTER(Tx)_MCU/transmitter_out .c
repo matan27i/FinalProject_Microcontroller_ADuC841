@@ -2,7 +2,7 @@
  * Outputs 12 bits of X to Port 2 (P2.0-P2.7) and Port 3 (P3.4-P3.7)
  * Pin mapping based on PCB schematic:
  * X[0-7]  -> P2.0-P2.7
- * X[8-11] -> P3.4-P3.7
+ * X[8-10] -> P3.5-P3.7
  */
 #include <aduc841.h>
 #include "header.h"
