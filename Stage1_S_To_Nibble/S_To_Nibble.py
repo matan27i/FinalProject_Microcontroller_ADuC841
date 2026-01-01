@@ -54,7 +54,7 @@ def send_hex_to_mcu(hex_list, port='COM5', baudrate=9600):
 # --- Main ---
 if __name__ == "__main__":
     # 1. הנתונים הגולמיים (הביטים שלך)
-    raw_syndrome = [011ת]
+    raw_syndrome = [0,1,1,0]
 
     # 2. המרה להקס (הלוגיקה שלך)
     hex_result = convert_bits_to_hex_symbols(raw_syndrome)
