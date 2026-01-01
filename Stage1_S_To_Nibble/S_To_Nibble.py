@@ -22,7 +22,7 @@ def convert_bits_to_hex_symbols(bits):
 
 
 # --- פונקציה לשליחה ל-UART ---
-def send_hex_to_mcu(hex_list, port='COM3', baudrate=9600):
+def send_hex_to_mcu(hex_list, port='COM5', baudrate=9600):
     try:
         # 1. פתיחת הפורט
         print(f"Connecting to {port}...")
@@ -54,7 +54,7 @@ def send_hex_to_mcu(hex_list, port='COM3', baudrate=9600):
 # --- Main ---
 if __name__ == "__main__":
     # 1. הנתונים הגולמיים (הביטים שלך)
-    raw_syndrome = [1, 1, 1, 1, 0, 1, 1, 0, 1, 1, 1, 1]
+    raw_syndrome = [0,1,1,0]
 
     # 2. המרה להקס (הלוגיקה שלך)
     hex_result = convert_bits_to_hex_symbols(raw_syndrome)
@@ -62,4 +62,4 @@ if __name__ == "__main__":
 
     # 3. שליחה למיקרו-בקר
     # שנה את 'COM3' לפורט האמיתי שלך!
-    send_hex_to_mcu(hex_result, port='COM3', baudrate=9600)
+    send_hex_to_mcu(hex_result, port='COM5', baudrate=9600)
