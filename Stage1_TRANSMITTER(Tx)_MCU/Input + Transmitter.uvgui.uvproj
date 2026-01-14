@@ -46,7 +46,7 @@
             <InvalidFlash>1</InvalidFlash>
           </TargetStatus>
           <OutputDirectory>.\Objects\</OutputDirectory>
-          <OutputName>Input + Transmitter</OutputName>
+          <OutputName>Input + Transmitter.uvgui</OutputName>
           <CreateExecutable>1</CreateExecutable>
           <CreateLib>0</CreateLib>
           <CreateHexFile>0</CreateHexFile>
@@ -168,7 +168,7 @@
         </DebugOption>
         <Utilities>
           <Flash1>
-            <UseTargetDll>1</UseTargetDll>
+            <UseTargetDll>0</UseTargetDll>
             <UseExternalTool>0</UseExternalTool>
             <RunIndependent>0</RunIndependent>
             <UpdateFlashBeforeDebugging>0</UpdateFlashBeforeDebugging>
@@ -377,19 +377,14 @@
           <GroupName>Source Group 1</GroupName>
           <Files>
             <File>
-              <FileName>main.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>.\main.c</FilePath>
-            </File>
-            <File>
-              <FileName>header.h</FileName>
-              <FileType>5</FileType>
-              <FilePath>.\header.h</FilePath>
-            </File>
-            <File>
               <FileName>bus_encoder.c</FileName>
               <FileType>1</FileType>
               <FilePath>.\bus_encoder.c</FilePath>
+            </File>
+            <File>
+              <FileName>main.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\main.c</FilePath>
             </File>
             <File>
               <FileName>peripherals.c</FileName>
@@ -397,20 +392,14 @@
               <FilePath>.\peripherals.c</FilePath>
             </File>
             <File>
-<<<<<<< Updated upstream
-              <FileName>tx_handler.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>.\tx_handler.c</FilePath>
-            </File>
-            <File>
               <FileName>transmitter_out .c</FileName>
               <FileType>1</FileType>
               <FilePath>.\transmitter_out .c</FilePath>
-=======
-              <FileName>transmitter_out.c</FileName>
+            </File>
+            <File>
+              <FileName>tx_handler.c</FileName>
               <FileType>1</FileType>
-              <FilePath>.\transmitter_out.c</FilePath>
->>>>>>> Stashed changes
+              <FilePath>.\tx_handler.c</FilePath>
             </File>
           </Files>
         </Group>
