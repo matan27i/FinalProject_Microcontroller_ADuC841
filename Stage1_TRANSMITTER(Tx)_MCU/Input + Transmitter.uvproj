@@ -397,6 +397,7 @@
               <FilePath>.\peripherals.c</FilePath>
             </File>
             <File>
+<<<<<<< Updated upstream
               <FileName>tx_handler.c</FileName>
               <FileType>1</FileType>
               <FilePath>.\tx_handler.c</FilePath>
@@ -405,6 +406,11 @@
               <FileName>transmitter_out .c</FileName>
               <FileType>1</FileType>
               <FilePath>.\transmitter_out .c</FilePath>
+=======
+              <FileName>transmitter_out.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\transmitter_out.c</FilePath>
+>>>>>>> Stashed changes
             </File>
           </Files>
         </Group>

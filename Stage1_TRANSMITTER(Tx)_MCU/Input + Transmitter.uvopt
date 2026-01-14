@@ -230,6 +230,7 @@
       <tvExp>0</tvExp>
       <tvExpOptDlg>0</tvExpOptDlg>
       <bDave2>0</bDave2>
+<<<<<<< Updated upstream
       <PathWithFileName>.\tx_handler.c</PathWithFileName>
       <FilenameWithoutPath>tx_handler.c</FilenameWithoutPath>
       <RteFlg>0</RteFlg>
@@ -244,6 +245,10 @@
       <bDave2>0</bDave2>
       <PathWithFileName>.\transmitter_out .c</PathWithFileName>
       <FilenameWithoutPath>transmitter_out .c</FilenameWithoutPath>
+=======
+      <PathWithFileName>.\transmitter_out.c</PathWithFileName>
+      <FilenameWithoutPath>transmitter_out.c</FilenameWithoutPath>
+>>>>>>> Stashed changes
       <RteFlg>0</RteFlg>
       <bShared>0</bShared>
     </File>
