@@ -17,6 +17,8 @@ void Timer0_Init(void);
 void read_X_from_bus(uint8_t *X);
 void get_S_from_X(const uint8_t *X_vector, uint8_t hamming_R, uint8_t *S_output);
 uint8_t bits_to_decimal(const uint8_t *bits, uint8_t length);
-void transmit_decimal_uart(uint8_t value);
+
+// UPDATED FUNCTION NAME:
+void transmit_hex_uart(uint8_t value);
 
 #endif

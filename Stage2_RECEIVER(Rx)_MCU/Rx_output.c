@@ -1,38 +1,33 @@
-/* File: rx_output.c
- * Transmits decimal value as ASCII string via UART
+/* File: Rx_output.c
+ * Transmits value as HEX character (0-9, A-F) via UART
  */
 #include <aduc841.h>
 #include "header.h"
 
-void transmit_decimal_uart(uint8_t value)
+void transmit_hex_uart(uint8_t value)
 {
-    uint8_t digits[3];  // Max 2 digits + null
-    uint8_t i = 0;
-    uint8_t j;
-    
-    // Convert to decimal digits (reversed)
-    if (value == 0)
+    // Limit processing to 4-bit nibble (0-15)
+    // If you expect larger numbers, this logic needs adjustment.
+    value = value & 0x0F; 
+
+    // Wait for previous transmission to complete
+    while (!TI);
+    TI = 0;
+
+    // Convert to ASCII
+    if (value <= 9)
     {
-        digits[i++] = '0';
+        // '0' (48) + value -> '0' to '9'
+        SBUF = '0' + value;
     }
     else
     {
-        while (value > 0 && i < 2)
-        {
-            digits[i++] = '0' + (value % 10);
-            value /= 10;
-        }
+        // 'A' (65) + (value - 10) -> 'A' to 'F'
+        SBUF = 'A' + (value - 10);
     }
     
-    // Transmit in correct order (reverse)
-    for (j = i; j > 0; j--)
-    {
-        while (!TI);
-        TI = 0;
-        SBUF = digits[j - 1];
-    }
+    // --- Send Newline (\r\n) for PuTTY ---
     
-    // Transmit newline
     while (!TI);
     TI = 0;
     SBUF = '\r';

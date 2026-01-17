@@ -1,6 +1,4 @@
-/* File: main.c
- * Receiver - Reads 11-bit X from ports, decodes to S, outputs decimal ASCII via UART
- */
+/* File: main.c */
 #include <aduc841.h>
 #include "header.h"
 
@@ -16,8 +14,13 @@ void main(void)
     Timer3_Init();
     UART_Init();
     Port_Init();
-    Timer0_Init();  // Periodic sampling timer
+    Timer0_Init(); 
     
+    // DAC Configuration
+    DACCON = 0x1D;
+    DAC0H = 0x0F;
+    DAC0L = 0xFF;
+	
     while(1)
     {
         if (sample_flag)
@@ -25,17 +28,16 @@ void main(void)
             EA = 0;
             sample_flag = 0;
             
-            // Read X from input ports
             read_X_from_bus(X);
-            
-            // Decode X to S using provided logic
             get_S_from_X(X, HAMMING_R, S);
-            
-            // Convert S bit array to decimal value
             decimal_value = bits_to_decimal(S, HAMMING_R);
             
-            // Transmit as decimal ASCII
-            transmit_decimal_uart(decimal_value);
+            // Filter: Only transmit if value is not 0
+            if (decimal_value != 0)
+            {
+                // CHANGE: Call the HEX transmit function
+                transmit_hex_uart(decimal_value);
+            }
             
             EA = 1;
         }
