@@ -46,7 +46,7 @@
             <InvalidFlash>1</InvalidFlash>
           </TargetStatus>
           <OutputDirectory>.\Objects\</OutputDirectory>
-          <OutputName>Input + Transmitter</OutputName>
+          <OutputName>Tx</OutputName>
           <CreateExecutable>1</CreateExecutable>
           <CreateLib>0</CreateLib>
           <CreateHexFile>0</CreateHexFile>
@@ -168,16 +168,16 @@
         </DebugOption>
         <Utilities>
           <Flash1>
-            <UseTargetDll>0</UseTargetDll>
+            <UseTargetDll>1</UseTargetDll>
             <UseExternalTool>0</UseExternalTool>
             <RunIndependent>0</RunIndependent>
             <UpdateFlashBeforeDebugging>0</UpdateFlashBeforeDebugging>
-            <Capability>0</Capability>
-            <DriverSelection>-1</DriverSelection>
+            <Capability>1</Capability>
+            <DriverSelection>4099</DriverSelection>
           </Flash1>
           <bUseTDR>0</bUseTDR>
-          <Flash2></Flash2>
-          <Flash3></Flash3>
+          <Flash2>BIN\MONADI.DLL</Flash2>
+          <Flash3>"" ()</Flash3>
           <Flash4></Flash4>
           <pFcarmOut></pFcarmOut>
           <pFcarmGrp></pFcarmGrp>
@@ -233,7 +233,7 @@
               <RCB>
                 <Type>0</Type>
                 <StartAddress>0x0</StartAddress>
-                <Size>0x0</Size>
+                <Size>0xffff</Size>
               </RCB>
               <RXB>
                 <Type>0</Type>
@@ -377,19 +377,14 @@
           <GroupName>Source Group 1</GroupName>
           <Files>
             <File>
-              <FileName>main.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>.\main.c</FilePath>
-            </File>
-            <File>
-              <FileName>header.h</FileName>
-              <FileType>5</FileType>
-              <FilePath>.\header.h</FilePath>
-            </File>
-            <File>
               <FileName>bus_encoder.c</FileName>
               <FileType>1</FileType>
               <FilePath>.\bus_encoder.c</FilePath>
+            </File>
+            <File>
+              <FileName>main.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\main.c</FilePath>
             </File>
             <File>
               <FileName>peripherals.c</FileName>
@@ -397,20 +392,19 @@
               <FilePath>.\peripherals.c</FilePath>
             </File>
             <File>
-<<<<<<< Updated upstream
+              <FileName>shift_output.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\shift_output.c</FilePath>
+            </File>
+            <File>
               <FileName>tx_handler.c</FileName>
               <FileType>1</FileType>
               <FilePath>.\tx_handler.c</FilePath>
             </File>
             <File>
-              <FileName>transmitter_out .c</FileName>
-              <FileType>1</FileType>
-              <FilePath>.\transmitter_out .c</FilePath>
-=======
-              <FileName>transmitter_out.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>.\transmitter_out.c</FilePath>
->>>>>>> Stashed changes
+              <FileName>header.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>.\header.h</FilePath>
             </File>
           </Files>
         </Group>
