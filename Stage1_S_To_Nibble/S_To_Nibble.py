@@ -15,7 +15,7 @@ def convert_bits_to_hex_symbols(bits):
     return hex_symbols
 
 
-def send_hex_to_mcu(hex_list, port='COM5', baudrate=9600):
+def send_hex_to_mcu(hex_list, port='COM4', baudrate=9600):
     try:
         print(f"Connecting to {port}...")
         ser = serial.Serial(port, baudrate, timeout=1)
@@ -60,6 +60,6 @@ if __name__ == "__main__":
         print(f"Converted to Hex: {hex_result}")
         # שליחה למיקרו-בקר
         #  שולח תו אחרי תו
-        send_hex_to_mcu(hex_result, port='COM5', baudrate=9600)
+        send_hex_to_mcu(hex_result, port='COM4', baudrate=9600)
         # השהייה קטנה בין תווים
         time.sleep(0.1)

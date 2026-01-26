@@ -3,7 +3,10 @@
 #include <string.h> 
 #include "header.h"
 
-/* Single Packet Decoder */
+uint8_t xdata current_S_state[MAX_BLOCKS]; 
+uint8_t xdata X_global_state[TOTAL_X_BITS];
+/*
+// Single Packet Decoder 
 uint8_t get_X_from_S(const uint8_t *S_vector, uint8_t hamming_R, uint8_t *X_output)
 {
     // Calculate block size N based on R: N = 2^R - 1
@@ -36,7 +39,7 @@ uint8_t get_X_from_S(const uint8_t *S_vector, uint8_t hamming_R, uint8_t *X_outp
     return col_index;
 }
 
-/* Multi Packet Decoder */
+// Multi Packet Decoder 
 uint8_t get_multi_X_from_S(const uint8_t *S_stream, const uint8_t *R_list, uint8_t packet_count, uint8_t *X_stream)
 {
     uint8_t p;        
@@ -62,4 +65,62 @@ uint8_t get_multi_X_from_S(const uint8_t *S_stream, const uint8_t *R_list, uint8
         curr_X_ptr += current_N; // Output pointer moves by N (Block size)
     }
     return 0;
+}
+*/
+
+void Init_Bus_State(void)
+{
+    memset(current_S_state, 0, MAX_BLOCKS);
+    memset(X_global_state, 0, TOTAL_X_BITS);
+}
+
+void process_diagonal_system(uint8_t *new_S_vector)
+{
+    uint8_t i;
+    uint8_t delta_S;
+    uint8_t bit_index_to_flip;
+    
+    // Pointers and counters for traversing the global X vector
+    uint8_t current_R;
+    uint8_t block_size_N;
+    uint8_t x_offset = 0; // Pointer to the start of the current block in X_global_state
+
+    // Iterate over each sub-matrix (block) on the diagonal
+    for (i = 0; i < num_active_blocks; i++)
+    {
+        current_R = code_config_R[i];
+        block_size_N = (1 << current_R) - 1; // Calculate N = 2^R - 1
+			
+        // logic: Delta = New_Syndrome XOR Old_Syndrome
+        delta_S = new_S_vector[i] ^ current_S_state[i];
+
+        if (delta_S != 0)
+        {
+            // Convert Syndrome value to Bit Index (1-based to 0-based)
+            bit_index_to_flip = delta_S - 1;
+
+            if (bit_index_to_flip < block_size_N)
+            {
+                // Access the specific bit in the global X vector using the offset
+                // Toggle the bit: 0->1 or 1->0
+                if (X_global_state[x_offset + bit_index_to_flip] == 0)
+                {
+                    X_global_state[x_offset + bit_index_to_flip] = 1;
+                }
+                else
+                {
+                    X_global_state[x_offset + bit_index_to_flip] = 0;
+                }
+            }
+            
+            // Update the stored state for this block to match the new one
+            current_S_state[i] = new_S_vector[i];
+        }
+
+        // 4. Advance the offset to the next block's position in the X vector
+        x_offset += block_size_N;
+    }
+
+    // Finally, shift the updated global X vector to the hardware
+    transmit_X_to_shift_reg(X_global_state, x_offset);
 }
