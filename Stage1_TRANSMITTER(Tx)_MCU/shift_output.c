@@ -1,11 +1,8 @@
 /* File: shift_output.c
- * =============================================================================
  * Shift Register Output Driver for H1-Type Bus Encoder
  * Target: ADuC841 (8052 single-cycle core, 11.0592 MHz typical)
- * =============================================================================
  *
  * BIT MAPPING AND SHIFT ORDER:
- * ----------------------------
  * H column index i (1..15) maps to bit position (i-1) in current_bus_state.
  * 
  *   Bit 0  <=> Column 1  <=> first physical shift register output
@@ -20,8 +17,8 @@
  * (assuming 8-bit shift registers, 15 bits = 2 registers).
  *
  * CLK TIMING ANALYSIS:
- * --------------------
- * Target CLK frequency: ~1 MHz (1 µs period, 0.5 µs high, 0.5 µs low)
+
+ * Target CLK frequency: ~1 MHz
  * 
  * ADuC841 with 11.0592 MHz crystal:
  *   - Single-cycle core: 1 instruction cycle = 1 / 11.0592 MHz ≈ 90.4 ns
@@ -37,26 +34,21 @@
  *   - For 5.5296 MHz: halve the NOPs (2-3 per half-period)
  *   - Formula: NOPs ≈ (desired_delay_ns / 90) - instruction_overhead
  *
- * =============================================================================
  */
 
 #include <aduc841.h>
 #include <intrins.h>  /* For _nop_() */
 #include "header.h"
 
-/* ---------------------------------------------------------------------------
- * NOP delay macros for CLK timing
+/* NOP delay macros for CLK timing
  * Assuming 11.0592 MHz CPU, each NOP ≈ 90 ns
  * Target: 5 NOPs ≈ 450 ns delay for ~1 MHz CLK
- * ---------------------------------------------------------------------------
  */
 #define CLK_DELAY_NOPS() do { \
     _nop_(); _nop_(); _nop_(); _nop_(); _nop_(); \
 } while(0)
 
-/* ---------------------------------------------------------------------------
- * output_to_shift_registers
- * ---------------------------------------------------------------------------
+/* output_to_shift_registers
  * Bit-bangs current_bus_state (15 bits) to chained shift registers.
  *
  * Protocol sequence:
@@ -72,7 +64,6 @@
  *
  * Reentrant safety: Protected by interrupt disable. Not truly reentrant,
  * but safe in single-threaded context with ISRs disabled.
- * ---------------------------------------------------------------------------
  */
 void output_to_shift_registers(void)
 {
@@ -120,26 +111,17 @@ void output_to_shift_registers(void)
     EA = saved_ea;  /* Restore interrupt state */
 }
 
-/* ---------------------------------------------------------------------------
- * Port_Init
- * ---------------------------------------------------------------------------
+/* Port_Init
  * Initialize GPIO pins for shift register interface.
  * Sets DATA_PIN, CLK_PIN, LATCH_PIN as outputs with known initial states.
- * ---------------------------------------------------------------------------
  */
 void Port_Init(void)
 {
     /* Initialize shift register control pins to known low state */
+	
     DATA_PIN  = 0;
     CLK_PIN   = 0;
     LATCH_PIN = 0;
     
-    /* 
-     * Note: On ADuC841, port pins are configured via CFG841/CFG842 registers
-     * for special functions. For standard GPIO, no special configuration needed.
-     * The push-pull output mode is default for most pins.
-     * 
-     * If your pins are on Port 2 (as defined in header.h), ensure:
-     * - P2.0, P2.1, P2.2 are configured as standard GPIO outputs
-     */
+    
 }

@@ -1,11 +1,7 @@
 /* File: tx_handler.c
- * =============================================================================
  * UART Character Handler for H1-Type Stateful Bus Encoder
- * Target: ADuC841 (8052 single-cycle core)
- * =============================================================================
  *
  * INPUT FORMAT:
- * -------------
  * The host (external Python script) sends arbitrary 8-bit characters (ASCII).
  * Each character is split into TWO 4-bit nibbles:
  *   - HIGH nibble: bits 7..4 of the character
@@ -14,27 +10,17 @@
  * TRANSMISSION ORDER: HIGH nibble first, then LOW nibble.
  * Each nibble is processed as an independent S_new (4-bit syndrome).
  *
- * EXAMPLE:
- * --------
- * Character 'A' = 0x41 = 0100_0001
- *   - High nibble S_new = 0x4 (processed first)
- *   - Low nibble S_new  = 0x1 (processed second)
- *
  * TERMINATOR HANDLING:
- * --------------------
  * '\r' (0x0D) and '\n' (0x0A) are treated as batch terminators.
  * They set buffer_flag for compatibility with the original codebase.
  * They do NOT generate nibble transmissions.
  *
- * =============================================================================
  */
 
 #include <aduc841.h>
 #include "header.h"
 
-/* ---------------------------------------------------------------------------
- * tx_handler
- * ---------------------------------------------------------------------------
+/* tx_handler
  * Processes a single character received from UART.
  *
  * For printable/data characters:
@@ -50,7 +36,6 @@
  * The process_nibble() function handles the full encode cycle:
  * S_old computation, S_target = S_new ^ S_old, minimal-w search,
  * differential update, and shift register output.
- * ---------------------------------------------------------------------------
  */
 void tx_handler(uint8_t rx_char)
 {

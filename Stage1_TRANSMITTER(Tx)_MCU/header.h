@@ -1,18 +1,5 @@
-/* File: header.h
- * =============================================================================
- * H1-Type Stateful Bus Encoder for ADuC841
- * =============================================================================
- * 
- * README BLOCK (max 10 lines):
- * - Input: Each received character is split into TWO 4-bit nibbles.
- *   Transmission order: HIGH nibble first, then LOW nibble.
- * - Initialization: current_bus_state = 0 at startup. Override by assigning
- *   a different value before the main loop if needed.
- * - Timing: CLK pulses are tuned for ~1 MHz assuming 11.0592 MHz CPU.
- *   To adapt: each NOP ~= 90ns. For slower CPUs, reduce NOPs; for faster, add more.
- * - The H1-type matrix columns are indexed 1..15, mapping to bits 0..14 of bus state.
- * =============================================================================
- */
+/* File: header.h*/
+ 
 
 #ifndef HEADER_H
 #define HEADER_H
@@ -59,7 +46,7 @@ void Port_Init(void);
 
 /**
  * process_nibble - Process a single 4-bit syndrome (S_new) and update bus state
- * @s_new: The new 4-bit syndrome value (0x0 to 0xF)
+ * s_new: The new 4-bit syndrome value (0x0 to 0xF)
  * 
  * This function:
  * 1. Computes S_old from current_bus_state via H * current_bus_state^T
@@ -72,8 +59,8 @@ void process_nibble(uint8_t s_new);
 
 /**
  * compute_syndrome_from_bus - Compute H * x^T on-the-fly
- * @bus_state: The 15-bit bus state x (bits 0..14)
- * @return: The 4-bit syndrome S = H * x^T
+ * bus_state: The 15-bit bus state x (bits 0..14)
+ * return: The 4-bit syndrome S = H * x^T
  * 
  * Column i (1..15) of the H1 matrix is just the binary representation of i.
  * This function computes the syndrome using bitwise XOR of column indices
@@ -83,8 +70,8 @@ uint8_t compute_syndrome_from_bus(uint16_t bus_state);
 
 /**
  * find_minimal_w - Find minimal Hamming-weight vector w such that H*w^T = s_target
- * @s_target: The target 4-bit syndrome (0x0 to 0xF)
- * @return: The 15-bit w vector with minimal Hamming weight
+ * s_target: The target 4-bit syndrome (0x0 to 0xF)
+ * return: The 15-bit w vector with minimal Hamming weight
  * 
  * Algorithm: Bounded search exploiting H1-type structure.
  * For any nonzero s_target, weight-1 solution exists (w = single bit at position s_target-1).
@@ -104,7 +91,7 @@ void output_to_shift_registers(void);
 
 /**
  * tx_handler - Handle received UART character
- * @rx_char: The received character
+ * rx_char: The received character
  * 
  * For non-terminator characters:
  * - Splits character into high nibble and low nibble

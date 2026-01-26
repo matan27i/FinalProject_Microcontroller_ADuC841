@@ -1,59 +1,11 @@
 /* File: bus_encoder.c
- * =============================================================================
  * H1-Type Stateful Bus Encoder - Core Algorithm Implementation
- * Target: ADuC841 (8052 single-cycle core)
- * =============================================================================
- *
- * H1-TYPE MATRIX STRUCTURE (4×15):
- * --------------------------------
- * The H1-type check matrix H has dimensions 4×15.
- * Column index i (1-based, i = 1..15) contains the 4-bit binary representation of i.
- * 
- * Column-to-bit mapping (DO NOT CHANGE - this defines the H1 structure):
- *   H column index i (1..15) => bit position (i-1) in current_bus_state (0..14)
- *   
- *   Column 1  = 0001 binary => bit 0
- *   Column 2  = 0010 binary => bit 1
- *   Column 3  = 0011 binary => bit 2
- *   ...
- *   Column 15 = 1111 binary => bit 14
- *
- * The matrix H is NOT stored. Instead, column i is computed as simply i.
- *
- * SYNDROME COMPUTATION:
- * ---------------------
- * S = H * x^T is computed by XOR-ing together the column indices (1..15)
- * for every bit position that is set in x.
- *
- * If bit j (0-indexed) is set in x, it contributes column (j+1) to the syndrome.
- * syndrome = XOR of all (j+1) where x[j] = 1
- *
- * MINIMAL-WEIGHT w SELECTION:
- * ---------------------------
- * Algorithm: Exploit H1-type structure for deterministic minimal-weight solution.
- * 
- * For any s_target in {1..15}, there exists a weight-1 solution:
- *   w = single bit at position (s_target - 1)
- * because H * e_{s_target}^T = column s_target = s_target (the syndrome).
- *
- * For s_target = 0, no change needed: w = 0 (weight-0 solution).
- *
- * This is provably minimal: the H1-type matrix has all distinct columns,
- * so the minimum distance is 3. Any syndrome except 0 requires at least
- * one bit flip to produce, and exactly one bit flip achieves any syndrome 1..15.
- *
- * Tie-breaker rule: Since there's only one weight-1 solution for each nonzero
- * syndrome, no tie-breaking is needed. The algorithm is fully deterministic.
- *
- * =============================================================================
  */
 
 #include <aduc841.h>
 #include "header.h"
 
-/* ---------------------------------------------------------------------------
- * compute_syndrome_from_bus
- * ---------------------------------------------------------------------------
+/* compute_syndrome_from_bus
  * Computes S = H * x^T on-the-fly using bitwise XOR.
  *
  * The H1-type matrix column i (1-indexed) equals i in binary.
@@ -63,7 +15,6 @@
  * position j, XOR the syndrome with (j+1).
  *
  * No lookup tables. No stored matrix.
- * ---------------------------------------------------------------------------
  */
 uint8_t compute_syndrome_from_bus(uint16_t bus_state)
 {
@@ -94,9 +45,7 @@ uint8_t compute_syndrome_from_bus(uint16_t bus_state)
     return syndrome;
 }
 
-/* ---------------------------------------------------------------------------
- * find_minimal_w
- * ---------------------------------------------------------------------------
+/* find_minimal_w
  * Finds the minimal Hamming-weight 15-bit vector w such that H * w^T == s_target.
  *
  * Algorithm: Exploit H1-type matrix structure (bounded search, actually O(1)).
@@ -115,7 +64,6 @@ uint8_t compute_syndrome_from_bus(uint16_t bus_state)
  *
  * Determinism: Unique solution for each syndrome. No tie-breaking needed.
  * Smallest numeric w is achieved naturally since there's only one weight-1 solution.
- * ---------------------------------------------------------------------------
  */
 uint16_t find_minimal_w(uint8_t s_target)
 {
@@ -138,9 +86,7 @@ uint16_t find_minimal_w(uint8_t s_target)
     return ((uint16_t)1 << (s_target - 1));
 }
 
-/* ---------------------------------------------------------------------------
- * process_nibble
- * ---------------------------------------------------------------------------
+/* process_nibble
  * Core stateful encoder function. Processes one 4-bit syndrome S_new.
  *
  * Steps:
