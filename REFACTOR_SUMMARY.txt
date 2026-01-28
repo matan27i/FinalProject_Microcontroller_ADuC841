@@ -1,0 +1,121 @@
+/* =============================================================================
+ * REFACTOR SUMMARY: H1-Type Stateful Bus Encoder
+ * =============================================================================
+ *
+ * This document summarizes all changes made to refactor the original
+ * stateless Hamming SEC decoder into a power-efficient, stateful H1-type
+ * bus encoder (4×15) with serial shift register output.
+ *
+ * =============================================================================
+ * FILES CREATED/MODIFIED
+ * =============================================================================
+ *
+ * 1. header.h        - REWRITTEN: New header with H1 encoder definitions
+ * 2. main.c          - REWRITTEN: Global state initialization, main loop
+ * 3. bus_encoder.c   - REWRITTEN: H1 encoder core (replaces SEC decoder)
+ * 4. shift_output.c  - NEW FILE: Shift register bit-bang driver
+ * 5. tx_handler.c    - REWRITTEN: Character-to-nibble processing
+ * 6. peripherals.c   - PRESERVED: Timer and UART setup (minor cleanup)
+ * 7. host_sender.py  - REWRITTEN: Raw character sender (replaces S_To_Nibble.py)
+ *
+ * FILES REMOVED:
+ * - transmitter_out.c (parallel GPIO output replaced by shift_output.c)
+ *
+ * =============================================================================
+ * KEY CHANGES SUMMARY
+ * =============================================================================
+ *
+ * 1. GLOBAL STATE VARIABLE
+ *    OLD: No persistent bus state
+ *    NEW: volatile uint16_t current_bus_state; // bits 0..14
+ *         Initialized to 0 (all-zero bus)
+ *
+ * 2. INPUT HANDLING
+ *    OLD: Received pre-encoded hex nibbles ('0'-'9', 'A'-'F')
+ *    NEW: Receives raw 8-bit characters, splits into high/low nibbles
+ *         Order: HIGH nibble first, then LOW nibble
+ *
+ * 3. SYNDROME COMPUTATION
+ *    OLD: Syndrome received from external source
+ *    NEW: S_old computed on-the-fly from current_bus_state
+ *         Formula: S_old = H * current_bus_state^T
+ *         Implementation: XOR of column indices for set bits
+ *         NO matrix stored in memory
+ *
+ * 4. H1-TYPE MATRIX STRUCTURE
+ *    Matrix H is 4×15 where column i (1..15) = binary(i)
+ *    Column-to-bit mapping: column i -> bit (i-1)
+ *    This structure is COMPUTED, never stored as constants
+ *
+ * 5. DIFFERENTIAL UPDATE
+ *    OLD: Direct output of X vector (stateless)
+ *    NEW: current_bus_state ^= w (differential toggle)
+ *         w is computed to satisfy H * w^T = S_target
+ *         S_target = S_new ^ S_old
+ *
+ * 6. MINIMAL-WEIGHT w SELECTION
+ *    Algorithm: O(1) using H1-type structure
+ *    - s_target = 0: w = 0 (weight-0)
+ *    - s_target in {1..15}: w = (1 << (s_target - 1)) (weight-1)
+ *    Deterministic, no tie-breaking needed (unique solution)
+ *
+ * 7. OUTPUT MECHANISM
+ *    OLD: Parallel GPIO (P2, P3) direct write
+ *    NEW: Serial bit-bang to chained shift registers
+ *         Pins: DATA_PIN, CLK_PIN, LATCH_PIN (configurable in header.h)
+ *         Protocol: LATCH low -> shift MSB-first (bit 14..0) -> LATCH high
+ *         CLK timing: ~1 MHz (5 NOPs per half-period @ 11.0592 MHz)
+ *
+ * =============================================================================
+ * PROHIBITED OPERATIONS VERIFIED
+ * =============================================================================
+ *
+ * ✓ Only XOR used for syndrome arithmetic (no OR)
+ * ✓ No direct overwrite of current_bus_state to represent S_new
+ * ✓ All updates via differential toggle: current_bus_state ^= w
+ * ✓ No H matrix stored (computed via column index = value)
+ * ✓ No lookup tables or precomputed coset leaders
+ * ✓ Deterministic w selection (single weight-1 solution per syndrome)
+ * ✓ No dynamic memory allocation
+ *
+ * =============================================================================
+ * FUNCTION MAPPING (OLD -> NEW)
+ * =============================================================================
+ *
+ * get_X_from_S()           -> find_minimal_w() + process_nibble()
+ * get_multi_X_from_S()     -> REMOVED (batch processing not needed)
+ * transmit_X_to_bus()      -> output_to_shift_registers()
+ * tx_handler() (hex parse) -> tx_handler() (nibble split)
+ *
+ * NEW FUNCTIONS:
+ * - compute_syndrome_from_bus(): S_old = H * x^T on-the-fly
+ * - find_minimal_w(): Find weight-1 solution for S_target
+ * - process_nibble(): Full encode cycle for one nibble
+ * - output_to_shift_registers(): Bit-bang serial output
+ *
+ * =============================================================================
+ * TIMING ASSUMPTIONS
+ * =============================================================================
+ *
+ * CPU: ADuC841 single-cycle core @ 11.0592 MHz
+ * Instruction cycle: ~90 ns
+ * CLK_DELAY_NOPS: 5 NOPs ≈ 450 ns
+ * Resulting CLK frequency: ~1 MHz (1 µs period)
+ *
+ * To adjust for different CPU frequencies:
+ * - 22.1184 MHz: Use 10 NOPs per half-period
+ * - 5.5296 MHz:  Use 2-3 NOPs per half-period
+ * Formula: NOPs = (desired_delay_ns / 90) - overhead
+ *
+ * =============================================================================
+ * PIN ASSIGNMENT (header.h - User Editable)
+ * =============================================================================
+ *
+ * sbit DATA_PIN  = P2^0;   // Serial data to shift registers
+ * sbit CLK_PIN   = P2^1;   // Clock pulse
+ * sbit LATCH_PIN = P2^2;   // Latch/load pulse
+ *
+ * Change these to match your PCB schematic as needed.
+ *
+ * =============================================================================
+ */
