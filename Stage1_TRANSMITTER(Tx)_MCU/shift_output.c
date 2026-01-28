@@ -7,10 +7,9 @@
  *   SER_PIN   (P2.0) -> SER (pin 14)   - Serial data input
  *   SRCLK_PIN (P2.1) -> SRCLK (pin 11) - Shift register clock
  *   RCLK_PIN  (P2.2) -> RCLK (pin 12)  - Storage register clock (latch)
- *   SRCLR_PIN (P2.3) -> SRCLR (pin 10) - Shift register clear (keep HIGH)
- *   OE_PIN    (P2.4) -> OE (pin 13)    - Output enable (keep LOW)
+
  *   
- *   Note: SRCLR and OE can be hardwired (SRCLR to VCC, OE to GND) to save GPIOs.
+
  *   For cascading: QH' (pin 9) of first chip -> SER of second chip
  *
  * BIT MAPPING AND SHIFT ORDER:
@@ -150,10 +149,7 @@ void output_to_shift_registers(void)
  *   SER_PIN (DATA)   - LOW (no data)
  *   SRCLK_PIN (CLK)  - LOW (ready for rising edge)
  *   RCLK_PIN (LATCH) - LOW (ready for rising edge)
- *   SRCLR_PIN        - HIGH (normal operation, not clearing)
- *   OE_PIN           - LOW (outputs enabled)
  *
- * Note: If SRCLR and OE are hardwired (SRCLR to VCC, OE to GND),
  *       comment out those lines and free up the GPIO pins.
  */
 void Port_Init(void)
@@ -162,11 +158,4 @@ void Port_Init(void)
     SER_PIN   = 0;   /* Serial data input - idle low */
     SRCLK_PIN = 0;   /* Shift register clock - idle low */
     RCLK_PIN  = 0;   /* Storage register clock - idle low */
-    
-    /* 74HC595 control pins - can be hardwired if preferred:
-     *   SRCLR (pin 10) - Active LOW clear. Must be HIGH for normal operation.
-     *   OE (pin 13)    - Active LOW output enable. Must be LOW to enable outputs.
-     */
-    SRCLR_PIN = 1;   /* HIGH = shift register NOT cleared (normal operation) */
-    OE_PIN    = 0;   /* LOW = outputs enabled */
 }
