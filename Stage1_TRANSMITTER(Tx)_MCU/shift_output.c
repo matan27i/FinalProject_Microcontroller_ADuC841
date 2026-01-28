@@ -1,16 +1,6 @@
 /* File: shift_output.c
  * Shift Register Output Driver for H1-Type Bus Encoder
- * Target: ADuC841 (8052 single-cycle core, 11.0592 MHz typical)
- * Shift Register: SN74HC595 (8-bit serial-in, parallel-out with output latches)
- *
- * 74HC595 PIN CONNECTIONS:
- *   SER_PIN   (P2.0) -> SER (pin 14)   - Serial data input
- *   SRCLK_PIN (P2.1) -> SRCLK (pin 11) - Shift register clock
- *   RCLK_PIN  (P2.2) -> RCLK (pin 12)  - Storage register clock (latch)
-
- *   
-
- *   For cascading: QH' (pin 9) of first chip -> SER of second chip
+ * Shift Register: SN74HC595
  *
  * BIT MAPPING AND SHIFT ORDER:
  * H column index i (1..15) maps to bit position (i-1) in current_bus_state.
@@ -37,19 +27,10 @@
  *
  * Target CLK frequency: ~100 kHz (conservative, well within 74HC595 specs)
  * 
- * ADuC841 with 11.0592 MHz crystal:
- *   - Single-cycle core: 1 instruction cycle = 1 / 11.0592 MHz ≈ 90.4 ns
- *   - For 5 µs delay (100 kHz half-period): need ~55 instruction cycles
- *
  * NOP-based delay calibration:
  *   - Each _nop_() is 1 cycle ≈ 90 ns
  *   - 55 NOPs ≈ 4.95 µs ≈ 5 µs
  *   - Use 55 NOPs for each half-period to achieve ~100 kHz CLK
- *
- * TO ADAPT TIMING FOR DIFFERENT CPU CLOCKS:
- *   - For 22.1184 MHz: double the NOPs (110 per half-period)
- *   - For 5.5296 MHz: halve the NOPs (27-28 per half-period)
- *   - Formula: NOPs ≈ (desired_delay_ns / 90) - instruction_overhead
  *
  */
 
@@ -144,13 +125,11 @@ void output_to_shift_registers(void)
 
 /* Port_Init
  * Initialize GPIO pins for 74HC595 shift register interface.
- * 
  * Pin initialization:
  *   SER_PIN (DATA)   - LOW (no data)
  *   SRCLK_PIN (CLK)  - LOW (ready for rising edge)
  *   RCLK_PIN (LATCH) - LOW (ready for rising edge)
  *
- *       comment out those lines and free up the GPIO pins.
  */
 void Port_Init(void)
 {

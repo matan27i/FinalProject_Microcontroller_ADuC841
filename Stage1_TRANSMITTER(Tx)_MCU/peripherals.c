@@ -49,12 +49,12 @@ void GlobalINT(void)
  * UART Interrupt Service Routine (Interrupt 4).
  * 
  * On receive (RI):
- *   - Clear RI flag
- *   - Copy SBUF to tx_temp_byte
- *   - Set tx_flag to signal main loop
+ * Clear RI flag
+ * Copy SBUF to tx_temp_byte
+ * Set tx_flag to signal main loop
  *
  * On transmit (TI):
- *   - Clear TI flag (not used for transmission in this application)
+ * Clear TI flag (not used for transmission in this application)
  */
 
 void UART_ISR(void) interrupt 4

@@ -1,27 +1,16 @@
 /* File: main.c
  * H1-Type Stateful Bus Encoder - Main Entry Point
- * Target: ADuC841 (8052 single-cycle core)
- * INITIALIZATION:
- * current_bus_state is initialized to 0 (all-zero bus).
- * To change initialization, modify the initializer below or add an
- * explicit assignment before the main loop.
- * The initial syndrome (S_initial = H * 0^T = 0) means the bus starts
- * representing syndrome 0x0.
+ * Target: ADuC841
  */
 
 #include <aduc841.h>
 #include "header.h"
 
-/* GLOBAL VARIABLE DEFINITIONS
- */
+/* GLOBAL VARIABLE DEFINITIONS */
 
 /* current_bus_state: The 15-bit physical bus state vector x.
  * Only bits 0..14 are used (BUS_STATE_MASK = 0x7FFF).
- * Relationship: H * current_bus_state^T = S_current (the current syndrome)
- * INITIALIZATION: 0 (all zeros)
- * This means initial syndrome is 0, and the bus starts in the zero state.
- * To change: Assign a different value here or before the main loop.
- * Example: current_bus_state = 0x0001; // Start with syndrome 1
+ * H * current_bus_state^T = S_current (the current syndrome)
  */
 volatile uint16_t current_bus_state = 0;
 
@@ -35,10 +24,7 @@ volatile uint8_t buffer_count = 0;  /* Nibble count processed */
 /* UART receive buffer */
 volatile uint8_t tx_temp_byte = 0;  /* Raw byte from UART ISR */
 
-/* =============================================================================
- * MAIN FUNCTION
- * =============================================================================
- */
+/* MAIN FUNCTION */
 void main(void)
 {
     /* --- Hardware Initialization --- */

@@ -1,8 +1,7 @@
 /* File: tx_handler.c
  * UART Character Handler for H1-Type Stateful Bus Encoder
  *
- * INPUT FORMAT:
- * The host (external Python script) sends arbitrary 8-bit characters (ASCII).
+ * The user (by external Python script) sends arbitrary 8-bit characters (ASCII).
  * Each character is split into TWO 4-bit nibbles:
  *   - HIGH nibble: bits 7..4 of the character
  *   - LOW nibble:  bits 3..0 of the character

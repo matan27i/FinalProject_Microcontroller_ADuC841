@@ -99,7 +99,6 @@ uint16_t find_minimal_w(uint8_t s_target)
  * CRITICAL: Uses XOR for syndrome arithmetic. Never OR or other operations.
  * CRITICAL: Does NOT overwrite current_bus_state directly from S_new.
  *           All updates go through differential toggling via w.
- * ---------------------------------------------------------------------------
  */
 void process_nibble(uint8_t s_new)
 {
