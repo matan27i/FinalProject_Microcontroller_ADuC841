@@ -1,69 +1,71 @@
-/* File: rx_handler.c */
-/*
- * Function: rx_handler
- * --------------------
- * Processes a single character received from UART.
- * 1. Converts ASCII Hex character ('0'-'9', 'A'-'F') to integer value.
- * 2. Expands the 4-bit nibble into individual bits in the S_stream_expanded array.
- * 3. Updates the buffer count and sets a flag for the main loop.
+/* File: tx_handler.c
+ * UART Character Handler for H1-Type Stateful Bus Encoder
+ *
+ * The user (by external Python script) sends arbitrary 8-bit characters (ASCII).
+ * Each character is split into TWO 4-bit nibbles:
+ *   - HIGH nibble: bits 7..4 of the character
+ *   - LOW nibble:  bits 3..0 of the character
+ *
+ * TRANSMISSION ORDER: HIGH nibble first, then LOW nibble.
+ * Each nibble is processed as an independent S_new (4-bit syndrome).
+ *
+ * TERMINATOR HANDLING:
+ * '\r' (0x0D) and '\n' (0x0A) are treated as batch terminators.
+ * They set buffer_flag for compatibility with the original codebase.
+ * They do NOT generate nibble transmissions.
+ *
  */
+
 #include <aduc841.h>
 #include "header.h"
 
-void tx_handler(uint8_t tx_char)
+/* tx_handler
+ * Processes a single character received from UART.
+ *
+ * For printable/data characters:
+ * 1. Extract high nibble: (rx_char >> 4) & 0x0F
+ * 2. Extract low nibble:  rx_char & 0x0F
+ * 3. Process high nibble first via process_nibble()
+ * 4. Process low nibble second via process_nibble()
+ *
+ * For terminators ('\r', '\n'):
+ * - Set buffer_flag = 1 (for legacy batch processing compatibility)
+ * - Do NOT process as nibbles
+ *
+ * The process_nibble() function handles the full encode cycle:
+ * S_old computation, S_target = S_new ^ S_old, minimal-w search,
+ * differential update, and shift register output.
+ */
+void tx_handler(uint8_t rx_char)
 {
-    uint8_t parsed_val = 0xFF; // Initialize as invalid (0xFF)
-    uint8_t i;
-    uint8_t index;
-		// --- 0. Check If We Done To Send Data ---
-		if (tx_char == '\r' || tx_char == '\n')
-    {
-			buffer_flag = 1;       
-      return; 
-    }
-
-    // --- 1. ASCII to Hex Conversion ---
+    uint8_t high_nibble;
+    uint8_t low_nibble;
     
-    // Check if character is a digit '0' through '9'
-    if (tx_char >= '0' && tx_char <= '9')       
+    /* --- Check for line terminators (batch boundary markers) --- */
+    if (rx_char == '\r' || rx_char == '\n')
     {
-        parsed_val = tx_char - '0';
+        /* Set flag for main loop (preserved for compatibility) */
+        buffer_flag = 1;
+        return;
     }
-    // Check if character is a letter 'A' through 'F'
-    else if (tx_char >= 'A' && tx_char <= 'F') 
-    {
-        parsed_val = tx_char - 'A' + 10;
-    }
-
-    // --- 2. Process Valid Data ---
     
-    // Proceed only if the character was a valid Hex digit
-    if (parsed_val != 0xFF)
+    /* --- Process data character --- */
+    
+    /* Step 1: Extract high nibble (bits 7..4) */
+    high_nibble = (rx_char >> 4) & 0x0F;
+    
+    /* Step 2: Extract low nibble (bits 3..0) */
+    low_nibble = rx_char & 0x0F;
+    
+    /* Step 3: Process HIGH nibble FIRST (per specification) */
+    process_nibble(high_nibble);
+    
+    /* Step 4: Process LOW nibble SECOND */
+    process_nibble(low_nibble);
+    
+    /* Increment buffer count for tracking (optional, for debugging/stats) */
+    if (buffer_count < 255)
     {
-        Snew = parsed_val; // Store the raw syndrome value
-
-        // Check if there is space in the buffer
-        if (buffer_count < MAX_PACKETS)
-        {
-            // --- 3. Bitwise Expansion ---
-            // Loop to extract each bit from the nibble (MSB to LSB)
-            // and store it as a separate byte in the expanded array.
-            for (i = 0; i < HAMMING_R; i++)
-            {
-                // Calculate the linear index in the global xdata array
-                index = (buffer_count * HAMMING_R) + i;
-                
-                // Logic:
-                // 1. Shift 'parsed_val' right to move the target bit to position 0.
-                // 2. Mask with 0x01 to isolate that single bit.
-                S_stream_expanded[index] = 
-                    (parsed_val >> (HAMMING_R - 1 - i)) & 0x01;
-            }
-            
-            buffer_count++; // Increment the number of received packets
-        }
+        buffer_count += 2;  /* Two nibbles processed */
     }
 }
-
-
-//Test For GitHub
