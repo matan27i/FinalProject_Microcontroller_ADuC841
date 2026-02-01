@@ -16,7 +16,7 @@
 void Timer3_Init(void)
 {
     T3CON &= 0xFE;  /* Disable Timer 3 */
-    T3CON |= 0x86;  /* Set mode bits for UART baud generation */
+    T3CON |= 0x85;  /* Set mode bits for UART baud generation */
     T3FD = 0x08;    /* Fractional divider for 9600 baud accuracy */
 }
 
