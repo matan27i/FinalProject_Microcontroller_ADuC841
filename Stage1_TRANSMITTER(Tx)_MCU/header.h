@@ -85,7 +85,6 @@ uint8_t compute_syndrome_from_bus(uint16_t bus_state);
 uint16_t find_minimal_w(uint8_t s_target);
 
 /*output_to_shift_registers - Bit-bang current_bus_state to chained 74HC595 shift registers
- * 
  * Shift order: MSB-first (bit 14 down to bit 0).
  * Protocol: For each bit, set SER then pulse SRCLK; finally pulse RCLK to latch.
  * CLK timing targets ~100 kHz with NOP-based delays.

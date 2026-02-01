@@ -27,13 +27,13 @@ volatile uint8_t tx_temp_byte = 0;  /* Raw byte from UART ISR */
 /* MAIN FUNCTION */
 void main(void)
 {
-    /* --- Hardware Initialization --- */
+    /*Hardware Initialization */
     GlobalINT();        /* Enable global interrupts */
     Timer3_Init();      /* Configure Timer 3 for 9600 baud */
     UART_Init();        /* Configure UART: 8N1, 9600 baud */
     Port_Init();        /* Initialize shift register GPIO pins */
     
-    /* --- Initial bus state output --- */
+    /*Initial bus state output*/
     /* Output the initial zero state to shift registers */
     output_to_shift_registers();
     
