@@ -38,8 +38,10 @@
  */
 void tx_handler(uint8_t rx_char)
 {
+	  
     uint8_t high_nibble;
     uint8_t low_nibble;
+	  DEBUG_PIN = !DEBUG_PIN;
     
     /* --- Check for line terminators (batch boundary markers) --- */
     if (rx_char == '\r' || rx_char == '\n')

@@ -21,7 +21,7 @@ typedef unsigned int  uint16_t;
 sbit SER_PIN   = P2^0;   /* Serial data input (74HC595 pin 14) */
 sbit SRCLK_PIN = P2^1;   /* Shift register clock (74HC595 pin 11) - rising edge */
 sbit RCLK_PIN  = P2^2;   /* Storage register clock / Latch (74HC595 pin 12) - rising edge */
-
+sbit DEBUG_PIN = P2^4;
 
 #define DATA_PIN  SER_PIN
 #define CLK_PIN   SRCLK_PIN
