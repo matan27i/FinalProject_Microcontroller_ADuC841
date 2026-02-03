@@ -1,13 +1,10 @@
 #!/usr/bin/env python3
 """
 File: host_sender.py
-=============================================================================
 H1-Type Bus Encoder Host Script
 Sends raw characters to ADuC841 via serial port.
-=============================================================================
 
 INPUT FORMAT:
--------------
 This script sends raw 8-bit characters directly to the MCU.
 The MCU firmware splits each character into:
   - High nibble (bits 7..4) -> transmitted first
@@ -16,30 +13,26 @@ The MCU firmware splits each character into:
 Each nibble becomes a 4-bit syndrome S_new for the H1 encoder.
 
 USAGE:
-------
     python host_sender.py
 
 Enter text when prompted. Press Enter to send.
 The script adds '\\n' as a batch terminator after your input.
 
 CONFIGURATION:
---------------
 Edit the PORT and BAUDRATE variables below to match your setup.
 """
 
 import serial
 import time
 
-# =============================================================================
+
 # CONFIGURATION (User-Editable)
-# =============================================================================
+
 PORT = 'COM5'       # Serial port (Windows: 'COM5', Linux: '/dev/ttyUSB0')
 BAUDRATE = 9600     # Must match MCU configuration
 
-# =============================================================================
-# FUNCTIONS
-# =============================================================================
 
+# FUNCTIONS
 def send_string_to_mcu(text, port=PORT, baudrate=BAUDRATE):
     """
     Send a string of characters to the MCU.
@@ -106,6 +99,8 @@ def interactive_mode():
     except KeyboardInterrupt:
         print("\\nExiting.")
 
+
+
 def demonstrate_nibble_split():
     """
     Demonstration of nibble splitting for common test characters.
@@ -135,7 +130,7 @@ def demonstrate_nibble_split():
 
 if __name__ == "__main__":
     # Show nibble split demonstration
-    demonstrate_nibble_split()
+    #demonstrate_nibble_split()
     
     # Enter interactive mode
     interactive_mode()
