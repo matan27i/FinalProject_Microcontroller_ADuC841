@@ -109,13 +109,14 @@ void Timer2_ISR(void) interrupt 5
 			if(counter < 4) 
 			{
 				SR_CLR = 0;
-				SR_LATCH = SR_CLK;
+				SR_LATCH = 0;
 				SR_CLK = ~SR_CLK;
 				counter++;
 			}
 			else
 				{
 				TR2 = 0;
+				SR_LATCH = 1;
 				SR_CLR = 1;
 				flag_c = 0;
 				}
