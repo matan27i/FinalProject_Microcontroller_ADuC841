@@ -3,10 +3,10 @@
 
 void main(void) 
 	{
-    Init_Timer2();
+   Init_Timer2();
     Init_Button();
+    Timer3_Init();
+    Init_UART();
+    while(1) ;
     
-    while(1) 
-		{	
-		}
 }
