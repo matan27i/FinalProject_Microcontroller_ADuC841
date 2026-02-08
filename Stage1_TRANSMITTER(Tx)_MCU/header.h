@@ -30,10 +30,10 @@ typedef unsigned int  uint16_t;
   These are symbolic pin identifiers. Map them to actual port pins
   in the implementation file based on your PCB schematic.
  */
-sbit DATA_PIN  = P2^0;   /* Serial data output to shift registers */
-sbit CLK_PIN   = P2^1;   /* Clock pulse for shift registers */
-sbit LATCH_PIN = P2^2;   /* Latch pulse to update shift register outputs */
-
+sbit SR_CLK   = P2^0;
+sbit SR_DATA  = P2^1;
+sbit SR_LATCH = P2^3;
+sbit SR_CLR   = P2^4;
 /* 4. Global Variables (Externs) */
 
 /* Stateful bus state: 15-bit vector, only bits 0..14 are used.
@@ -43,7 +43,9 @@ extern volatile uint16_t current_bus_state;
 
 /* Legacy flags (preserved from original codebase) */
 extern volatile bit buffer_flag;        /* Flag: Ready to process batch */
-extern volatile bit tx_flag;            /* Flag: New byte received from ISR */
+extern volatile bit tx_flag;/* Flag: New byte received from ISR */
+extern volatile bit flag_c;
+extern volatile uint8_t counter_t2;
 extern volatile uint8_t buffer_count;   /* Current nibble count in buffer */
 extern volatile uint8_t tx_temp_byte;   /* Raw byte from UART ISR */
 
@@ -54,6 +56,8 @@ void Timer3_Init(void);
 void UART_Init(void);
 void GlobalINT(void);
 void Port_Init(void);
+void Init_Timer2(void);
+
 
 /* H1-Type Bus Encoder Core Functions */
 

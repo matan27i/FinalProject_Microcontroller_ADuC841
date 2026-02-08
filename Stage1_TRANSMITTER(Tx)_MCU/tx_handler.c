@@ -51,7 +51,19 @@ void tx_handler(uint8_t rx_char)
         buffer_flag = 1;
         return;
     }
-    
+		
+    if (rx_char == '=') 
+			{
+        flag_c = 1;
+        counter_t2 = 0;
+        TH2 = 0xD4;
+				TL2 = 0xCD;
+				TR2 = 1;
+				buffer_flag = 1;
+				        return;
+
+			}
+					
     /* --- Process data character --- */
     
     /* Step 1: Extract high nibble (bits 7..4) */

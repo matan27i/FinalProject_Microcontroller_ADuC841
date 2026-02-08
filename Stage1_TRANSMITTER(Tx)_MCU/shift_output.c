@@ -2,7 +2,7 @@
  */
 
 #include <aduc841.h>
-#include <intrins.h>  /* For _nop_() */
+//#include <intrins.h>  /* For _nop_() */
 #include "header.h"
 
  /*
@@ -27,15 +27,17 @@
   the shift operation, so timing precision is maintained.
   ---------------------------------------------------------------------------
   */
+/*
 static void delay_half_period(void)
 {
-    uint8_t i = 18;  /* Calibrated for 5 µs at 11.0592 MHz */
+    uint8_t i = 18; //Calibrated for 5 µs at 11.0592 MHz 
 
-    /* Each iteration: 2 cycles (DJNZ) + 1 cycle (NOP) = 3 cycles */
+    // Each iteration: 2 cycles (DJNZ) + 1 cycle (NOP) = 3 cycles 
     while (i--) {
         _nop_();
     }
 }
+*/
 
 void output_to_shift_registers(void)
 {
@@ -53,8 +55,8 @@ void output_to_shift_registers(void)
     state_copy = current_bus_state & BUS_STATE_MASK;
 
     /* Step 1: Ensure LATCH is low before starting shift sequence */
-    LATCH_PIN = 0;
-    delay_half_period();  /* Allow pin to settle and outputs to stabilize */
+ //   LATCH_PIN = 0;
+ //   delay_half_period();  /* Allow pin to settle and outputs to stabilize */
 
     /* Step 2: Shift out 15 bits, MSB-first (bit 14 down to bit 0) */
     for (bit_pos = (HAMMING_N - 1); bit_pos >= 0; bit_pos--)
@@ -64,54 +66,58 @@ void output_to_shift_registers(void)
            any potential issues with implicit type conversions */
         bit_value = (uint8_t)((state_copy >> bit_pos) & 0x0001);
 
-        /* Set DATA_PIN (SER input) to current bit value */
-        DATA_PIN = bit_value;
+        /* Set SR_DATA (SER input) to current bit value */
+        SR_DATA = bit_value;
 
         /* Data Setup Time: Ensure data is stable before clock rising edge
            74HC595 requires minimum 25 ns setup time @ 5V
            We provide 2 NOPs = 2 * 90.422 ns = 180.8 ns
            This is 7.2× the minimum requirement, ensuring robust operation */
-        _nop_();
-        _nop_();
+    //    _nop_();
+    //    _nop_();
 
         /* Clock Rising Edge: Shift data into register on SRCLK rising edge
-           The 74HC595 samples DATA_PIN on the rising edge of CLK_PIN */
-        CLK_PIN = 1;
-        delay_half_period();  /* 5 µs high pulse */
+           The 74HC595 samples SR_DATA on the rising edge of CLK_PIN */
+    //    CLK_PIN = 1;
+    //   delay_half_period();  /* 5 µs high pulse */
 
         /* Clock Falling Edge: Complete the clock cycle
            This also provides data hold time for the current bit
            and preparation time for setting the next bit */
-        CLK_PIN = 0;
-        delay_half_period();  /* 5 µs low pulse */
+    //    CLK_PIN = 0;
+     //   delay_half_period();  /* 5 µs low pulse */
 
         /* At this point:
            - Current bit has been shifted into the shift register
            - Clock is low, ready for next bit
            - We have 5 µs to set up the next data bit (far exceeds tsu) */
+				    counter_t2 = 0;
+            TH2 = 0xD4;
+            TL2 = 0xCD;
+            TR2 = 1;
     }
 
     /* Step 3: Setup time before latching
        Ensure adequate settling after last clock falling edge
        The 74HC595 requires setup time between last SRCLK falling edge
        and RCLK rising edge. We provide an additional 5 µs for margin. */
-    delay_half_period();
+   // delay_half_period();
 
     /* Step 4: Pulse LATCH (RCLK) to transfer shift register → storage register
        This makes the shifted data appear on the output pins (Q0-Q7)
        Minimum latch pulse width: 25 ns @ 5V
        We provide: 5 µs (200× minimum) */
-    LATCH_PIN = 1;
-    delay_half_period();  /* 5 µs latch pulse */
+   // LATCH_PIN = 1;
+   // delay_half_period();  /* 5 µs latch pulse */
 
     /* Step 5: Return LATCH to low for clean idle state
        This is the standard idle condition for 74HC595:
          - SRCLK (CLK_PIN) = LOW
          - RCLK (LATCH_PIN) = LOW
-         - SER (DATA_PIN) = Previous last bit (don't care while idle)
+         - SER (SR_DATA) = Previous last bit (don't care while idle)
        Having all control signals low reduces power and prevents
        spurious operation during subsequent power-up or noise events */
-    LATCH_PIN = 0;
+   // LATCH_PIN = 0;
 
     /* === End Critical Section === */
     EA = saved_ea;  /* Restore interrupt enable state */
@@ -119,11 +125,3 @@ void output_to_shift_registers(void)
 }
 
 
-void Port_Init(void)
-{
-    /* Initialize all shift register control pins to LOW (idle state) */
-    DATA_PIN = 0;  /* P2.0: Serial data input to shift registers */
-    CLK_PIN = 0;  /* P2.1: Shift register clock (SRCLK) */
-    LATCH_PIN = 0;  /* P2.2: Storage register clock (RCLK) */
-      
-}

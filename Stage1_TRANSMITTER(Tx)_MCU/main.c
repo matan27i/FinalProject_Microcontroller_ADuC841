@@ -61,10 +61,11 @@ void main(void)
     Timer3_Init();      /* Configure Timer 3 for 9600 baud */
     UART_Init();        /* Configure UART: 8N1, 9600 baud */
     Port_Init();        /* Initialize shift register GPIO pins */
-    
+    Init_Timer2();
+
     /* --- Initial bus state output --- */
     /* Output the initial zero state to shift registers */
-    output_to_shift_registers();
+    //output_to_shift_registers();
     
     /*
       MAIN LOOP
@@ -102,7 +103,7 @@ void main(void)
               a logical message boundary has been reached.
               
               Optional: Add any batch-end processing here if needed.
-              For now, we just reset the counter for statistics.
+              For now, we just reset the counter_t2 for statistics.
              */
             buffer_count = 0;
             

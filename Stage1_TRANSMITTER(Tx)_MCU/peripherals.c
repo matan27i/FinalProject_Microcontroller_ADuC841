@@ -6,6 +6,26 @@
 #include <aduc841.h>
 #include "header.h"
 
+volatile uint8_t counter_t2 = 0;
+volatile bit flag_c = 0;
+\
+void Port_Init(void)
+{
+		SR_CLK = 0;
+    SR_LATCH = 1;
+    SR_CLR = 1;
+}
+
+void Init_Timer2(void) 
+	{
+    T2CON = 0x00;
+    RCAP2H = 0xD4;
+    RCAP2L = 0xCD;
+    ET2 = 1;
+    EA = 1;
+    TR2 = 0;
+	}
+	
 /* 
   Timer3_Init
 -
@@ -74,3 +94,42 @@ void UART_ISR(void) interrupt 4
         TI = 0;                 /* Clear transmit interrupt flag */
     }
 }
+
+	
+	
+void Timer2_ISR(void) interrupt 5 
+	{
+   TF2 = 0;
+	 if (flag_c != 1)
+	 {
+			if(counter_t2 < 2) 
+				{
+					SR_LATCH = SR_CLK;
+					SR_CLK = ~SR_CLK;
+					counter_t2++;
+				}
+			else
+				{
+				TR2 = 0;
+				SR_CLR = 1;
+				}
+		}
+		else
+		{
+			if(counter_t2 < 4) 
+			{
+				SR_CLR = 0;
+				SR_LATCH = 0;
+				SR_CLK = ~SR_CLK;
+				counter_t2++;
+			}
+			else
+				{
+				TR2 = 0;
+				SR_LATCH = 1;
+				SR_CLR = 1;
+				flag_c = 0;
+				}
+		}
+	 }
+	
