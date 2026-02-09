@@ -44,7 +44,7 @@ extern volatile uint16_t current_bus_state;
 /* Legacy flags (preserved from original codebase) */
 extern volatile bit buffer_flag;        /* Flag: Ready to process batch */
 extern volatile bit tx_flag;/* Flag: New byte received from ISR */
-extern volatile bit flag_c;
+extern volatile uint8_t flag_t2_mod;
 extern volatile uint8_t counter_t2;
 extern volatile uint8_t buffer_count;   /* Current nibble count in buffer */
 extern volatile uint8_t tx_temp_byte;   /* Raw byte from UART ISR */

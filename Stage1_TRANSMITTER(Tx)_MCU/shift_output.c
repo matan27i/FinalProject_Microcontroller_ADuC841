@@ -43,13 +43,13 @@ void output_to_shift_registers(void)
 {
     uint16_t state_copy;
     signed char bit_pos;  /* Signed to allow decrement below zero */
-    uint8_t saved_ea;
+   // uint8_t saved_ea;
     uint8_t bit_value;
 
     /* === Begin Critical Section === */
     /* Save and disable interrupts for atomic, timing-consistent output */
-    saved_ea = EA;
-    EA = 0;
+  //  saved_ea = EA;
+  //  EA = 0;
 
     /* Make local copy of bus state (guarantees consistency during output) */
     state_copy = current_bus_state & BUS_STATE_MASK;
@@ -95,7 +95,16 @@ void output_to_shift_registers(void)
             TH2 = 0xD4;
             TL2 = 0xCD;
             TR2 = 1;
+						while(TR2 == 1);
     }
+		
+		flag_t2_mod = 2;             
+    counter_t2 = 0;
+    TH2 = 0xD4;
+    TL2 = 0xCD;
+    //SR_LATCH = 0;
+    TR2 = 1;                
+    while(TR2 == 1);
 
     /* Step 3: Setup time before latching
        Ensure adequate settling after last clock falling edge
@@ -120,7 +129,7 @@ void output_to_shift_registers(void)
    // LATCH_PIN = 0;
 
     /* === End Critical Section === */
-    EA = saved_ea;  /* Restore interrupt enable state */
+   // EA = saved_ea;  /* Restore interrupt enable state */
 
 }
 
