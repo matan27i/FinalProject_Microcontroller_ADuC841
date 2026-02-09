@@ -66,9 +66,9 @@ void tx_handler(uint8_t rx_char)
     /* Step 4: Process LOW nibble SECOND */
     process_nibble(low_nibble);
     
-    /* Increment buffer count for tracking (optional, for debugging/stats) */
+    /* Increment buffer count for tracking (optional, for debugging/stats) 
     if (buffer_count < 255)
     {
-        buffer_count += 2;  /* Two nibbles processed */
-    }
+        buffer_count += 2;  /* Two nibbles processed 
+    }*/
 }
