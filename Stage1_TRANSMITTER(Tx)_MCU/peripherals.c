@@ -128,6 +128,7 @@ void Timer2_ISR(void) interrupt 5
             SR_LATCH = 1;
             SR_CLR = 1;
             flag_t2_mod = 0; 
+					
         }
     }
     else if (flag_t2_mod == 2)

@@ -28,7 +28,7 @@ import time
 
 # CONFIGURATION (User-Editable)
 
-PORT = 'COM5'       # Serial port (Windows: 'COM5', Linux: '/dev/ttyUSB0')
+PORT = 'COM4'       # Serial port (Windows: 'COM5', Linux: '/dev/ttyUSB0')
 BAUDRATE = 9600     # Must match MCU configuration
 
 
@@ -69,11 +69,12 @@ def send_string_to_mcu(text, port=PORT, baudrate=BAUDRATE):
             
             # Small delay between characters for MCU processing
             time.sleep(0.01)
-        
-        # Send terminator
-        ser.write(b'\\n')
-        print("Sent terminator (newline)")
-        
+
+        if text != '=':
+            ser.write(b'\n')
+            print("Sent terminator (newline)")
+        else:
+            print("Skip terminator for clear command")
         ser.close()
         print("Done.")
         

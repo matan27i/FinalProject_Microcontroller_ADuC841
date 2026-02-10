@@ -54,6 +54,7 @@ void tx_handler(uint8_t rx_char)
 		
     if (rx_char == '=') 
 			{
+				current_bus_state = 0;
         flag_t2_mod = 1;
         counter_t2 = 0;
         TH2 = 0xD4;
