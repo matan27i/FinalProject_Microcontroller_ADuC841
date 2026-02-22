@@ -117,4 +117,13 @@ void output_to_shift_registers(void);
  */
 void tx_handler(uint8_t rx_char);
 
+//~~~~~~~~Oz add it~~~~~~~~~~
+/* Global state for the PESEC redundancy bits */
+extern volatile uint16_t pesec_redundancy_reg;
+
+/* Main Error Correcting Code function */
+void ECC(void);
+
+/* Hardware output function for redundancy bits */
+
 #endif /* HEADER_H */

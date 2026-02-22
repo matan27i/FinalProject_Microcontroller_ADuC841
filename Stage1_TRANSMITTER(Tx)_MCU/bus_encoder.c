@@ -162,5 +162,6 @@ void process_nibble(uint8_t s_new)
     current_bus_state &= BUS_STATE_MASK;
     
     /* Step 5: Output to shift registers */
-    output_to_shift_registers();
+    //output_to_shift_registers();
+		ECC();
 }

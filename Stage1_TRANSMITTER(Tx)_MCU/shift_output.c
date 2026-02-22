@@ -42,6 +42,7 @@ static void delay_half_period(void)
 void output_to_shift_registers(void)
 {
     uint16_t state_copy;
+		uint16_t ecc_copy;
     signed char bit_pos;  /* Signed to allow decrement below zero */
    // uint8_t saved_ea;
     uint8_t bit_value;
@@ -53,11 +54,21 @@ void output_to_shift_registers(void)
 
     /* Make local copy of bus state (guarantees consistency during output) */
     state_copy = current_bus_state & BUS_STATE_MASK;
-
+		ecc_copy = pesec_redundancy_reg & 0x03FF; /* Mask 10 bits */
     /* Step 1: Ensure LATCH is low before starting shift sequence */
  //   LATCH_PIN = 0;
  //   delay_half_period();  /* Allow pin to settle and outputs to stabilize */
+		for (bit_pos = 9; bit_pos >= 0; bit_pos--)
+			{
+        bit_value = (uint8_t)((ecc_copy >> bit_pos) & 0x0001);
+        SR_DATA = bit_value;
 
+        counter_t2 = 0;
+        TH2 = 0xD4;
+        TL2 = 0xCD;
+        TR2 = 1;
+        while(TR2 == 1);
+			}
     /* Step 2: Shift out 15 bits, MSB-first (bit 14 down to bit 0) */
     for (bit_pos = (HAMMING_N - 1); bit_pos >= 0; bit_pos--)
     {

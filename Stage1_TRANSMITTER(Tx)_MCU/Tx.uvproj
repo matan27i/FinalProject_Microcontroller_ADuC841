@@ -406,6 +406,11 @@
               <FileType>5</FileType>
               <FilePath>.\header.h</FilePath>
             </File>
+            <File>
+              <FileName>ECC.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\ECC.c</FilePath>
+            </File>
           </Files>
         </Group>
       </Groups>
