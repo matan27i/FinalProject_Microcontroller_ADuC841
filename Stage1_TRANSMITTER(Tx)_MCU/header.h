@@ -117,12 +117,13 @@ void output_to_shift_registers(void);
  */
 void tx_handler(uint8_t rx_char);
 
+/* Main Error Correcting Code function */
+void ECC(void);
+
 //~~~~~~~~Oz add it~~~~~~~~~~
 /* Global state for the PESEC redundancy bits */
 extern volatile uint16_t pesec_redundancy_reg;
 
-/* Main Error Correcting Code function */
-void ECC(void);
 
 /* Dynamic matrix initialization function */
 void Init_PESEC_Matrices(uint8_t* m_sizes, uint8_t num_blocks);
