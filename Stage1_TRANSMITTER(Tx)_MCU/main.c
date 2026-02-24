@@ -50,6 +50,10 @@ volatile uint8_t buffer_count = 0;  /* Nibble count processed */
 /* UART receive buffer */
 volatile uint8_t tx_temp_byte = 0;  /* Raw byte from UART ISR */
 
+/* Define the block sizes for Matrix D (m1=3, m2=2) */
+    uint8_t pesec_config[] = {3, 2};
+		/* --- Dynamic PESEC Initialization --- */
+
 /* 
   MAIN FUNCTION
  
@@ -63,6 +67,11 @@ void main(void)
     Port_Init();        /* Initialize shift register GPIO pins */
     Init_Timer2();
 
+    /* Pass the configuration array and the number of blocks (2) */
+    Init_PESEC_Matrices(pesec_config, 2);
+		
+		
+		
     /* --- Initial bus state output --- */
     /* Output the initial zero state to shift registers */
     //output_to_shift_registers();

@@ -5,15 +5,10 @@
 #include <aduc841.h>
 #include "header.h"
 
-/* Global variable initialization */
-volatile uint16_t pesec_redundancy_reg = 0;
 
-/* Matrix Definitions */
-const uint8_t PESEC_MAT_D[10] = {1, 2, 3, 4, 5, 6, 7, 8, 16, 24};
-const uint8_t PESEC_MAT_A[15] = {9, 10, 11, 12, 13, 14, 15, 17, 18, 19, 20, 21, 22, 23, 25};
 
 /* Generic function to compute syndrome for a given matrix */
-uint8_t calc_pesec_synd(uint16_t reg_val, const uint8_t* mat_ptr, uint8_t cols) 
+uint8_t calc_pesec_synd(uint16_t reg_val, uint8_t* mat_ptr, uint8_t cols) 
 {
     uint8_t synd_res = 0;
     uint8_t idx;
@@ -31,30 +26,37 @@ uint8_t calc_pesec_synd(uint16_t reg_val, const uint8_t* mat_ptr, uint8_t cols)
 /* Wrapper for the data bits (Matrix A) */
 uint8_t get_data_pesec_synd(uint16_t data_val) 
 {
-    return calc_pesec_synd(data_val, PESEC_MAT_A, 15);
+    /* Using dynamic column count instead of fixed 15 */
+    return calc_pesec_synd(data_val, PESEC_MAT_A, pesec_num_a_cols);
 }
 
 /* Wrapper for the redundancy bits (Matrix D) */
 uint8_t get_red_pesec_synd(uint16_t red_val) 
 {
-    return calc_pesec_synd(red_val, PESEC_MAT_D, 10);
+    /* Using dynamic column count instead of fixed 10 */
+    return calc_pesec_synd(red_val, PESEC_MAT_D, pesec_num_d_cols);
 }
 
-/* O(1) solver for the minimal change vector */
+/* Fast solver that adapts to any number of blocks */
 uint16_t solve_pesec_delta(uint8_t synd_gap) 
 {
     uint16_t delta_vec = 0;
-    uint8_t low_chunk = synd_gap & 0x07;
-    uint8_t high_chunk = synd_gap & 0x18;
-
-    if (low_chunk != 0) 
-    {
-        delta_vec |= (1 << (low_chunk - 1));
-    }
+    uint8_t b, chunk, val;
     
-    if (high_chunk != 0) 
+    /* Iterate through each H1-type block */
+    for (b = 0; b < pesec_num_blocks; b++) 
     {
-        delta_vec |= (1 << (6 + (high_chunk >> 3)));
+        /* Extract the syndrome chunk for this specific block */
+        chunk = synd_gap & pesec_chunk_masks[b];
+        
+        if (chunk != 0) 
+        {
+            /* Shift down to base value */
+            val = chunk >> pesec_bit_offsets[b];
+            
+            /* Flip the correct bit in the physical redundancy register */
+            delta_vec |= (1 << (pesec_col_offsets[b] + val - 1));
+        }
     }
     
     return delta_vec;
@@ -83,6 +85,6 @@ void ECC(void)
     /* Step 5: Apply the differential update */
     pesec_redundancy_reg ^= delta_vector;
     
-    /* Step 6: Send the new redundancy state to the hardware */
-output_to_shift_registers();
+    /* Step 6: Output all 25 bits to the daisy-chained registers */
+    output_to_shift_registers();
 }

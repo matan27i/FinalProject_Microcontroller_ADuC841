@@ -124,6 +124,23 @@ extern volatile uint16_t pesec_redundancy_reg;
 /* Main Error Correcting Code function */
 void ECC(void);
 
-/* Hardware output function for redundancy bits */
+/* Dynamic matrix initialization function */
+void Init_PESEC_Matrices(uint8_t* m_sizes, uint8_t num_blocks);
+
+/* Dynamic PESEC Variables (Extern Declarations) */
+#define MAX_PESEC_BLOCKS 5
+
+extern volatile uint16_t pesec_redundancy_reg;
+
+extern uint8_t PESEC_MAT_D[20]; 
+extern uint8_t PESEC_MAT_A[40]; 
+
+extern uint8_t pesec_num_blocks;
+extern uint8_t pesec_bit_offsets[MAX_PESEC_BLOCKS];
+extern uint8_t pesec_col_offsets[MAX_PESEC_BLOCKS];
+extern uint8_t pesec_chunk_masks[MAX_PESEC_BLOCKS];
+
+extern uint8_t pesec_num_d_cols;
+extern uint8_t pesec_num_a_cols;
 
 #endif /* HEADER_H */
