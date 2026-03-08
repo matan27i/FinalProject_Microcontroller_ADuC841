@@ -411,6 +411,51 @@
               <FileType>1</FileType>
               <FilePath>.\ECC.c</FilePath>
             </File>
+            <File>
+              <FileName>common_types.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>.\common_types.h</FilePath>
+            </File>
+            <File>
+              <FileName>main.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>.\main.h</FilePath>
+            </File>
+            <File>
+              <FileName>peripherals.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>.\peripherals.h</FilePath>
+            </File>
+            <File>
+              <FileName>bus_encoder.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>.\bus_encoder.h</FilePath>
+            </File>
+            <File>
+              <FileName>ecc.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>.\ecc.h</FilePath>
+            </File>
+            <File>
+              <FileName>tx_handler.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>.\tx_handler.h</FilePath>
+            </File>
+            <File>
+              <FileName>shift_output.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>.\shift_output.h</FilePath>
+            </File>
+            <File>
+              <FileName>Init_PESEC_Matrices.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\Init_PESEC_Matrices.c</FilePath>
+            </File>
+            <File>
+              <FileName>Init_PESEC_Matrices.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>.\Init_PESEC_Matrices.h</FilePath>
+            </File>
           </Files>
         </Group>
       </Groups>
