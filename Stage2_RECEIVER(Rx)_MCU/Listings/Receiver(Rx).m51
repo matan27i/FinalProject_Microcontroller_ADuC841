@@ -1,0 +1,365 @@
+BL51 BANKED LINKER/LOCATER V6.22.4.0                                                    01/14/2026  22:42:56  PAGE 1
+
+
+BL51 BANKED LINKER/LOCATER V6.22.4.0, INVOKED BY:
+C:\KEIL_V5\C51\BIN\BL51.EXE .\Objects\main.obj, .\Objects\peripherals.obj, .\Objects\rx_input.obj, .\Objects\rx_decoder.
+>> obj, .\Objects\rx_output.obj TO .\Objects\Receiver(Rx) PRINT (.\Listings\Receiver(Rx).m51) RAMSIZE (256)
+
+
+MEMORY MODEL: SMALL
+
+
+INPUT MODULES INCLUDED:
+  .\Objects\main.obj (MAIN)
+  .\Objects\peripherals.obj (PERIPHERALS)
+  .\Objects\rx_input.obj (RX_INPUT)
+  .\Objects\rx_decoder.obj (RX_DECODER)
+  .\Objects\rx_output.obj (RX_OUTPUT)
+  C:\KEIL_V5\C51\LIB\C51S.LIB (?C_STARTUP)
+  C:\KEIL_V5\C51\LIB\C51S.LIB (?C?CLDOPTR)
+  C:\KEIL_V5\C51\LIB\C51S.LIB (?C?CSTOPTR)
+  C:\KEIL_V5\C51\LIB\C51S.LIB (?C?MEMSET)
+  C:\KEIL_V5\C51\LIB\C51S.LIB (?C_INIT)
+
+
+LINK MAP OF MODULE:  .\Objects\Receiver(Rx) (MAIN)
+
+
+            TYPE    BASE      LENGTH    RELOCATION   SEGMENT NAME
+            -----------------------------------------------------
+
+            * * * * * * *   D A T A   M E M O R Y   * * * * * * *
+            REG     0000H     0008H     ABSOLUTE     "REG BANK 0"
+                    0008H     0018H                  *** GAP ***
+            BIT     0020H.0   0000H.1   UNIT         ?BI?MAIN
+                    0020H.1   0000H.7                *** GAP ***
+            DATA    0021H     001CH     UNIT         _DATA_GROUP_
+            IDATA   003DH     0001H     UNIT         ?STACK
+
+            * * * * * * *   C O D E   M E M O R Y   * * * * * * *
+            CODE    0000H     0003H     ABSOLUTE     
+                    0003H     0008H                  *** GAP ***
+            CODE    000BH     0003H     ABSOLUTE     
+                    000EH     07F2H                  *** GAP ***
+            CODE    0800H     0094H     UNIT         ?PR?_READ_X_FROM_BUS?RX_INPUT
+            CODE    0894H     008CH     UNIT         ?C_C51STARTUP
+            CODE    0920H     0085H     UNIT         ?PR?_GET_S_FROM_X?RX_DECODER
+            CODE    09A5H     007BH     UNIT         ?C?LIB_CODE
+            CODE    0A20H     0051H     UNIT         ?PR?MAIN?MAIN
+            CODE    0A71H     002AH     UNIT         ?PR?_TRANSMIT_HEX_UART?RX_OUTPUT
+            CODE    0A9BH     0028H     UNIT         ?PR?_BITS_TO_DECIMAL?RX_DECODER
+            CODE    0AC3H     0011H     UNIT         ?PR?TIMER0_INIT?PERIPHERALS
+            CODE    0AD4H     000AH     UNIT         ?PR?TIMER3_INIT?PERIPHERALS
+            CODE    0ADEH     0009H     UNIT         ?PR?UART_INIT?PERIPHERALS
+            CODE    0AE7H     0009H     UNIT         ?PR?TIMER0_ISR?PERIPHERALS
+            CODE    0AF0H     0007H     UNIT         ?PR?PORT_INIT?PERIPHERALS
+            CODE    0AF7H     0003H     UNIT         ?C_INITSEG
+            CODE    0AFAH     0003H     UNIT         ?PR?GLOBALINT?PERIPHERALS
+
+
+
+OVERLAY MAP OF MODULE:   .\Objects\Receiver(Rx) (MAIN)
+BL51 BANKED LINKER/LOCATER V6.22.4.0                                                  01/14/2026  22:42:56  PAGE 2
+
+
+
+
+SEGMENT                                    DATA_GROUP 
+  +--> CALLED SEGMENT                    START    LENGTH
+--------------------------------------------------------
+?C_C51STARTUP                            -----    -----
+  +--> ?PR?MAIN?MAIN
+  +--> ?C_INITSEG
+
+?PR?MAIN?MAIN                            0021H    0013H
+  +--> ?PR?GLOBALINT?PERIPHERALS
+  +--> ?PR?TIMER3_INIT?PERIPHERALS
+  +--> ?PR?UART_INIT?PERIPHERALS
+  +--> ?PR?PORT_INIT?PERIPHERALS
+  +--> ?PR?TIMER0_INIT?PERIPHERALS
+  +--> ?PR?_READ_X_FROM_BUS?RX_INPUT
+  +--> ?PR?_GET_S_FROM_X?RX_DECODER
+  +--> ?PR?_BITS_TO_DECIMAL?RX_DECODER
+  +--> ?PR?_TRANSMIT_HEX_UART?RX_OUTPUT
+
+?PR?_READ_X_FROM_BUS?RX_INPUT            0034H    0006H
+
+?PR?_GET_S_FROM_X?RX_DECODER             0034H    0009H
+
+?PR?_BITS_TO_DECIMAL?RX_DECODER          0034H    0003H
+
+
+
+SYMBOL TABLE OF MODULE:  .\Objects\Receiver(Rx) (MAIN)
+
+  VALUE           TYPE          NAME
+  ----------------------------------
+
+  -------         MODULE        MAIN
+  C:0000H         SYMBOL        _ICE_DUMMY_
+  B:0020H.0       PUBLIC        sample_flag
+  B:00A8H.7       PUBLIC        EA
+  C:0A20H         PUBLIC        main
+  D:00FDH         PUBLIC        DACCON
+  D:00FAH         PUBLIC        DAC0H
+  D:00F9H         PUBLIC        DAC0L
+  -------         PROC          MAIN
+  -------         DO            
+  D:0021H         SYMBOL        X
+  D:0030H         SYMBOL        S
+  D:0007H         SYMBOL        decimal_value
+  -------         ENDDO         
+  C:0A20H         LINE#         7
+  C:0A20H         LINE#         8
+  C:0A20H         LINE#         13
+  C:0A23H         LINE#         14
+  C:0A26H         LINE#         15
+  C:0A29H         LINE#         16
+  C:0A2CH         LINE#         17
+  C:0A2FH         LINE#         20
+  C:0A32H         LINE#         21
+  C:0A35H         LINE#         22
+BL51 BANKED LINKER/LOCATER V6.22.4.0                                                  01/14/2026  22:42:56  PAGE 3
+
+
+  C:0A38H         LINE#         24
+  C:0A38H         LINE#         25
+  C:0A38H         LINE#         26
+  C:0A3BH         LINE#         27
+  C:0A3BH         LINE#         28
+  C:0A3DH         LINE#         29
+  C:0A3FH         LINE#         31
+  C:0A48H         LINE#         32
+  C:0A5CH         LINE#         33
+  C:0A67H         LINE#         36
+  C:0A6AH         LINE#         37
+  C:0A6AH         LINE#         39
+  C:0A6DH         LINE#         40
+  C:0A6DH         LINE#         42
+  C:0A6FH         LINE#         43
+  C:0A6FH         LINE#         44
+  -------         ENDPROC       MAIN
+  -------         ENDMOD        MAIN
+
+  -------         MODULE        PERIPHERALS
+  C:0000H         SYMBOL        _ICE_DUMMY_
+  D:00A0H         PUBLIC        P2
+  D:00B0H         PUBLIC        P3
+  C:0AE7H         PUBLIC        Timer0_ISR
+  B:00A8H.7       PUBLIC        EA
+  D:009DH         PUBLIC        T3FD
+  B:0098H.1       PUBLIC        TI
+  C:0AF0H         PUBLIC        Port_Init
+  C:0AC3H         PUBLIC        Timer0_Init
+  C:0AD4H         PUBLIC        Timer3_Init
+  C:0ADEH         PUBLIC        UART_Init
+  D:0089H         PUBLIC        TMOD
+  C:0AFAH         PUBLIC        GlobalINT
+  B:00A8H.1       PUBLIC        ET0
+  D:008CH         PUBLIC        TH0
+  B:0098H.7       PUBLIC        SM0
+  D:008AH         PUBLIC        TL0
+  B:0098H.6       PUBLIC        SM1
+  B:0088H.4       PUBLIC        TR0
+  B:0098H.4       PUBLIC        REN
+  D:009EH         PUBLIC        T3CON
+  -------         PROC          TIMER3_INIT
+  C:0AD4H         LINE#         5
+  C:0AD4H         LINE#         6
+  C:0AD4H         LINE#         7
+  C:0AD7H         LINE#         8
+  C:0ADAH         LINE#         9
+  C:0ADDH         LINE#         10
+  -------         ENDPROC       TIMER3_INIT
+  -------         PROC          UART_INIT
+  C:0ADEH         LINE#         12
+  C:0ADEH         LINE#         13
+  C:0ADEH         LINE#         14
+  C:0AE0H         LINE#         15
+  C:0AE2H         LINE#         16
+  C:0AE4H         LINE#         17
+  C:0AE6H         LINE#         18
+BL51 BANKED LINKER/LOCATER V6.22.4.0                                                  01/14/2026  22:42:56  PAGE 4
+
+
+  -------         ENDPROC       UART_INIT
+  -------         PROC          GLOBALINT
+  C:0AFAH         LINE#         20
+  C:0AFAH         LINE#         21
+  C:0AFAH         LINE#         22
+  C:0AFCH         LINE#         23
+  -------         ENDPROC       GLOBALINT
+  -------         PROC          PORT_INIT
+  C:0AF0H         LINE#         25
+  C:0AF0H         LINE#         26
+  C:0AF0H         LINE#         28
+  C:0AF3H         LINE#         31
+  C:0AF6H         LINE#         32
+  -------         ENDPROC       PORT_INIT
+  -------         PROC          TIMER0_INIT
+  C:0AC3H         LINE#         34
+  C:0AC3H         LINE#         35
+  C:0AC3H         LINE#         37
+  C:0AC6H         LINE#         38
+  C:0AC9H         LINE#         40
+  C:0ACCH         LINE#         41
+  C:0ACFH         LINE#         43
+  C:0AD1H         LINE#         44
+  C:0AD3H         LINE#         45
+  -------         ENDPROC       TIMER0_INIT
+  -------         PROC          TIMER0_ISR
+  C:0AE7H         LINE#         47
+  C:0AE7H         LINE#         49
+  C:0AEAH         LINE#         50
+  C:0AEDH         LINE#         51
+  C:0AEFH         LINE#         52
+  -------         ENDPROC       TIMER0_ISR
+  -------         ENDMOD        PERIPHERALS
+
+  -------         MODULE        RX_INPUT
+  C:0000H         SYMBOL        _ICE_DUMMY_
+  D:00A0H         PUBLIC        P2
+  D:00B0H         PUBLIC        P3
+  B:00A8H.7       PUBLIC        EA
+  C:0800H         PUBLIC        _read_X_from_bus
+  -------         PROC          _READ_X_FROM_BUS
+  D:0034H         SYMBOL        X
+  -------         DO            
+  D:0037H         SYMBOL        p2_val
+  D:0038H         SYMBOL        p3_val
+  D:0039H         SYMBOL        i
+  -------         ENDDO         
+  C:0800H         LINE#         54
+  C:0806H         LINE#         55
+  C:0806H         LINE#         60
+  C:080FH         LINE#         63
+  C:0811H         LINE#         64
+  C:0814H         LINE#         65
+  C:0817H         LINE#         66
+  C:0819H         LINE#         72
+  C:081CH         LINE#         73
+  C:081CH         LINE#         75
+BL51 BANKED LINKER/LOCATER V6.22.4.0                                                  01/14/2026  22:42:56  PAGE 5
+
+
+  C:0838H         LINE#         76
+  C:0838H         LINE#         77
+  C:083EH         LINE#         78
+  C:0840H         LINE#         80
+  C:0840H         LINE#         81
+  C:084AH         LINE#         82
+  C:084AH         LINE#         83
+  C:0851H         LINE#         88
+  C:0867H         LINE#         91
+  C:087DH         LINE#         94
+  C:0893H         LINE#         95
+  -------         ENDPROC       _READ_X_FROM_BUS
+  -------         ENDMOD        RX_INPUT
+
+  -------         MODULE        RX_DECODER
+  C:0000H         SYMBOL        _ICE_DUMMY_
+  C:0A9BH         PUBLIC        _bits_to_decimal
+  C:0920H         PUBLIC        _get_S_from_X
+  -------         PROC          _GET_S_FROM_X
+  D:0034H         SYMBOL        X_vector
+  D:0037H         SYMBOL        hamming_R
+  D:0038H         SYMBOL        S_output
+  -------         DO            
+  D:0007H         SYMBOL        hamming_n_limit
+  D:003BH         SYMBOL        i
+  D:003CH         SYMBOL        position_val
+  -------         ENDDO         
+  C:0920H         LINE#         8
+  C:0928H         LINE#         9
+  C:0928H         LINE#         13
+  C:092BH         LINE#         16
+  C:0939H         LINE#         19
+  C:0942H         LINE#         20
+  C:0942H         LINE#         21
+  C:0953H         LINE#         22
+  C:0953H         LINE#         23
+  C:0958H         LINE#         24
+  C:095AH         LINE#         25
+  C:095AH         LINE#         26
+  C:095EH         LINE#         29
+  C:096DH         LINE#         32
+  C:0974H         LINE#         33
+  C:0974H         LINE#         34
+  C:097EH         LINE#         35
+  C:097EH         LINE#         36
+  C:09A0H         LINE#         37
+  C:09A4H         LINE#         38
+  C:09A4H         LINE#         39
+  -------         ENDPROC       _GET_S_FROM_X
+  -------         PROC          _BITS_TO_DECIMAL
+  D:0034H         SYMBOL        bits
+  D:0005H         SYMBOL        length
+  -------         DO            
+  D:0007H         SYMBOL        result
+  D:0006H         SYMBOL        i
+  -------         ENDDO         
+  C:0A9BH         LINE#         41
+BL51 BANKED LINKER/LOCATER V6.22.4.0                                                  01/14/2026  22:42:56  PAGE 6
+
+
+  C:0AA1H         LINE#         42
+  C:0AA1H         LINE#         43
+  C:0AA3H         LINE#         46
+  C:0AA9H         LINE#         47
+  C:0AA9H         LINE#         48
+  C:0ABFH         LINE#         49
+  C:0AC2H         LINE#         51
+  C:0AC2H         LINE#         52
+  -------         ENDPROC       _BITS_TO_DECIMAL
+  -------         ENDMOD        RX_DECODER
+
+  -------         MODULE        RX_OUTPUT
+  C:0000H         SYMBOL        _ICE_DUMMY_
+  B:0098H.1       PUBLIC        TI
+  D:0099H         PUBLIC        SBUF
+  C:0A71H         PUBLIC        _transmit_hex_uart
+  -------         PROC          _TRANSMIT_HEX_UART
+  D:0007H         SYMBOL        value
+  C:0A71H         LINE#         7
+  C:0A71H         LINE#         8
+  C:0A71H         LINE#         11
+  C:0A74H         LINE#         14
+  C:0A77H         LINE#         15
+  C:0A79H         LINE#         18
+  C:0A80H         LINE#         19
+  C:0A80H         LINE#         21
+  C:0A84H         LINE#         22
+  C:0A86H         LINE#         24
+  C:0A86H         LINE#         26
+  C:0A8AH         LINE#         27
+  C:0A8AH         LINE#         31
+  C:0A8DH         LINE#         32
+  C:0A8FH         LINE#         33
+  C:0A92H         LINE#         35
+  C:0A95H         LINE#         36
+  C:0A97H         LINE#         37
+  C:0A9AH         LINE#         38
+  -------         ENDPROC       _TRANSMIT_HEX_UART
+  -------         ENDMOD        RX_OUTPUT
+
+  -------         MODULE        ?C?CLDOPTR
+  C:09A5H         PUBLIC        ?C?CLDOPTR
+  -------         ENDMOD        ?C?CLDOPTR
+
+  -------         MODULE        ?C?CSTOPTR
+  C:09D2H         PUBLIC        ?C?CSTOPTR
+  -------         ENDMOD        ?C?CSTOPTR
+
+  -------         MODULE        ?C?MEMSET
+  C:09F4H         PUBLIC        ?C?MEMSET
+  -------         ENDMOD        ?C?MEMSET
+
+******************************************************************************
+* RESTRICTED VERSION WITH 0800H BYTE CODE SIZE LIMIT; USED: 01F8H BYTE (24%) *
+******************************************************************************
+
+Program Size: data=37.1 xdata=0 code=771
+BL51 BANKED LINKER/LOCATER V6.22.4.0                                                  01/14/2026  22:42:56  PAGE 7
+
+
+LINK/LOCATE RUN COMPLETE.  0 WARNING(S),  0 ERROR(S)

@@ -1,0 +1,7 @@
+".\Objects\bus_encoder.obj",
+".\Objects\main.obj",
+".\Objects\peripherals.obj",
+".\Objects\shift_output.obj",
+".\Objects\tx_handler.obj" 
+TO ".\Objects\Tx" 
+PRINT(".\Listings\Tx.m51") RAMSIZE(256) 

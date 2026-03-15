@@ -1,0 +1,194 @@
+C51 COMPILER V9.60.7.0   BUS_ENCODER                                                       02/08/2026 15:49:53 PAGE 1   
+
+
+C51 COMPILER V9.60.7.0, COMPILATION OF MODULE BUS_ENCODER
+OBJECT MODULE PLACED IN .\Objects\bus_encoder.obj
+COMPILER INVOKED BY: C:\Keil_v5\C51\BIN\C51.EXE bus_encoder.c OPTIMIZE(8,SPEED) BROWSE DEBUG OBJECTEXTEND PRINT(.\Listin
+                    -gs\bus_encoder.lst) TABS(2) OBJECT(.\Objects\bus_encoder.obj)
+
+line level    source
+
+   1          /* File: bus_encoder.c
+   2            H1-Type Stateful Bus Encoder - Core Algorithm Implementation
+   3            Target: ADuC841 (8052 single-cycle core)
+   4           
+   5            H1-TYPE MATRIX STRUCTURE (4×15):
+   6            The H1-type check matrix H has dimensions 4×15.
+   7            Column index i (1-based, i = 1..15) contains the 4-bit binary representation of i.
+   8            
+   9           
+  10            SYNDROME COMPUTATION:
+  11            S = H * x^T is computed by XOR-ing together the column indices (1..15)
+  12            for every bit position that is set in x.
+  13           
+  14            If bit j (0-indexed) is set in x, it contributes column (j+1) to the syndrome.
+  15            syndrome = XOR of all (j+1) where x[j] = 1
+  16           
+  17            MINIMAL-WEIGHT w SELECTION:
+  18            Algorithm: Exploit H1-type structure for deterministic minimal-weight solution.
+  19            
+  20            For any s_target in {1..15}, there exists a weight-1 solution:
+  21              w = single bit at position (s_target - 1)
+  22            because H * e_{s_target}^T = column s_target = s_target (the syndrome).
+  23           
+  24            For s_target = 0, no change needed: w = 0 (weight-0 solution).
+  25           
+  26            This is provably minimal: the H1-type matrix has all distinct columns,
+  27            so the minimum distance is 3. Any syndrome except 0 requires at least
+  28            one bit flip to produce, and exactly one bit flip achieves any syndrome 1..15.
+  29           
+  30            Tie-breaker rule: Since there's only one weight-1 solution for each nonzero
+  31            syndrome, no tie-breaking is needed. The algorithm is fully deterministic.
+  32           
+  33           */
+  34          
+  35          #include <aduc841.h>
+  36          #include "header.h"
+  37          
+  38          /* ---------------------------------------------------------------------------
+  39            compute_syndrome_from_bus
+  40            ---------------------------------------------------------------------------
+  41            Computes S = H * x^T on-the-fly using bitwise XOR.
+  42           
+  43            The H1-type matrix column i (1-indexed) equals i in binary.
+  44            So: syndrome = XOR of all column indices (j+1) for bits j that are set in x.
+  45           
+  46            Implementation: Loop through bits 0..14 of bus_state. For each set bit at
+  47            position j, XOR the syndrome with (j+1).
+  48           
+  49            No lookup tables. No stored matrix.
+  50            ---------------------------------------------------------------------------
+  51           */
+  52          uint8_t compute_syndrome_from_bus(uint16_t bus_state)
+  53          {
+  54   1          uint8_t syndrome = 0;
+C51 COMPILER V9.60.7.0   BUS_ENCODER                                                       02/08/2026 15:49:53 PAGE 2   
+
+  55   1          uint8_t col_idx;
+  56   1          uint16_t temp_state;
+  57   1          
+  58   1          /* Mask to only use bits 0..14 */
+  59   1          temp_state = bus_state & BUS_STATE_MASK;
+  60   1          
+  61   1          /* Iterate through bit positions 0..14.
+  62   1            If bit j is set, XOR in column index (j+1).
+  63   1            Column index (j+1) is just the 4-bit binary representation of (j+1).
+  64   1           */
+  65   1          for (col_idx = 1; col_idx <= HAMMING_N; col_idx++)
+  66   1          {
+  67   2              /* Check if bit (col_idx - 1) is set */
+  68   2              if (temp_state & 0x0001)
+  69   2              {
+  70   3                  /* XOR the column index (which IS the column value in H1-type matrix) */
+  71   3                  syndrome ^= col_idx;
+  72   3              }
+  73   2              /* Shift to next bit */
+  74   2              temp_state >>= 1;
+  75   2          }
+  76   1          
+  77   1          return syndrome;
+  78   1      }
+  79          
+  80          /* 
+  81            find_minimal_w
+  82            
+  83            Finds the minimal Hamming-weight 15-bit vector w such that H * w^T == s_target.
+  84           
+  85            Algorithm: Exploit H1-type matrix structure (bounded search, actually O(1)).
+  86           
+  87            Key insight: In an H1-type matrix, column i equals the binary value i.
+  88            Therefore, to produce syndrome s_target (where 1 <= s_target <= 15),
+  89            we simply need to set bit (s_target - 1), which contributes column s_target.
+  90           
+  91            Weight-0: s_target = 0 => w = 0
+  92            Weight-1: s_target in {1..15} => w = (1 << (s_target - 1))
+  93           
+  94            This is provably minimal because:
+  95            - Zero syndrome requires zero changes (trivially minimal).
+  96            - Nonzero syndrome requires at least one bit (minimum distance ≥ 3).
+  97            - Exactly one bit at position (s-1) produces syndrome s.
+  98           
+  99            Determinism: Unique solution for each syndrome. No tie-breaking needed.
+ 100            Smallest numeric w is achieved naturally since there's only one weight-1 solution.
+ 101           */
+ 102           
+ 103          uint16_t find_minimal_w(uint8_t s_target)
+ 104          {
+ 105   1          /* Mask to 4 bits (just in case) */
+ 106   1          s_target &= 0x0F;
+ 107   1          
+ 108   1          /* Zero syndrome => no change needed */
+ 109   1          if (s_target == 0)
+ 110   1          {
+ 111   2              return 0;
+ 112   2          }
+ 113   1          
+ 114   1          /*
+ 115   1            Nonzero syndrome s_target in {1..15}:
+ 116   1            The minimal-weight solution is to flip exactly the bit at position (s_target - 1).
+C51 COMPILER V9.60.7.0   BUS_ENCODER                                                       02/08/2026 15:49:53 PAGE 3   
+
+ 117   1            This sets w to have a single '1' at bit position (s_target - 1).
+ 118   1            
+ 119   1            H * w^T = column s_target = s_target (by H1-type definition).
+ 120   1           */
+ 121   1          return ((uint16_t)1 << (s_target - 1));
+ 122   1      }
+ 123          
+ 124          /* 
+ 125            process_nibble
+ 126            Core stateful encoder function. Processes one 4-bit syndrome S_new.
+ 127           
+ 128            Steps:
+ 129            1. Compute S_old = H * current_bus_state^T (on-the-fly)
+ 130            2. Compute S_target = S_new XOR S_old (modulo-2 arithmetic)
+ 131            3. Find minimal-weight w such that H * w^T = S_target
+ 132            4. Update: current_bus_state ^= w (differential toggle)
+ 133            5. Output new bus state to shift registers
+ 134           
+ 135            CRITICAL: Uses XOR for syndrome arithmetic. Never OR or other operations.
+ 136            CRITICAL: Does NOT overwrite current_bus_state directly from S_new.
+ 137                      All updates go through differential toggling via w.
+ 138           
+ 139           */
+ 140          void process_nibble(uint8_t s_new)
+ 141          {
+ 142   1          uint8_t s_old;
+ 143   1          uint8_t s_target;
+ 144   1          uint16_t w;
+ 145   1          
+ 146   1          /* Mask s_new to 4 bits */
+ 147   1          s_new &= 0x0F;
+ 148   1          
+ 149   1          /* Step 1: Compute S_old from current bus state on-the-fly */
+ 150   1          s_old = compute_syndrome_from_bus(current_bus_state);
+ 151   1          
+ 152   1          /* Step 2: Compute target syndrome using XOR (mod-2) */
+ 153   1          s_target = s_new ^ s_old;
+ 154   1          
+ 155   1          /* Step 3: Find minimal-weight w */
+ 156   1          w = find_minimal_w(s_target);
+ 157   1          
+ 158   1          /* Step 4: Differential update (XOR, not overwrite!) */
+ 159   1          current_bus_state ^= w;
+ 160   1          
+ 161   1          /* Ensure we stay in valid range */
+ 162   1          current_bus_state &= BUS_STATE_MASK;
+ 163   1          
+ 164   1          /* Step 5: Output to shift registers */
+ 165   1          output_to_shift_registers();
+ 166   1      }
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =     89    ----
+   CONSTANT SIZE    =   ----    ----
+   XDATA SIZE       =   ----    ----
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =   ----    ----
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)

@@ -1,190 +1,113 @@
-/* File: rx_main.c
+/* =============================================================================
+   File: rx_main.c
+   Module: Group 1 — Main entry point and pipeline loop
 
-   H1-Type Stateful Bus Decoder - Main Entry Point (RECEIVER SIDE)
-   Target: ADuC841 (8052 single-cycle core)
+   Responsibilities:
+     - Hardware startup sequence.
+     - Rising-edge detection on DATA_READY.
+     - Sequencing the three pipeline stages per bus state:
+         Stage A: rx_read_bus_state()     (hw module)
+         Stage B: rx_correct_bus_state()  (ecc module)
+         Stage C: rx_process_bus_state()  (decoder module)
 
- 
-   This file contains:
-   - Global variable definitions (decoder state, counters, flags)
-   - Hardware initialization
-   - Main loop handling bus state reception and nibble reassembly
- 
-   INITIALIZATION:
-   rx_current_state is initialized to RX_STATE_WAIT_HIGH (waiting for high nibble).
-   rx_stored_high_nibble is initialized to 0.
- 
-   OPERATION:
-   1. Wait for DATA_READY signal from Stage 1
-   2. Read corrected 15-bit bus state
-   3. Compute syndrome (extract data nibble)
-   4. Reassemble nibbles into bytes
-   5. Transmit complete bytes via UART
- 
-   SYNCHRONIZATION:
-   If the decoder loses synchronization (wrong character output),
-   call rx_reset_state_machine() to resync to high nibble boundary.
+   This file owns no domain logic.  It is intentionally thin so that
+   the three functional modules can be tested independently.
+   =============================================================================
+*/
 
- */
+#include "rx_system.h"
 
-#include <aduc841.h>
-#include "rx_header.h"
+/* ---------------------------------------------------------------------------
+   rx_prev_data_ready
+   ---------------------------------------------------------------------------
+   Local edge-detection latch for the DATA_READY polling loop.
 
-/* 
-   GLOBAL VARIABLE DEFINITIONS
- */
+   Problem it solves:
+     Stage 1 asserts DATA_READY and holds it high for several MCU cycles
+     while the MCU reads the bus.  A naive  if (DATA_READY)  check would
+     re-enter the pipeline on every iteration that the signal remains high,
+     decoding the same bus state 2-N times and corrupting the byte stream.
 
-/* Decoder state machine current state
-   Initialized to WAIT_HIGH: expecting high nibble first
- */
-volatile rx_state_t rx_current_state = RX_STATE_WAIT_HIGH;
+   Solution:
+     Capture the current level each iteration and compare to the level
+     from the previous iteration.  The pipeline fires only on the
+     LOW-to-HIGH transition (exactly once per new bus state).
 
-/* Stored high nibble (used when assembling complete byte)
-   When in WAIT_LOW state, this holds the high nibble from previous cycle
- */
-volatile uint8_t rx_stored_high_nibble = 0;
+   Type:
+     Using uint8_t instead of the C51-specific 'bit' type so this
+     variable declaration is portable to any C compiler.
+   ---------------------------------------------------------------------------
+*/
+static uint8_t rx_prev_data_ready = 0;
 
-/* Status flags */
-volatile bit rx_byte_ready = 0;        /* Set when complete byte assembled */
-volatile bit rx_data_available = 0;    /* Set when new bus state from Stage 1 */
 
-/* Statistics counters (optional, for debugging/monitoring) */
-volatile uint16_t rx_bytes_decoded = 0;     /* Count of bytes successfully decoded */
-volatile uint16_t rx_states_processed = 0;  /* Count of bus states processed */
-
-/* 
-   MAIN FUNCTION
- 
-   Initializes hardware and enters main loop.
-   Main loop polls for new bus states from Stage 1 and processes them.
- 
-   Alternative implementations:
-   - Interrupt-driven: Use external interrupt when DATA_READY asserts
-   - Timer-based: Sample bus state at fixed intervals
-   - DMA/FIFO: Process buffered states from Stage 1
- */
+/* ---------------------------------------------------------------------------
+   main
+   ---------------------------------------------------------------------------
+*/
 void main(void)
 {
-    uint16_t bus_state;
-    
-    /* --- Hardware Initialization --- */
-    RX_GlobalINT();        /* Enable global interrupts */
-    RX_Timer3_Init();      /* Configure Timer 3 for 9600 baud */
-    RX_UART_Init();        /* Configure UART: 8N1, 9600 baud, TX enabled */
-    RX_Port_Init();        /* Initialize interface pins to Stage 1 */
-    
-    /* --- Reset decoder state machine --- */
-    rx_reset_state_machine();
-    
-    /* --- Optional: Send startup message to PC --- */
-    /* Uncomment if you want to signal RX is ready:
-    rx_send_uart_byte('R');
-    rx_send_uart_byte('X');
-    rx_send_uart_byte(':');
-    rx_send_uart_byte('O');
-    rx_send_uart_byte('K');
-    rx_send_uart_byte('\r');
-    rx_send_uart_byte('\n');
+    uint16_t raw_bus_state;
+    uint16_t corrected_bus_state;
+    uint8_t  curr_data_ready;
+
+    /* ------------------------------------------------------------------
+       Hardware initialisation — order is significant:
+         1. Interrupts on (so peripherals can use them if needed).
+         2. Timer 3 configured before UART, which depends on Timer 3
+            as its baud-rate source.
+         3. UART init last (also pre-arms the TI flag).
+         4. Port directions set after UART so P1 is not accidentally
+            driven as an output before the digital-mode fix takes effect.
+       ------------------------------------------------------------------
     */
-    
-    /*
-       MAIN LOOP
-       
-       This implementation uses polling to check for new data from Stage 1.
-       
-       Workflow:
-       1. Check if DATA_READY signal is asserted (or check status register)
-       2. Read 15-bit bus state from Stage 1 interface
-       3. Process bus state (compute syndrome, reassemble nibbles)
-       4. Complete bytes are automatically sent via UART in rx_process_bus_state()
-       
-       Alternative: Use external interrupt (INT0 or INT1) triggered by
-       DATA_READY signal for immediate response without polling.
-     */
-    while (1)
-    {
-        /* --- Poll for new data from Stage 1 --- */
-        /* 
-           USER CUSTOMIZATION REQUIRED:
-           Modify this condition based on your Stage 1 interface.
-           
-           Examples:
-           - if (DATA_READY == 1)  // Hardware pin
-           - if (rx_data_available) // Set by ISR
-           - if (*STAGE1_STATUS_REG & 0x01)  // Status register
-         */
-        if (DATA_READY)  /* Example: Pin P3.2 asserted by Stage 1 */
-        {
-            /* Read 15-bit bus state from Stage 1 */
-            bus_state = rx_read_bus_state();
-            
-            /* Process the bus state (decode and reassemble) */
-            rx_process_bus_state(bus_state);
-            
-            /* Update statistics */
-            rx_states_processed++;
-            
-            /* Clear data ready flag if needed */
-            /* If using software flag: rx_data_available = 0; */
-            
-            /* Optional: Add delay if Stage 1 needs time between reads */
-            /* Adjust based on Stage 1 timing requirements */
-        }
-        
-        /*
-           Optional: Add other tasks here
-           - Error checking
-           - Timeout detection
-           - Sync reset on loss of valid data
-           - LED status indication
-         */
-    }
-}
-
-/*
-   ALTERNATIVE IMPLEMENTATION: Interrupt-Driven Reception
-   
-   If Stage 1 asserts an interrupt when new data is ready,
-   use this approach instead of polling:
- */
-#if 0  /* Set to 1 to enable interrupt-driven mode */
-
-/* External interrupt 0 ISR - triggered by Stage 1 DATA_READY signal */
-void EXT0_ISR(void) interrupt 0
-{
-    uint16_t bus_state;
-    
-    /* Read bus state from Stage 1 */
-    bus_state = rx_read_bus_state();
-    
-    /* Process immediately */
-    rx_process_bus_state(bus_state);
-    
-    /* Update statistics */
-    rx_states_processed++;
-    
-    /* ISR automatically clears interrupt flag */
-}
-
-void main_interrupt_driven(void)
-{
-    /* Initialize hardware */
     RX_GlobalINT();
     RX_Timer3_Init();
     RX_UART_Init();
     RX_Port_Init();
+
+    /* ------------------------------------------------------------------
+       Decoder and error-correction module reset.
+       rx_previous_bus_state must start at 0 to match the TX encoder's
+       own initial bus state before it has sent any nibble.
+       ------------------------------------------------------------------
+    */
     rx_reset_state_machine();
-    
-    /* Configure external interrupt 0 */
-    IT0 = 1;    /* Edge-triggered on INT0 (falling edge) */
-    EX0 = 1;    /* Enable INT0 */
-    EA = 1;     /* Enable global interrupts */
-    
-    /* Main loop can perform other tasks */
+    rx_previous_bus_state = 0;
+    rx_errors_corrected   = 0;
+    rx_errors_detected    = 0;
+
+    /* ------------------------------------------------------------------
+       Main pipeline loop
+
+       Each iteration that detects a rising edge on DATA_READY:
+         A) Reads the raw 15-bit bus state from the parallel port.
+         B) Passes it through the ECC module, which:
+              - Computes the observed transition from the last good state.
+              - Derives the expected (minimal-weight) transition.
+              - Returns the corrected state and updates the baseline.
+         C) Passes the corrected state to the decoder module, which:
+              - Computes the syndrome (= data nibble).
+              - Feeds the nibble into the HIGH/LOW FSM.
+              - Transmits a complete byte to the PC when both nibbles
+                of a pair have been received.
+       ------------------------------------------------------------------
+    */
     while (1)
     {
-        /* Decoding happens automatically in ISR */
-        /* Add other background tasks here */
+        curr_data_ready = (uint8_t)DATA_READY;
+
+        if (curr_data_ready && !rx_prev_data_ready)
+        {
+            /* Rising edge detected — one new bus state is available. */
+
+            raw_bus_state       = rx_read_bus_state();
+            corrected_bus_state = rx_correct_bus_state(raw_bus_state);
+            rx_process_bus_state(corrected_bus_state);
+
+            rx_states_processed++;   /* Decoder-module statistics counter */
+        }
+
+        rx_prev_data_ready = curr_data_ready;   /* Advance edge latch */
     }
 }
-
-#endif  /* End interrupt-driven alternative */
