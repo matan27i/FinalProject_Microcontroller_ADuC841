@@ -21,8 +21,8 @@
    ---------------------------------------------------------------------------
 */
 
-/* Enable the global interrupt master switch (EA = 1). */
-void RX_GlobalINT(void);
+/* [N2] RX_GlobalINT() removed: no individual interrupts are used.
+   If interrupts are added later, set EA=1 after all peripheral inits. */
 
 /* Configure Timer 3 as the UART baud-rate generator for 9600 baud. */
 void RX_Timer3_Init(void);
@@ -54,12 +54,20 @@ void rx_read_full_bus(uint16_t *out_data, uint16_t *out_red);
 /* ---------------------------------------------------------------------------
    rx_send_uart_byte
    ---------------------------------------------------------------------------
-   Transmits one byte to the PC via the UART.
-
-   Uses polling (busy-wait on TI) rather than interrupts, so this call
-   blocks for approximately one byte-time (~1.04 ms at 9600 baud).
+   [M2] Enqueues one byte into the non-blocking TX output buffer.
+   If the buffer is full, the byte is silently dropped.
    ---------------------------------------------------------------------------
 */
 void rx_send_uart_byte(uint8_t data_byte);
+
+/* ---------------------------------------------------------------------------
+   rx_uart_pump
+   ---------------------------------------------------------------------------
+   [M2] Drains one byte from the TX buffer into SBUF if TI is set.
+   Must be called from the main loop on every iteration to ensure
+   bytes are transmitted without blocking the DATA_READY polling loop.
+   ---------------------------------------------------------------------------
+*/
+void rx_uart_pump(void);
 
 #endif /* RX_HW_H */

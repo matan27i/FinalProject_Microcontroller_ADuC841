@@ -23,20 +23,23 @@
    ---------------------------------------------------------------------------
 */
 
+/* [N1] volatile removed: no ISRs access these variables.
+   All access is from the main-loop call chain only. */
+
 /* Current position in the nibble-reassembly FSM. */
-volatile rx_state_t rx_current_state    = RX_STATE_WAIT_HIGH;
+rx_state_t rx_current_state    = RX_STATE_WAIT_HIGH;
 
 /* High nibble stored between the WAIT_HIGH and WAIT_LOW calls. */
-volatile uint8_t    rx_stored_high_nibble = 0;
+uint8_t    rx_stored_high_nibble = 0;
 
 /* Pulsed to 1 each time a complete byte is dispatched via UART. */
-volatile uint8_t    rx_byte_ready       = 0;
+uint8_t    rx_byte_ready       = 0;
 
 /* Cumulative bytes successfully decoded and transmitted. */
-volatile uint16_t   rx_bytes_decoded    = 0;
+uint16_t   rx_bytes_decoded    = 0;
 
 /* Cumulative bus states processed (incremented by rx_main.c). */
-volatile uint16_t   rx_states_processed = 0;
+uint16_t   rx_states_processed = 0;
 
 
 /* ---------------------------------------------------------------------------

@@ -14,8 +14,9 @@
 
 /* ---- PESEC Redundancy Register ---- */
 /* 10-bit redundancy vector, updated differentially each cycle.
- * Reset to 0 together with the bus state on a '=' command.      */
-extern volatile uint16_t pesec_redundancy_reg;
+ * Reset to 0 together with the bus state on a '=' command.
+ * [N2] Not volatile: only accessed from main-loop call chain. */
+extern uint16_t pesec_redundancy_reg;
 
 /* ---- Dynamic PESEC Matrices ---- */
 /* Matrix D: redundancy-bit columns.  Max 20 cols (sum of 2^mi - 1). */

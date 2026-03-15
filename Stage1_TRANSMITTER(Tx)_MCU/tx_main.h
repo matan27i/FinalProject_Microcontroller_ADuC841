@@ -14,9 +14,12 @@
 
 /* ---- UART / Main-Loop State Variables ---- */
 extern volatile bit    buffer_flag;     /* Set when batch terminator received   */
-extern volatile bit    tx_flag;         /* Set by UART ISR when byte received   */
 extern volatile uint8_t buffer_count;   /* Nibble count processed in batch      */
-extern volatile uint8_t tx_temp_byte;   /* Raw byte captured by UART ISR        */
+
+/* ---- UART Receive Ring Buffer ---- */
+extern volatile uint8_t rx_buf[RX_BUF_SIZE];
+extern volatile uint8_t rx_head;        /* Written by ISR                       */
+extern volatile uint8_t rx_tail;        /* Read by main loop                    */
 
 /* ---- Timer 2 Hardware State ---- */
 extern volatile uint8_t counter_t2;     /* Edge counter used by Timer2 ISR      */
@@ -25,7 +28,7 @@ extern volatile uint8_t flag_t2_mod;    /* Timer2 ISR operating mode (0/1/2)    
 /* ---- Hardware Initialisation Prototypes ---- */
 void Port_Init(void);
 void Init_Timer2(void);
-void Timer3_Init(void);
+void BaudRate_Init(void);
 void UART_Init(void);
 void GlobalINT(void);
 

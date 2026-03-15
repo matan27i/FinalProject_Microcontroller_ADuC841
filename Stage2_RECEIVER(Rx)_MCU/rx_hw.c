@@ -15,17 +15,9 @@
 #include "rx_system.h"
 
 
-/* ---------------------------------------------------------------------------
-   RX_GlobalINT
-   ---------------------------------------------------------------------------
-   Enables the global interrupt master switch.
-   Must be called before any interrupt-dependent peripheral begins operating.
-   ---------------------------------------------------------------------------
-*/
-void RX_GlobalINT(void)
-{
-    EA = 1;
-}
+/* [N2] RX_GlobalINT() removed: no individual interrupts are enabled
+   in this design (ES=0, no ETx bits set), so EA=1 is a no-op.
+   If interrupts are added later, call EA=1 after all peripheral inits. */
 
 
 /* ---------------------------------------------------------------------------
@@ -44,9 +36,10 @@ void RX_GlobalINT(void)
 */
 void RX_Timer3_Init(void)
 {
-    T3CON &= 0xFEu;    /* Ensure Timer 3 is stopped before configuring */
-    T3CON  = 0x86u;     /* T3BAUDEN=1, DIV=6 */
-    T3FD   = 0x08u;     /* Fractional correction for exact 9600 baud */
+    /* [M3] Direct assignment; no need to clear first since we set all bits.
+       T3BAUDEN=1, DIV2=1, DIV1=1, DIV0=0 -> DIV=6 */
+    T3CON = 0x86u;     /* T3BAUDEN=1, DIV=6 for 9600 baud at 11.0592 MHz */
+    T3FD  = 0x08u;     /* Fractional correction: (1 + 8/64) = 1.125 */
 }
 
 
@@ -146,20 +139,59 @@ void rx_read_full_bus(uint16_t *out_data, uint16_t *out_red)
 
 
 /* ---------------------------------------------------------------------------
+   [M2] Non-blocking UART TX output buffer.
+   Bytes are enqueued by rx_send_uart_byte() and drained by rx_uart_pump()
+   which the main loop calls on every iteration, never blocking.
+   ---------------------------------------------------------------------------
+*/
+/* TX buffer lives in XRAM (2 KB internal, accessed via MOVX).
+   CFG841.XRAMEN must be set in main() before first access.
+   Head/tail indices stay in DATA for fast single-cycle access. */
+#define TX_BUF_SIZE 16
+static uint8_t xdata tx_buf[TX_BUF_SIZE];
+static uint8_t tx_head = 0;
+static uint8_t tx_tail = 0;
+
+
+/* ---------------------------------------------------------------------------
    rx_send_uart_byte
    ---------------------------------------------------------------------------
-   Transmits one byte to the PC via polling.
-
-   Timing at 9600 baud: ~1.04 ms per byte.
+   Enqueues one byte into the TX output buffer.  Non-blocking: if the
+   buffer is full, the byte is silently dropped.
    ---------------------------------------------------------------------------
 */
 void rx_send_uart_byte(uint8_t data_byte)
 {
-    while (!TI)
+    uint8_t next_head;
+
+    next_head = (tx_head + 1) % TX_BUF_SIZE;
+    if (next_head == tx_tail)
     {
-        /* Busy-wait: previous byte still being serialised. */
+        return;  /* Buffer full, drop byte */
     }
 
-    TI   = 0;
-    SBUF = data_byte;
+    tx_buf[tx_head] = data_byte;
+    tx_head = next_head;
+}
+
+
+/* ---------------------------------------------------------------------------
+   rx_uart_pump
+   ---------------------------------------------------------------------------
+   Drains one byte from the TX buffer into SBUF if TI is set (previous
+   byte finished transmitting).  Must be called from the main loop on
+   every iteration.
+
+   This replaces the blocking while(!TI) loop, ensuring the main loop
+   never stalls and DATA_READY edges are not missed.
+   ---------------------------------------------------------------------------
+*/
+void rx_uart_pump(void)
+{
+    if (TI && (tx_tail != tx_head))
+    {
+        TI = 0;
+        SBUF = tx_buf[tx_tail];
+        tx_tail = (tx_tail + 1) % TX_BUF_SIZE;
+    }
 }

@@ -31,6 +31,13 @@ typedef unsigned int   uint16_t;
 #define MAX_PESEC_BLOCKS 5                          /* Max H1-type sub-blocks       */
 #define PESEC_RED_MASK   0x03FF                     /* Mask for 10 redundancy bits  */
 
+/* Timer 2 Reload Constants (124 counts = ~11.2 us at 11.0592 MHz) */
+#define T2_RELOAD_H      0xFF
+#define T2_RELOAD_L      0x84
+
+/* UART Receive Buffer */
+#define RX_BUF_SIZE      16                         /* Must be power of 2           */
+
 /* =========================================================================
  * BOARD-LEVEL HARDWARE DEFINITIONS
  * Shift Register Pin Mapping (active pins on Port 2)

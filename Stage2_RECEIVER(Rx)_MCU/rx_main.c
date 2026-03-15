@@ -94,14 +94,25 @@ void main(void)
     uint8_t  curr_data_ready;
 
     /* ------------------------------------------------------------------
-       Hardware initialisation -- order is significant:
-         1. Global interrupts on.
-         2. Timer 3 before UART (UART depends on Timer 3 for baud rate).
-         3. UART init (also pre-arms TI flag).
-         4. Port init last (configures all 25 bus-input pins).
+       [C1] Set core clock to full crystal speed FIRST.
+       PLLCON default = 0x53 -> CD=3 -> fCORE = 11.0592/8 = 1.38 MHz.
+       Timer 3 baud config requires fCORE = 11.0592 MHz (CD=0).
+       At CD=3 the UART runs at 1200 baud instead of 9600.
+       On ADuC841, reserved bits must be written as 0 (datasheet p. 49).
        ------------------------------------------------------------------
     */
-    RX_GlobalINT();
+    PLLCON = 0x00;  /* CD=0: fCORE = 11.0592 MHz */
+
+    /* Enable internal 2 KB XRAM mapped to bottom of external data space.
+       Required because tx_buf in rx_hw.c is declared xdata.
+       Use ORL (|=) to preserve the auto-configured EPM bits (p. 45). */
+    CFG841 |= 0x01;  /* XRAMEN = 1 */
+
+    /* ------------------------------------------------------------------
+       [M1] Hardware initialisation -- peripherals BEFORE interrupts.
+       Order: Timer 3 (baud clock) -> UART -> Ports.
+       ------------------------------------------------------------------
+    */
     RX_Timer3_Init();
     RX_UART_Init();
     RX_Port_Init();
@@ -109,8 +120,6 @@ void main(void)
     /* ------------------------------------------------------------------
        PESEC matrix initialisation.
        Uses the same block configuration as the TX encoder: {3, 2}.
-       This builds matrices A and D so the receiver can compute syndromes
-       and correct single-bit errors across the full 25-bit codeword.
        ------------------------------------------------------------------
     */
     rx_init_pesec_matrices(pesec_config, 2);
@@ -129,40 +138,14 @@ void main(void)
 
     /* ------------------------------------------------------------------
        Main pipeline loop
-
-       PIPELINE STAGES (per rising edge on DATA_READY):
-
-       A) READ: Sample the full 25-bit word from the parallel bus.
-          - raw_data: 15-bit H1 data  (P0 + P1[6:0])
-          - raw_red:  10-bit PESEC redundancy  (P2 + P3[4:3])
-
-       B) RESET DETECT: Check if all 25 bits are zero.
-          If so, the TX has executed a '=' reset.  Perform a full
-          receiver reset and skip the remaining stages for this sample.
-          This prevents the H1 differential tracker from seeing a
-          discontinuous multi-bit transition and producing garbage.
-
-       C) PESEC CORRECT: Compute the PESEC syndrome across the 25-bit
-          word and correct any single-bit error.  After this stage,
-          raw_data and raw_red contain the corrected values.
-          Result codes:
-            PESEC_NO_ERROR       -- clean codeword, no correction needed.
-            PESEC_CORRECTED_DATA -- data bit flipped and fixed.
-            PESEC_CORRECTED_RED  -- redundancy bit flipped and fixed.
-            PESEC_UNCORRECTABLE  -- multi-bit error, data may be corrupt.
-          On UNCORRECTABLE, we still feed the data forward (best-effort).
-
-       D) H1 CORRECT: Pass the PESEC-corrected 15-bit data through the
-          H1 differential tracker.  This verifies that consecutive bus
-          states differ by at most 1 bit (the TX encoder's invariant)
-          and updates the differential baseline.
-
-       E) DECODE: Feed the validated 15-bit state into the nibble FSM,
-          which extracts the 4-bit data nibble and reassembles byte pairs.
        ------------------------------------------------------------------
     */
     while (1)
     {
+        /* [M2] Pump the non-blocking UART TX buffer each iteration.
+           This ensures bytes are sent without blocking the loop. */
+        rx_uart_pump();
+
         curr_data_ready = (uint8_t)DATA_READY;
 
         if (curr_data_ready && !rx_prev_data_ready)

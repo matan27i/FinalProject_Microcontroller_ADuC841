@@ -58,11 +58,12 @@ typedef enum
      Incremented by rx_main.c each time rx_process_bus_state() is called.
    ---------------------------------------------------------------------------
 */
-extern volatile rx_state_t rx_current_state;
-extern volatile uint8_t    rx_stored_high_nibble;
-extern volatile uint8_t    rx_byte_ready;
-extern volatile uint16_t   rx_bytes_decoded;
-extern volatile uint16_t   rx_states_processed;
+/* [N1] volatile removed: no ISRs access these; main-loop only. */
+extern rx_state_t rx_current_state;
+extern uint8_t    rx_stored_high_nibble;
+extern uint8_t    rx_byte_ready;
+extern uint16_t   rx_bytes_decoded;
+extern uint16_t   rx_states_processed;
 
 /* ---------------------------------------------------------------------------
    rx_compute_syndrome

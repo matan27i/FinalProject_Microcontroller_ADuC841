@@ -61,17 +61,18 @@ extern uint8_t pesec_num_a_cols;    /* Number of columns in Matrix A */
    ========================================================================= */
 
 /* Last accepted (error-corrected) 15-bit bus state.
-   Initialised to 0 to match the TX encoder's starting state. */
-extern volatile uint16_t rx_previous_bus_state;
+   Initialised to 0 to match the TX encoder's starting state.
+   [N1] volatile removed: no ISRs access these; main-loop only. */
+extern uint16_t rx_previous_bus_state;
 
 /* Running count of single-bit corrections applied by the H1 layer. */
-extern volatile uint16_t rx_errors_corrected;
+extern uint16_t rx_errors_corrected;
 
 /* Placeholder for future multi-bit error accounting. */
-extern volatile uint16_t rx_errors_detected;
+extern uint16_t rx_errors_detected;
 
 /* Running count of PESEC corrections applied. */
-extern volatile uint16_t rx_pesec_corrections;
+extern uint16_t rx_pesec_corrections;
 
 /* =========================================================================
    PESEC INITIALISATION

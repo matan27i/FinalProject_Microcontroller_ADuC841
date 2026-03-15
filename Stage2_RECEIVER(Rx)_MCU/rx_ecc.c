@@ -37,13 +37,14 @@ uint8_t pesec_chunk_masks[MAX_PESEC_BLOCKS];
 uint8_t pesec_num_d_cols;
 uint8_t pesec_num_a_cols;
 
-/* --- H1 differential state --- */
-volatile uint16_t rx_previous_bus_state = 0;
-volatile uint16_t rx_errors_corrected   = 0;
-volatile uint16_t rx_errors_detected    = 0;
+/* --- H1 differential state ---
+   [N1] volatile removed: no ISRs access these; main-loop only. */
+uint16_t rx_previous_bus_state = 0;
+uint16_t rx_errors_corrected   = 0;
+uint16_t rx_errors_detected    = 0;
 
 /* --- PESEC correction statistics --- */
-volatile uint16_t rx_pesec_corrections  = 0;
+uint16_t rx_pesec_corrections  = 0;
 
 
 /* =========================================================================

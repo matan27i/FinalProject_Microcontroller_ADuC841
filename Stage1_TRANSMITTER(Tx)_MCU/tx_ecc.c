@@ -26,8 +26,9 @@
  * STATE VARIABLE DEFINITIONS  (owned by this module)
  * ========================================================================= */
 
-/* 10-bit redundancy register, updated differentially */
-volatile uint16_t pesec_redundancy_reg = 0;
+/* 10-bit redundancy register, updated differentially.
+ * [N2] Not volatile: only accessed from main-loop call chain. */
+uint16_t pesec_redundancy_reg = 0;
 
 /* Dynamic matrix storage */
 uint8_t PESEC_MAT_D[20];   /* Redundancy-bit columns */

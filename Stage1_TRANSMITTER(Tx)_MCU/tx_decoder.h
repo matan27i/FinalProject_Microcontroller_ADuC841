@@ -17,8 +17,9 @@
 
 /* ---- Stateful Bus State Vector ---- */
 /* 15-bit physical bus state x.  H * x^T = current syndrome.
- * Initialised to 0 (zero bus, zero syndrome).                */
-extern volatile uint16_t current_bus_state;
+ * Initialised to 0 (zero bus, zero syndrome).
+ * [N2] Not volatile: only accessed from main-loop call chain. */
+extern uint16_t current_bus_state;
 
 /* ---- Core Encoder Prototypes ---- */
 uint8_t  compute_syndrome_from_bus(uint16_t bus_state);

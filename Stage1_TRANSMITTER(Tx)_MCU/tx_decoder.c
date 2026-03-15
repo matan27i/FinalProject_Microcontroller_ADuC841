@@ -32,8 +32,9 @@
 /* The 15-bit physical bus state vector x.
  * Only bits 0..14 are meaningful (BUS_STATE_MASK = 0x7FFF).
  * H * current_bus_state^T  gives the current syndrome.
- * Initialised to 0 → syndrome 0, bus in zero state.              */
-volatile uint16_t current_bus_state = 0;
+ * Initialised to 0 -> syndrome 0, bus in zero state.
+ * [N2] Not volatile: only accessed from main-loop call chain. */
+uint16_t current_bus_state = 0;
 
 /* =========================================================================
  * SYNDROME COMPUTATION
@@ -151,8 +152,8 @@ void tx_handler(uint8_t rx_char)
         /* Hardware clear of shift registers (Mode 1) */
         flag_t2_mod = 1;
         counter_t2  = 0;
-        TH2 = 0xD4;
-        TL2 = 0xCD;
+        TH2 = T2_RELOAD_H;
+        TL2 = T2_RELOAD_L;
         TR2 = 1;
 
         /* FIX: Block until clear sequence completes to prevent
@@ -173,8 +174,8 @@ void tx_handler(uint8_t rx_char)
     /* Process LOW nibble second */
     process_nibble(low_nibble);
 
-    /* Track nibble count */
-    if (buffer_count < 255)
+    /* [C2] Track nibble count — guard accounts for +2 increment */
+    if (buffer_count <= 253)
     {
         buffer_count += 2;
     }
