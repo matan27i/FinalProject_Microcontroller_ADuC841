@@ -1,6 +1,6 @@
 /* =============================================================================
    File: rx_decoder.h
-   Module: Group 2 — Decoding Logic
+   Module: Group 2 -- Decoding Logic
    Public interface, FSM type, and extern declarations.
 
    This module handles everything between receiving a corrected 15-bit bus
@@ -8,6 +8,7 @@
      1. Syndrome computation (H1 matrix multiply -> data nibble extraction)
      2. Nibble-pair reassembly finite-state machine (HIGH + LOW -> byte)
      3. FSM reset / resynchronisation
+     4. TX reset detection (all-zero 25-bit word)
 
    Dependency on hardware:
      rx_process_bus_state() calls rx_send_uart_byte() (declared in rx_hw.h)
@@ -27,9 +28,6 @@
    The TX side sends one nibble per bus state in alternating order:
      WAIT_HIGH -> receive bits [7:4] of the next byte
      WAIT_LOW  -> receive bits [3:0], combine, emit byte, return to WAIT_HIGH
-
-   The enum is declared here (not in rx_types.h) because it is an
-   implementation detail of the decoder module alone.
    ---------------------------------------------------------------------------
 */
 typedef enum
@@ -39,7 +37,7 @@ typedef enum
 } rx_state_t;
 
 /* ---------------------------------------------------------------------------
-   Module state variables — defined in rx_decoder.c.
+   Module state variables -- defined in rx_decoder.c.
 
    rx_current_state
      Current position in the nibble-reassembly FSM.
@@ -50,8 +48,7 @@ typedef enum
 
    rx_byte_ready
      Pulsed to 1 each time a complete byte is sent to the PC via UART.
-     The main loop or an ISR may poll this flag for flow-control purposes.
-     The flag is NOT automatically cleared; the consumer must clear it.
+     The consumer must clear it.
 
    rx_bytes_decoded
      Cumulative count of bytes successfully assembled and transmitted.
@@ -70,20 +67,9 @@ extern volatile uint16_t   rx_states_processed;
 /* ---------------------------------------------------------------------------
    rx_compute_syndrome
    ---------------------------------------------------------------------------
-   Computes  S = H * bus_state^T  entirely in hardware registers, with no
-   lookup tables and no stored copy of the 4x15 matrix.
-
-   H1-type matrix identity used:
-     Column i (1-indexed, i = 1 .. 15) of H equals the 4-bit binary
-     representation of i.  Therefore the syndrome is simply the XOR of all
-     column indices whose corresponding bus bit is set:
-
-         S = XOR{ (j + 1) : bit j of bus_state is 1,  j = 0..14 }
-
-   Example (from the decoder spec):
-     bus_state = 0x0015  (bits 0, 2, 4 set)
-     column indices contributed: 1, 3, 5
-     S = 1 XOR 3 XOR 5 = 0b0111 = 0x7
+   Computes  S = H * bus_state^T  using the H1-type matrix identity:
+     Column i (1-indexed) = binary value i.
+     S = XOR{ (j + 1) : bit j of bus_state is 1,  j = 0..14 }
 
    The returned 4-bit syndrome equals the data nibble that the TX encoder
    intended for this bus state.
@@ -91,7 +77,7 @@ extern volatile uint16_t   rx_states_processed;
    Parameters:
      bus_state   15-bit corrected bus state (bits 0..14).
    Returns:
-     4-bit syndrome / data nibble (upper nibble of return value is zero).
+     4-bit syndrome / data nibble (upper nibble is zero).
    ---------------------------------------------------------------------------
 */
 uint8_t rx_compute_syndrome(uint16_t bus_state);
@@ -106,15 +92,8 @@ uint8_t rx_compute_syndrome(uint16_t bus_state);
      WAIT_LOW:   combine with stored high nibble, transmit byte via UART,
                  increment rx_bytes_decoded, return to WAIT_HIGH.
 
-   Timing requirement:
-     Must be called at the same rate the TX encoder emits bus states.
-
-   Resynchronisation:
-     If the byte stream becomes corrupt (e.g. missed state), call
-     rx_reset_state_machine() to force a fresh WAIT_HIGH alignment.
-
    Parameters:
-     bus_state   15-bit corrected bus state from rx_correct_bus_state().
+     bus_state   15-bit corrected bus state from the ECC pipeline.
    ---------------------------------------------------------------------------
 */
 void rx_process_bus_state(uint16_t bus_state);
@@ -126,10 +105,47 @@ void rx_process_bus_state(uint16_t bus_state);
 
    When to call:
      - At system startup (before the first bus state arrives).
+     - After detecting a TX reset (all-zero bus).
      - After detecting a synchronisation loss (garbled output).
-     - After a timeout when an expected bus state does not arrive.
    ---------------------------------------------------------------------------
 */
 void rx_reset_state_machine(void);
+
+/* ---------------------------------------------------------------------------
+   rx_is_bus_reset
+   ---------------------------------------------------------------------------
+   Detects a TX hard-reset condition by checking whether the received
+   25-bit word (15 data + 10 redundancy) is all zeros.
+
+   TX RESET PROTOCOL:
+     When the TX receives the '=' character, it executes:
+       1. current_bus_state = 0
+       2. pesec_redundancy_reg = 0
+       3. Hardware clear of all shift registers (forces outputs to 0)
+     This produces a 25-bit all-zero word on the bus, which is NOT a
+     valid data encoding (the encoder never produces all-zeros as a
+     normal differential update from a non-zero state with non-zero
+     redundancy).
+
+   Detection logic:
+     If BOTH data_bits AND red_bits are zero, return 1 (reset detected).
+     Otherwise return 0 (normal data).
+
+   Why this is reliable:
+     During normal operation, the PESEC redundancy register tracks the
+     data state differentially.  For the redundancy to be zero, the
+     syndrome of all data bits through Matrix A must also be zero,
+     which only happens when the data is in a very specific subset of
+     states.  Combined with the data being exactly zero, this condition
+     is uniquely associated with the TX reset command.
+
+   Parameters:
+     data_bits   15-bit data portion of the received word.
+     red_bits    10-bit redundancy portion of the received word.
+   Returns:
+     1 if reset detected, 0 otherwise.
+   ---------------------------------------------------------------------------
+*/
+uint8_t rx_is_bus_reset(uint16_t data_bits, uint16_t red_bits);
 
 #endif /* RX_DECODER_H */

@@ -1,14 +1,15 @@
 /* =============================================================================
    File: rx_decoder.c
-   Module: Group 2 — Decoding Logic
-   Implementation of syndrome computation, nibble FSM, and state reset.
+   Module: Group 2 -- Decoding Logic
+   Implementation of syndrome computation, nibble FSM, state reset,
+   and TX reset detection.
 
    Dependencies:
      rx_hw.h  ->  rx_send_uart_byte()  (UART output, hardware module)
 
    Portability:
-     rx_compute_syndrome() and rx_reset_state_machine() contain no
-     hardware calls and can run on any host.
+     rx_compute_syndrome(), rx_reset_state_machine(), and rx_is_bus_reset()
+     contain no hardware calls and can run on any host.
      rx_process_bus_state() calls rx_send_uart_byte() once per assembled
      byte; substitute any byte-output routine when porting.
    =============================================================================
@@ -47,12 +48,10 @@ volatile uint16_t   rx_states_processed = 0;
      Iterate over bit positions j = 0 .. (HAMMING_N - 1).
      For each bit j that is set in bus_state, XOR the syndrome
      accumulator with the column index (j + 1).
-     No matrix storage, no lookup table, O(N) time on 8/16-bit hardware.
 
    Equivalence to matrix multiplication:
      The H1-type matrix stores the value (j+1) in column (j+1).
-     Therefore  H * e_j^T  =  (j+1),  where e_j is the unit vector with
-     only bit j set.  By linearity of XOR over GF(2):
+     By linearity of XOR over GF(2):
          H * bus_state^T  =  XOR{ (j+1) : bit j set }
    ---------------------------------------------------------------------------
 */
@@ -62,21 +61,18 @@ uint8_t rx_compute_syndrome(uint16_t bus_state)
     uint8_t  col_idx;
     uint16_t temp;
 
-    temp = bus_state & BUS_STATE_MASK;   /* Work only on bits 0..14 */
+    temp = bus_state & BUS_STATE_MASK;
 
     for (col_idx = 1; col_idx <= HAMMING_N; col_idx++)
     {
         if (temp & 0x0001u)
         {
-            /* Bit (col_idx - 1) is set; XOR in its column index.
-               The column index IS the column value in the H1 matrix,
-               so no table lookup is needed. */
             syndrome ^= col_idx;
         }
         temp >>= 1;
     }
 
-    return (syndrome & 0x0Fu);   /* Return the 4-bit result */
+    return (syndrome & 0x0Fu);
 }
 
 
@@ -121,12 +117,12 @@ void rx_process_bus_state(uint16_t bus_state)
             complete_byte = (uint8_t)((rx_stored_high_nibble << 4)
                              | (data_nibble & 0x0Fu));
 
-            rx_send_uart_byte(complete_byte);   /* Transmit to PC */
+            rx_send_uart_byte(complete_byte);
 
             rx_bytes_decoded++;
-            rx_byte_ready         = 1;          /* Signal completion */
+            rx_byte_ready         = 1;
             rx_current_state      = RX_STATE_WAIT_HIGH;
-            rx_stored_high_nibble = 0;           /* Clear for safety */
+            rx_stored_high_nibble = 0;
             break;
 
         default:
@@ -146,4 +142,31 @@ void rx_reset_state_machine(void)
     rx_current_state      = RX_STATE_WAIT_HIGH;
     rx_stored_high_nibble = 0;
     rx_byte_ready         = 0;
+}
+
+
+/* ---------------------------------------------------------------------------
+   rx_is_bus_reset
+   ---------------------------------------------------------------------------
+   Detects the TX hard-reset condition (all 25 bits zero).
+
+   The TX '=' command clears both current_bus_state and pesec_redundancy_reg
+   to zero, then hardware-clears the shift registers.  This produces an
+   all-zero 25-bit word on the physical bus.
+
+   Detection: both data and redundancy must be exactly zero.
+
+   NOTE: At system startup the bus is also zero.  The main loop uses
+   additional context (e.g., whether any states have been processed) to
+   distinguish cold-start from mid-session reset if needed.  This
+   function is a pure predicate; it does not perform any state changes.
+   ---------------------------------------------------------------------------
+*/
+uint8_t rx_is_bus_reset(uint16_t data_bits, uint16_t red_bits)
+{
+    if ((data_bits == 0) && (red_bits == 0))
+    {
+        return 1;
+    }
+    return 0;
 }

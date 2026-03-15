@@ -1,11 +1,11 @@
 /* =============================================================================
    File: rx_hw.h
-   Module: Group 1 — Hardware Abstraction Layer
+   Module: Group 1 -- Hardware Abstraction Layer
    Public interface for peripheral initialisation and raw I/O.
 
    Porting guide:
      To target a different MCU, replace the function bodies in rx_hw.c.
-     Update the DATA_READY pin and port-mapping defines in rx_system.h.
+     Update the pin-mapping defines in rx_system.h.
      No changes to rx_decoder or rx_ecc should ever be necessary.
    =============================================================================
 */
@@ -30,23 +30,26 @@ void RX_Timer3_Init(void);
 /* Configure the UART for 8N1, 9600 baud, transmit-only operation. */
 void RX_UART_Init(void);
 
-/* Set up the bus-input port pins and the DATA_READY signal. */
+/* Set up all bus-input port pins (data + redundancy) and DATA_READY. */
 void RX_Port_Init(void);
 
 /* ---------------------------------------------------------------------------
-   rx_read_bus_state
+   rx_read_full_bus
    ---------------------------------------------------------------------------
-   Reads one 15-bit bus state from the Stage 1 hardware interface and
-   returns it with bits 0-14 populated and bit 15 always zero.
+   Reads the complete 25-bit word (15 data + 10 redundancy) in a single
+   atomic snapshot.  Both values are written through output pointers to
+   ensure they are captured at the same instant.
 
-   The default implementation in rx_hw.c uses a parallel port (P0 for
-   bits 0-7, P1.0-P1.6 for bits 8-14).  Replace with an SPI, I2C, or
-   memory-mapped variant as required by your Stage 1 interface.
+   This is the preferred entry point for the main pipeline.  Reading data
+   and redundancy in separate calls risks a race if DATA_READY de-asserts
+   between the two reads.
 
-   Must only be called when DATA_READY is asserted.
+   Parameters:
+     out_data   Pointer to receive the 15-bit H1 data (bits 0-14).
+     out_red    Pointer to receive the 10-bit redundancy (bits 0-9).
    ---------------------------------------------------------------------------
 */
-uint16_t rx_read_bus_state(void);
+void rx_read_full_bus(uint16_t *out_data, uint16_t *out_red);
 
 /* ---------------------------------------------------------------------------
    rx_send_uart_byte
@@ -55,7 +58,6 @@ uint16_t rx_read_bus_state(void);
 
    Uses polling (busy-wait on TI) rather than interrupts, so this call
    blocks for approximately one byte-time (~1.04 ms at 9600 baud).
-   Replace with a buffered / DMA variant if throughput becomes a concern.
    ---------------------------------------------------------------------------
 */
 void rx_send_uart_byte(uint8_t data_byte);
