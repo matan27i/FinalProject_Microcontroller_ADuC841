@@ -53,7 +53,7 @@ sbit SR_CLR   = P2^4;   /* SRCLR  — Shift register clear (active low) */
  * Include order matters: each module may depend on types/constants above.
  * ========================================================================= */
 #include "tx_main.h"        /* Group 1: Main loop & hardware peripherals  */
-#include "tx_decoder.h"     /* Group 2: H1-type bus encoding & UART logic */
+#include "tx_encoder.h"     /* Group 2: H1-type bus encoding & UART logic */
 #include "tx_ecc.h"         /* Group 3: PESEC error correction            */
 
 #endif /* TX_HEADER_H */

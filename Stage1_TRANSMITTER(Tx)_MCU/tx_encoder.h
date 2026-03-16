@@ -1,4 +1,4 @@
-/* File: decoder.h
+/* File: encoder.h
  * Group 2: H1-Type Bus Encoding & UART Character Handling
  * ========================================================
  * Declares the stateful bus encoder state and prototypes for:
@@ -12,8 +12,8 @@
  *              for shift-register output and Group 3 for ECC.
  */
 
-#ifndef TX_DECODER_H
-#define TX_DECODER_H
+#ifndef TX_ENCODER_H
+#define TX_ENCODER_H
 
 /* ---- Stateful Bus State Vector ---- */
 /* 15-bit physical bus state x.  H * x^T = current syndrome.

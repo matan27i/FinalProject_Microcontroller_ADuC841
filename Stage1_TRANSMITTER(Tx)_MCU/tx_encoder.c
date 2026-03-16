@@ -1,4 +1,4 @@
-/* File: decoder.c
+/* File: encoder.c
  * Group 2: H1-Type Bus Encoding & UART Character Handling
  * ========================================================
  * Target: ADuC841 (8052 single-cycle core)
@@ -143,7 +143,7 @@ void tx_handler(uint8_t rx_char)
     /* --- Full reset command --- */
     if (rx_char == '=')
     {
-        /* Reset decoder state */
+        /* Reset encoder state */
         current_bus_state = 0;
 
         /* FIX: Reset ECC redundancy register to stay in sync */
