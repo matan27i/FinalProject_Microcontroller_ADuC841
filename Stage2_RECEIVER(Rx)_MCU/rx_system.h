@@ -1,18 +1,50 @@
 /* =============================================================================
    File: rx_system.h
-   Role: Master system header
+   Role: Master system header (MODIFIED for SPI Slave reception)
 
-   Every .c file in the project includes exactly this one header.
-   It provides:
-     1. The MCU-specific device header (hardware register definitions).
-     2. Board-level pin assignments for the 25-bit bus interface.
-     3. All three module headers, in dependency order.
+   MODIFICATION SUMMARY:
+     The original design read 25 parallel bits directly from Port pins
+     (P0, P1, P2, P3.3, P3.4) with edge detection on P3.2 (DATA_READY).
+
+     This version replaces the parallel bus interface with SPI slave
+     reception from the Arduino Mega 2560 bridge.  The 25-bit word
+     arrives as 4 SPI bytes, and the Mega's /SS line serves as both
+     the SPI slave-select and the frame-sync signal (via INT0).
+
+   HARDWARE CONNECTIONS (Arduino Mega 2560 -> ADuC841 RX):
+   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     Mega Pin 51 (MOSI)  -> ADuC841 MOSI  (SPI data in)
+     Mega Pin 52 (SCK)   -> ADuC841 SCLOCK (SPI clock)
+     Mega Pin 53 (SS)    -> ADuC841 /SS   (SPI slave select)
+                         -> ADuC841 P3.2  (INT0, frame-sync edge)
+
+   ADuC841 SPI PIN MAPPING:
+   ~~~~~~~~~~~~~~~~~~~~~~~~
+     The ADuC841 SPI peripheral uses dedicated pins that are active
+     when SPE=1 in SPICON.  Refer to the ADuC841 datasheet (Table 10,
+     "Pin Function Description") for the exact pin assignments on your
+     package variant.  Common assignments:
+
+       Function    Typical Pin     Notes
+       ~~~~~~~~    ~~~~~~~~~~~~    ~~~~~~~~~~~~~~~~~~~~~~~~~~~
+       SCLOCK      See datasheet   Clock input in slave mode
+       MOSI        See datasheet   Data input in slave mode
+       MISO        See datasheet   Data output (unused here)
+       /SS         See datasheet   Active-low slave select
+
+     IMPORTANT: The Mega's SS output must be connected to BOTH the
+     ADuC841 /SS pin AND to P3.2 (INT0) for frame synchronisation.
+     Use a simple wire fork or bus buffer if signal integrity requires it.
+
+   UART (unchanged):
+     P3.0 (RXD) -- not used (RX board is transmit-only to PC)
+     P3.1 (TXD) -- UART output to PC
 
    Porting checklist:
      - Replace <aduc841.h> with your target MCU's device header.
-     - Redefine DATA_READY to match your hardware wiring.
-     - Redefine the port mappings if you use a different bus layout.
-     - No other file needs to be touched for a basic port.
+     - Verify SPI pin assignments against your specific ADuC841 datasheet.
+     - If using a different interrupt pin for /SS sync, update INT0
+       references in rx_hw.c accordingly.
    =============================================================================
 */
 
@@ -21,61 +53,33 @@
 
 /* ---------------------------------------------------------------------------
    Target MCU device header
-   Provides: SFR declarations (P0, P1, P2, P3, SBUF, SCON bits, T3CON,
-             T3FD, EA, TI, RI, SM0, SM1, REN, ES), and the 'sbit'/'bit'
-             keywords.
-   Replace this line when porting to a different MCU.
+   Provides: SFR declarations (SPICON, SPIDAT, SPISTA, P3, SBUF,
+             SCON bits, T3CON, T3FD, EA, TI, SM0, SM1, REN, ES),
+             and the 'sbit'/'bit' keywords.
    ---------------------------------------------------------------------------
 */
 #include <aduc841.h>
 
 /* ---------------------------------------------------------------------------
-   Board-level hardware definitions
+   Frame-sync interrupt pin
    ---------------------------------------------------------------------------
+   The Arduino Mega drives its /SS line low at the start of each 4-byte
+   SPI frame.  This signal is connected to P3.2 (INT0) on the ADuC841.
+   A falling-edge interrupt on INT0 resets the SPI byte counter to
+   maintain frame alignment.
 
-   DATA_READY (P3.2 / INT0):
-     Active-high signal driven by Stage 1 to indicate that a new 25-bit
-     word (15 data + 10 redundancy) is ready on the parallel bus.
-     The main loop uses rising-edge detection on this pin.
-
-   25-BIT BUS PORT MAPPING:
-   ~~~~~~~~~~~~~~~~~~~~~~~~
-   The TX encoder outputs a 25-bit word through daisy-chained 74HC595
-   shift registers.  The RX reads these bits via four port groups:
-
-     Port          Bits     Bus content
-     ~~~~~~~~~~~~  ~~~~~~~  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-     P0 [7:0]      8 bits   H1 data bits  [7:0]
-     P1 [6:0]      7 bits   H1 data bits  [14:8]
-     P2 [7:0]      8 bits   PESEC redundancy bits [7:0]
-     P3.4, P3.3    2 bits   PESEC redundancy bits [9:8]
-
-   Total: 8 + 7 + 8 + 2 = 25 bits.
-
-   P3.3 (INT1) and P3.4 (T0) are general-purpose I/O pins that are not
-   used by any other peripheral in this design.  P3.0 (RXD) and P3.1
-   (TXD) are reserved for UART communication with the PC.
+   If /SS de-bouncing is needed (unlikely with a direct MCU-to-MCU
+   connection), add a small RC filter on this line.
    ---------------------------------------------------------------------------
 */
-sbit DATA_READY = P3^2;
-
-/* Symbolic port aliases for the bus interface.
-   Modify these defines (and the read logic in rx_hw.c) when rewiring. */
-#define BUS_LOW_PORT     P0     /* H1 data bits  [7:0]                  */
-#define BUS_HIGH_PORT    P1     /* H1 data bits [14:8] on P1.0-P1.6    */
-#define ECC_LOW_PORT     P2     /* PESEC redundancy bits [7:0]          */
-
-/* Individual bit pins for PESEC redundancy bits 8 and 9.
-   Using P3.3 and P3.4 which are free on the RX board. */
-sbit ECC_BIT8 = P3^3;          /* PESEC redundancy bit 8               */
-sbit ECC_BIT9 = P3^4;          /* PESEC redundancy bit 9               */
+sbit SPI_FRAME_SYNC = P3^2;  /* INT0 pin, directly driven by Mega /SS */
 
 /* ---------------------------------------------------------------------------
    Module headers -- include order follows the dependency chain:
      rx_types   (no deps)
-     rx_hw      (uses rx_types)
+     rx_hw      (uses rx_types, provides SPI + UART functions)
      rx_ecc     (uses rx_types, calls rx_decoder for H1 syndrome)
-     rx_decoder (uses rx_types, calls rx_hw)
+     rx_decoder (uses rx_types, calls rx_hw for UART output)
    ---------------------------------------------------------------------------
 */
 #include "rx_types.h"

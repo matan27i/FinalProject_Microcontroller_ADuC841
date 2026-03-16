@@ -1,25 +1,24 @@
-BL51 BANKED LINKER/LOCATER V6.22.4.0                                                    02/08/2026  15:49:53  PAGE 1
+BL51 BANKED LINKER/LOCATER V6.22.4.0                                                    03/16/2026  15:41:44  PAGE 1
 
 
 BL51 BANKED LINKER/LOCATER V6.22.4.0, INVOKED BY:
-C:\KEIL_V5\C51\BIN\BL51.EXE .\Objects\bus_encoder.obj, .\Objects\main.obj, .\Objects\peripherals.obj, .\Objects\shift_ou
->> tput.obj, .\Objects\tx_handler.obj TO .\Objects\Tx PRINT (.\Listings\Tx.m51) RAMSIZE (256)
+C:\KEIL_V5\C51\BIN\BL51.EXE .\Objects\tx_ecc.obj, .\Objects\tx_encoder.obj, .\Objects\tx_main.obj TO .\Objects\Tx PRINT 
+>> (.\Listings\Tx.m51) RAMSIZE (256)
 
 
 MEMORY MODEL: SMALL
 
 
 INPUT MODULES INCLUDED:
-  .\Objects\bus_encoder.obj (BUS_ENCODER)
-  .\Objects\main.obj (MAIN)
-  .\Objects\peripherals.obj (PERIPHERALS)
-  .\Objects\shift_output.obj (SHIFT_OUTPUT)
-  .\Objects\tx_handler.obj (TX_HANDLER)
+  .\Objects\tx_ecc.obj (TX_ECC)
+  .\Objects\tx_encoder.obj (TX_ENCODER)
+  .\Objects\tx_main.obj (TX_MAIN)
   C:\KEIL_V5\C51\LIB\C51S.LIB (?C_STARTUP)
+  C:\KEIL_V5\C51\LIB\C51S.LIB (?C?CLDOPTR)
   C:\KEIL_V5\C51\LIB\C51S.LIB (?C_INIT)
 
 
-LINK MAP OF MODULE:  .\Objects\Tx (BUS_ENCODER)
+LINK MAP OF MODULE:  .\Objects\Tx (TX_ECC)
 
 
             TYPE    BASE      LENGTH    RELOCATION   SEGMENT NAME
@@ -27,80 +26,268 @@ LINK MAP OF MODULE:  .\Objects\Tx (BUS_ENCODER)
 
             * * * * * * *   D A T A   M E M O R Y   * * * * * * *
             REG     0000H     0008H     ABSOLUTE     "REG BANK 0"
-            DATA    0008H     0004H     UNIT         ?DT?MAIN
-            DATA    000CH     0003H     UNIT         _DATA_GROUP_
-                    000FH     0011H                  *** GAP ***
-            BIT     0020H.0   0000H.2   UNIT         ?BI?MAIN
-                    0020H.2   0000H.6                *** GAP ***
-            IDATA   0021H     0001H     UNIT         ?STACK
+            DATA    0008H     0017H     UNIT         ?DT?TX_MAIN
+                    001FH     0001H                  *** GAP ***
+            BIT     0020H.0   0000H.1   UNIT         ?BI?TX_MAIN
+                    0020H.1   0000H.7                *** GAP ***
+            DATA    0021H     0050H     UNIT         ?DT?TX_ECC
+            DATA    0071H     000AH     UNIT         _DATA_GROUP_
+            DATA    007BH     0002H     UNIT         ?DT?TX_ENCODER
+            IDATA   007DH     0001H     UNIT         ?STACK
 
             * * * * * * *   C O D E   M E M O R Y   * * * * * * *
             CODE    0000H     0003H     ABSOLUTE     
                     0003H     0020H                  *** GAP ***
             CODE    0023H     0003H     ABSOLUTE     
-                    0026H     07DAH                  *** GAP ***
-            CODE    0800H     008CH     UNIT         ?C_C51STARTUP
-            CODE    088CH     0053H     UNIT         ?PR?OUTPUT_TO_SHIFT_REGISTERS?SHIFT_OUTPUT
-            CODE    08DFH     002BH     UNIT         ?PR?_TX_HANDLER?TX_HANDLER
-            CODE    090AH     0027H     UNIT         ?PR?MAIN?MAIN
-            CODE    0931H     001EH     UNIT         ?PR?_FIND_MINIMAL_W?BUS_ENCODER
-            CODE    094FH     001EH     UNIT         ?PR?_PROCESS_NIBBLE?BUS_ENCODER
-            CODE    096DH     001DH     UNIT         ?PR?_COMPUTE_SYNDROME_FROM_BUS?BUS_ENCODER
-            CODE    098AH     0010H     UNIT         ?PR?UART_ISR?PERIPHERALS
-            CODE    099AH     000FH     UNIT         ?C_INITSEG
-            CODE    09A9H     000DH     UNIT         ?PR?UART_INIT?PERIPHERALS
-            CODE    09B6H     000CH     UNIT         ?PR?DELAY_HALF_PERIOD?SHIFT_OUTPUT
-            CODE    09C2H     000AH     UNIT         ?PR?TIMER3_INIT?PERIPHERALS
-            CODE    09CCH     0007H     UNIT         ?PR?PORT_INIT?SHIFT_OUTPUT
-            CODE    09D3H     0003H     UNIT         ?PR?GLOBALINT?PERIPHERALS
+                    0026H     0005H                  *** GAP ***
+            CODE    002BH     0003H     ABSOLUTE     
+                    002EH     07D2H                  *** GAP ***
+            CODE    0800H     0123H     UNIT         ?PR?_INIT_PESEC_MATRICES?TX_ECC
+            CODE    0923H     008CH     UNIT         ?C_C51STARTUP
+            CODE    09AFH     0084H     UNIT         ?PR?OUTPUT_TO_SHIFT_REGISTERS?TX_MAIN
+            CODE    0A33H     0056H     UNIT         ?PR?TIMER2_ISR?TX_MAIN
+            CODE    0A89H     004AH     UNIT         ?PR?_SOLVE_PESEC_DELTA?TX_ECC
+            CODE    0AD3H     004AH     UNIT         ?PR?_TX_HANDLER?TX_ENCODER
+            CODE    0B1DH     0046H     UNIT         ?PR?MAIN?TX_MAIN
+            CODE    0B63H     003CH     UNIT         ?PR?_CALC_PESEC_SYND?TX_ECC
+            CODE    0B9FH     0034H     UNIT         ?PR?UART_ISR?TX_MAIN
+            CODE    0BD3H     002DH     UNIT         ?C?LIB_CODE
+            CODE    0C00H     0020H     UNIT         ?PR?ECC?TX_ECC
+            CODE    0C20H     001EH     UNIT         ?C_INITSEG
+            CODE    0C3EH     001EH     UNIT         ?PR?_FIND_MINIMAL_W?TX_ENCODER
+            CODE    0C5CH     001EH     UNIT         ?PR?_PROCESS_NIBBLE?TX_ENCODER
+            CODE    0C7AH     001DH     UNIT         ?PR?_COMPUTE_SYNDROME_FROM_BUS?TX_ENCODER
+            CODE    0C97H     000FH     UNIT         ?PR?BAUDRATE_INIT?TX_MAIN
+            CODE    0CA6H     000EH     UNIT         ?PR?INIT_TIMER2?TX_MAIN
+BL51 BANKED LINKER/LOCATER V6.22.4.0                                                  03/16/2026  15:41:44  PAGE 2
+
+
+            CODE    0CB4H     000DH     UNIT         ?PR?UART_INIT?TX_MAIN
+            CODE    0CC1H     000CH     UNIT         ?PR?_GET_DATA_PESEC_SYND?TX_ECC
+            CODE    0CCDH     000CH     UNIT         ?PR?_GET_RED_PESEC_SYND?TX_ECC
+            CODE    0CD9H     0007H     UNIT         ?PR?PORT_INIT?TX_MAIN
+            CODE    0CE0H     0003H     UNIT         ?PR?GLOBALINT?TX_MAIN
 
 
 
-OVERLAY MAP OF MODULE:   .\Objects\Tx (BUS_ENCODER)
-
-
-BL51 BANKED LINKER/LOCATER V6.22.4.0                                                  02/08/2026  15:49:53  PAGE 2
+OVERLAY MAP OF MODULE:   .\Objects\Tx (TX_ECC)
 
 
 SEGMENT                                            DATA_GROUP 
   +--> CALLED SEGMENT                            START    LENGTH
 ----------------------------------------------------------------
+?PR?UART_ISR?TX_MAIN                             0071H    0001H
+
+*** NEW ROOT ***************************************************
+
 ?C_C51STARTUP                                    -----    -----
-  +--> ?PR?MAIN?MAIN
+  +--> ?PR?MAIN?TX_MAIN
   +--> ?C_INITSEG
 
-?PR?MAIN?MAIN                                    -----    -----
-  +--> ?PR?GLOBALINT?PERIPHERALS
-  +--> ?PR?TIMER3_INIT?PERIPHERALS
-  +--> ?PR?UART_INIT?PERIPHERALS
-  +--> ?PR?PORT_INIT?SHIFT_OUTPUT
-  +--> ?PR?OUTPUT_TO_SHIFT_REGISTERS?SHIFT_O...
-  +--> ?PR?_TX_HANDLER?TX_HANDLER
+?PR?MAIN?TX_MAIN                                 0072H    0001H
+  +--> ?PR?PORT_INIT?TX_MAIN
+  +--> ?PR?BAUDRATE_INIT?TX_MAIN
+  +--> ?PR?UART_INIT?TX_MAIN
+  +--> ?PR?INIT_TIMER2?TX_MAIN
+  +--> ?PR?_INIT_PESEC_MATRICES?TX_ECC
+  +--> ?PR?GLOBALINT?TX_MAIN
+  +--> ?PR?_TX_HANDLER?TX_ENCODER
 
-?PR?OUTPUT_TO_SHIFT_REGISTERS?SHIFT_O...         000DH    0002H
-  +--> ?PR?DELAY_HALF_PERIOD?SHIFT_OUTPUT
+?PR?_INIT_PESEC_MATRICES?TX_ECC                  0073H    0008H
 
-?PR?_TX_HANDLER?TX_HANDLER                       000CH    0001H
-  +--> ?PR?_PROCESS_NIBBLE?BUS_ENCODER
+?PR?_TX_HANDLER?TX_ENCODER                       0073H    0001H
+  +--> ?PR?_PROCESS_NIBBLE?TX_ENCODER
 
-?PR?_PROCESS_NIBBLE?BUS_ENCODER                  -----    -----
-  +--> ?PR?_COMPUTE_SYNDROME_FROM_BUS?BUS_EN...
-  +--> ?PR?_FIND_MINIMAL_W?BUS_ENCODER
-  +--> ?PR?OUTPUT_TO_SHIFT_REGISTERS?SHIFT_O...
+?PR?_PROCESS_NIBBLE?TX_ENCODER                   -----    -----
+  +--> ?PR?_COMPUTE_SYNDROME_FROM_BUS?TX_ENC...
+  +--> ?PR?_FIND_MINIMAL_W?TX_ENCODER
+  +--> ?PR?ECC?TX_ECC
+
+?PR?ECC?TX_ECC                                   0074H    0001H
+  +--> ?PR?_GET_DATA_PESEC_SYND?TX_ECC
+  +--> ?PR?_GET_RED_PESEC_SYND?TX_ECC
+  +--> ?PR?_SOLVE_PESEC_DELTA?TX_ECC
+  +--> ?PR?OUTPUT_TO_SHIFT_REGISTERS?TX_MAIN
+
+?PR?_GET_DATA_PESEC_SYND?TX_ECC                  -----    -----
+  +--> ?PR?_CALC_PESEC_SYND?TX_ECC
+
+?PR?_CALC_PESEC_SYND?TX_ECC                      0075H    0006H
+
+?PR?_GET_RED_PESEC_SYND?TX_ECC                   -----    -----
+  +--> ?PR?_CALC_PESEC_SYND?TX_ECC
+
+?PR?OUTPUT_TO_SHIFT_REGISTERS?TX_MAIN            0075H    0004H
+
+BL51 BANKED LINKER/LOCATER V6.22.4.0                                                  03/16/2026  15:41:44  PAGE 3
 
 
 
-SYMBOL TABLE OF MODULE:  .\Objects\Tx (BUS_ENCODER)
+
+SYMBOL TABLE OF MODULE:  .\Objects\Tx (TX_ECC)
 
   VALUE           TYPE          NAME
   ----------------------------------
 
-  -------         MODULE        BUS_ENCODER
+  -------         MODULE        TX_ECC
   C:0000H         SYMBOL        _ICE_DUMMY_
   D:00A0H         PUBLIC        P2
-  C:096DH         PUBLIC        _compute_syndrome_from_bus
-  C:0931H         PUBLIC        _find_minimal_w
-  C:094FH         PUBLIC        _process_nibble
+  C:0800H         PUBLIC        _Init_PESEC_Matrices
+  C:0A89H         SYMBOL        _solve_pesec_delta
+  D:0021H         PUBLIC        pesec_chunk_masks
+  D:0026H         PUBLIC        pesec_col_offsets
+  D:002BH         PUBLIC        pesec_bit_offsets
+  D:0030H         PUBLIC        pesec_num_a_cols
+  D:0031H         PUBLIC        pesec_num_d_cols
+  D:0032H         PUBLIC        pesec_num_blocks
+  C:0B63H         SYMBOL        _calc_pesec_synd
+  D:0033H         PUBLIC        pesec_redundancy_reg
+  C:0C00H         PUBLIC        ECC
+  C:0CC1H         SYMBOL        _get_data_pesec_synd
+  D:0035H         PUBLIC        PESEC_MAT_A
+  D:005DH         PUBLIC        PESEC_MAT_D
+  C:0CCDH         SYMBOL        _get_red_pesec_synd
+  -------         PROC          _INIT_PESEC_MATRICES
+  D:0073H         SYMBOL        m_sizes
+  D:0076H         SYMBOL        num_blocks
+  -------         DO            
+  D:0077H         SYMBOL        i
+  D:0078H         SYMBOL        b
+  D:0006H         SYMBOL        val
+  D:0005H         SYMBOL        is_in_d
+  D:0079H         SYMBOL        total_m
+  D:007AH         SYMBOL        current_col_offset
+  D:0007H         SYMBOL        max_syndrome
+  -------         ENDDO         
+  C:0800H         LINE#         58
+  C:0808H         LINE#         59
+  C:0808H         LINE#         62
+  C:080BH         LINE#         63
+  C:080DH         LINE#         66
+  C:0810H         LINE#         67
+  C:0812H         LINE#         68
+  C:0814H         LINE#         71
+  C:0820H         LINE#         72
+  C:0820H         LINE#         73
+  C:0827H         LINE#         74
+  C:082EH         LINE#         75
+  C:086AH         LINE#         78
+  C:089BH         LINE#         79
+  C:089BH         LINE#         80
+  C:08B3H         LINE#         81
+  C:08B7H         LINE#         83
+  C:08CBH         LINE#         84
+  C:08DBH         LINE#         85
+  C:08E0H         LINE#         87
+BL51 BANKED LINKER/LOCATER V6.22.4.0                                                  03/16/2026  15:41:44  PAGE 4
+
+
+  C:08EFH         LINE#         90
+  C:08F6H         LINE#         91
+  C:08F6H         LINE#         92
+  C:08F8H         LINE#         94
+  C:0901H         LINE#         95
+  C:0901H         LINE#         96
+  C:090AH         LINE#         97
+  C:090AH         LINE#         98
+  C:090CH         LINE#         99
+  C:090EH         LINE#         100
+  C:090EH         LINE#         101
+  C:0912H         LINE#         103
+  C:0915H         LINE#         104
+  C:0915H         LINE#         105
+  C:091FH         LINE#         106
+  C:091FH         LINE#         107
+  C:0922H         LINE#         108
+  -------         ENDPROC       _INIT_PESEC_MATRICES
+  -------         PROC          _CALC_PESEC_SYND
+  D:0075H         SYMBOL        reg_val
+  D:0077H         SYMBOL        mat_ptr
+  D:007AH         SYMBOL        cols
+  -------         DO            
+  D:0005H         SYMBOL        synd_res
+  D:0004H         SYMBOL        idx
+  -------         ENDDO         
+  C:0B63H         LINE#         115
+  C:0B6DH         LINE#         116
+  C:0B6DH         LINE#         117
+  C:0B6FH         LINE#         120
+  C:0B76H         LINE#         121
+  C:0B76H         LINE#         122
+  C:0B89H         LINE#         123
+  C:0B89H         LINE#         124
+  C:0B99H         LINE#         125
+  C:0B99H         LINE#         126
+  C:0B9CH         LINE#         127
+  C:0B9EH         LINE#         128
+  -------         ENDPROC       _CALC_PESEC_SYND
+  -------         PROC          _GET_DATA_PESEC_SYND
+  D:0006H         SYMBOL        data_val
+  C:0CC1H         LINE#         131
+  C:0CC1H         LINE#         132
+  C:0CC1H         LINE#         133
+  -------         ENDPROC       _GET_DATA_PESEC_SYND
+  -------         PROC          _GET_RED_PESEC_SYND
+  D:0006H         SYMBOL        red_val
+  C:0CCDH         LINE#         137
+  C:0CCDH         LINE#         138
+  C:0CCDH         LINE#         139
+  -------         ENDPROC       _GET_RED_PESEC_SYND
+  -------         PROC          _SOLVE_PESEC_DELTA
+  D:0005H         SYMBOL        synd_gap
+  -------         DO            
+  D:0002H         SYMBOL        delta_vec
+  D:0004H         SYMBOL        b
+  D:0007H         SYMBOL        chunk
+BL51 BANKED LINKER/LOCATER V6.22.4.0                                                  03/16/2026  15:41:44  PAGE 5
+
+
+  D:0007H         SYMBOL        val
+  -------         ENDDO         
+  C:0A89H         LINE#         150
+  C:0A8BH         LINE#         151
+  C:0A8BH         LINE#         152
+  C:0A8EH         LINE#         155
+  C:0A95H         LINE#         156
+  C:0A95H         LINE#         157
+  C:0A9CH         LINE#         159
+  C:0A9EH         LINE#         160
+  C:0A9EH         LINE#         161
+  C:0AAEH         LINE#         162
+  C:0ACBH         LINE#         163
+  C:0ACBH         LINE#         164
+  C:0ACEH         LINE#         166
+  C:0AD2H         LINE#         167
+  -------         ENDPROC       _SOLVE_PESEC_DELTA
+  -------         PROC          ECC
+  -------         DO            
+  D:0074H         SYMBOL        synd_data
+  D:0007H         SYMBOL        synd_red
+  D:0007H         SYMBOL        synd_diff
+  D:0006H         SYMBOL        delta_vector
+  -------         ENDDO         
+  C:0C00H         LINE#         182
+  C:0C00H         LINE#         183
+  C:0C00H         LINE#         190
+  C:0C09H         LINE#         193
+  C:0C10H         LINE#         196
+  C:0C14H         LINE#         199
+  C:0C17H         LINE#         202
+  C:0C1DH         LINE#         205
+  -------         ENDPROC       ECC
+  -------         ENDMOD        TX_ECC
+
+  -------         MODULE        TX_ENCODER
+  C:0000H         SYMBOL        _ICE_DUMMY_
+  D:00A0H         PUBLIC        P2
+  C:0C7AH         PUBLIC        _compute_syndrome_from_bus
+  C:0AD3H         PUBLIC        _tx_handler
+  D:007BH         PUBLIC        current_bus_state
+  C:0C3EH         PUBLIC        _find_minimal_w
+  D:00CDH         PUBLIC        TH2
+  D:00CCH         PUBLIC        TL2
+  C:0C5CH         PUBLIC        _process_nibble
+  B:00C8H.2       PUBLIC        TR2
   -------         PROC          _COMPUTE_SYNDROME_FROM_BUS
   D:0006H         SYMBOL        bus_state
   -------         DO            
@@ -108,35 +295,35 @@ SYMBOL TABLE OF MODULE:  .\Objects\Tx (BUS_ENCODER)
   D:0004H         SYMBOL        col_idx
   D:0006H         SYMBOL        temp_state
   -------         ENDDO         
-  C:096DH         LINE#         52
-  C:096DH         LINE#         53
-  C:096DH         LINE#         54
-  C:096FH         LINE#         59
-  C:0973H         LINE#         65
-  C:0975H         LINE#         66
-  C:0975H         LINE#         68
-  C:0979H         LINE#         69
-  C:0979H         LINE#         71
-  C:097CH         LINE#         72
-  C:097CH         LINE#         74
-BL51 BANKED LINKER/LOCATER V6.22.4.0                                                  02/08/2026  15:49:53  PAGE 3
+  C:0C7AH         LINE#         45
+  C:0C7AH         LINE#         46
+  C:0C7AH         LINE#         47
+  C:0C7CH         LINE#         51
+BL51 BANKED LINKER/LOCATER V6.22.4.0                                                  03/16/2026  15:41:44  PAGE 6
 
 
-  C:0983H         LINE#         75
-  C:0987H         LINE#         77
-  C:0989H         LINE#         78
+  C:0C80H         LINE#         53
+  C:0C82H         LINE#         54
+  C:0C82H         LINE#         55
+  C:0C86H         LINE#         56
+  C:0C86H         LINE#         57
+  C:0C89H         LINE#         58
+  C:0C89H         LINE#         59
+  C:0C90H         LINE#         60
+  C:0C94H         LINE#         62
+  C:0C96H         LINE#         63
   -------         ENDPROC       _COMPUTE_SYNDROME_FROM_BUS
   -------         PROC          _FIND_MINIMAL_W
   D:0007H         SYMBOL        s_target
-  C:0931H         LINE#         103
-  C:0931H         LINE#         104
-  C:0931H         LINE#         106
-  C:0934H         LINE#         109
-  C:0937H         LINE#         110
-  C:0937H         LINE#         111
-  C:093AH         LINE#         112
-  C:093AH         LINE#         121
-  C:094EH         LINE#         122
+  C:0C3EH         LINE#         73
+  C:0C3EH         LINE#         74
+  C:0C3EH         LINE#         75
+  C:0C41H         LINE#         77
+  C:0C44H         LINE#         78
+  C:0C44H         LINE#         79
+  C:0C47H         LINE#         80
+  C:0C47H         LINE#         82
+  C:0C5BH         LINE#         83
   -------         ENDPROC       _FIND_MINIMAL_W
   -------         PROC          _PROCESS_NIBBLE
   D:0003H         SYMBOL        s_new
@@ -145,216 +332,302 @@ SYMBOL TABLE OF MODULE:  .\Objects\Tx (BUS_ENCODER)
   D:0007H         SYMBOL        s_target
   D:0006H         SYMBOL        w
   -------         ENDDO         
-  C:094FH         LINE#         140
-  C:0951H         LINE#         141
-  C:0951H         LINE#         147
-  C:0954H         LINE#         150
-  C:095BH         LINE#         153
-  C:095EH         LINE#         156
-  C:0961H         LINE#         159
-  C:0967H         LINE#         162
-  C:096AH         LINE#         165
+  C:0C5CH         LINE#         95
+  C:0C5EH         LINE#         96
+  C:0C5EH         LINE#         101
+  C:0C61H         LINE#         104
+  C:0C68H         LINE#         107
+  C:0C6BH         LINE#         110
+  C:0C6EH         LINE#         113
+  C:0C74H         LINE#         114
+  C:0C77H         LINE#         117
   -------         ENDPROC       _PROCESS_NIBBLE
-  -------         ENDMOD        BUS_ENCODER
-
-  -------         MODULE        MAIN
-  C:0000H         SYMBOL        _ICE_DUMMY_
-  D:00A0H         PUBLIC        P2
-  D:0008H         PUBLIC        buffer_count
-  B:00A8H.4       PUBLIC        ES
-  D:0009H         PUBLIC        tx_temp_byte
-  C:090AH         PUBLIC        main
-  D:000AH         PUBLIC        current_bus_state
-  B:0020H.0       PUBLIC        tx_flag
-  B:0020H.1       PUBLIC        buffer_flag
-  -------         PROC          MAIN
-  C:090AH         LINE#         57
-  C:090AH         LINE#         58
-  C:090AH         LINE#         60
-  C:090DH         LINE#         61
-  C:0910H         LINE#         62
-  C:0913H         LINE#         63
-  C:0916H         LINE#         67
-  C:0919H         LINE#         75
-  C:0919H         LINE#         76
-  C:0919H         LINE#         78
-  C:091CH         LINE#         79
-BL51 BANKED LINKER/LOCATER V6.22.4.0                                                  02/08/2026  15:49:53  PAGE 4
-
-
-  C:091CH         LINE#         80
-  C:091EH         LINE#         86
-  C:0923H         LINE#         87
-  C:0923H         LINE#         90
-  C:0926H         LINE#         91
-  C:0926H         LINE#         93
-  C:0928H         LINE#         95
-  C:092AH         LINE#         107
-  C:092DH         LINE#         110
-  C:092FH         LINE#         111
-  C:092FH         LINE#         112
-  -------         ENDPROC       MAIN
-  -------         ENDMOD        MAIN
-
-  -------         MODULE        PERIPHERALS
-  C:0000H         SYMBOL        _ICE_DUMMY_
-  D:00A0H         PUBLIC        P2
-  B:00A8H.7       PUBLIC        EA
-  C:098AH         PUBLIC        UART_ISR
-  D:009DH         PUBLIC        T3FD
-  B:00A8H.4       PUBLIC        ES
-  B:0098H.0       PUBLIC        RI
-  B:0098H.1       PUBLIC        TI
-  C:09C2H         PUBLIC        Timer3_Init
-  D:0099H         PUBLIC        SBUF
-  C:09A9H         PUBLIC        UART_Init
-  C:09D3H         PUBLIC        GlobalINT
-  B:0098H.7       PUBLIC        SM0
-  B:0098H.6       PUBLIC        SM1
-  B:0098H.4       PUBLIC        REN
-  D:009EH         PUBLIC        T3CON
-  -------         PROC          TIMER3_INIT
-  C:09C2H         LINE#         17
-  C:09C2H         LINE#         18
-  C:09C2H         LINE#         19
-  C:09C5H         LINE#         20
-  C:09C8H         LINE#         21
-  C:09CBH         LINE#         22
-  -------         ENDPROC       TIMER3_INIT
-  -------         PROC          UART_INIT
-  C:09A9H         LINE#         31
-  C:09A9H         LINE#         32
-  C:09A9H         LINE#         33
-  C:09ABH         LINE#         34
-  C:09ADH         LINE#         35
-  C:09AFH         LINE#         36
-  C:09B1H         LINE#         37
-  C:09B3H         LINE#         38
-  C:09B5H         LINE#         39
-  -------         ENDPROC       UART_INIT
-  -------         PROC          GLOBALINT
-  C:09D3H         LINE#         47
-  C:09D3H         LINE#         48
-  C:09D3H         LINE#         49
-  C:09D5H         LINE#         50
-  -------         ENDPROC       GLOBALINT
-  -------         PROC          UART_ISR
-BL51 BANKED LINKER/LOCATER V6.22.4.0                                                  02/08/2026  15:49:53  PAGE 5
-
-
-  C:098AH         LINE#         64
-  C:098AH         LINE#         66
-  C:098DH         LINE#         67
-  C:098DH         LINE#         68
-  C:098FH         LINE#         69
-  C:0992H         LINE#         70
-  C:0994H         LINE#         71
-  C:0994H         LINE#         72
-  C:0997H         LINE#         73
-  C:0997H         LINE#         74
-  C:0999H         LINE#         75
-  C:0999H         LINE#         76
-  -------         ENDPROC       UART_ISR
-  -------         ENDMOD        PERIPHERALS
-
-  -------         MODULE        SHIFT_OUTPUT
-  C:0000H         SYMBOL        _ICE_DUMMY_
-  D:00A0H         PUBLIC        P2
-  B:00A8H.7       PUBLIC        EA
-  C:09CCH         PUBLIC        Port_Init
-  B:00A0H.1       PUBLIC        CLK_PIN
-  B:00A0H.2       PUBLIC        LATCH_PIN
-  C:088CH         PUBLIC        output_to_shift_registers
-  B:00A0H.0       PUBLIC        DATA_PIN
-  C:09B6H         SYMBOL        delay_half_period
-  -------         PROC          DELAY_HALF_PERIOD
-  -------         DO            
-  D:0007H         SYMBOL        i
-  -------         ENDDO         
-  C:09B6H         LINE#         30
-  C:09B6H         LINE#         31
-  C:09B6H         LINE#         32
-  C:09B8H         LINE#         35
-  C:09BEH         LINE#         36
-  C:09BFH         LINE#         37
-  C:09C1H         LINE#         38
-  -------         ENDPROC       DELAY_HALF_PERIOD
-  -------         PROC          OUTPUT_TO_SHIFT_REGISTERS
-  -------         DO            
-  D:000DH         SYMBOL        state_copy
-  D:0003H         SYMBOL        bit_pos
-  D:0005H         SYMBOL        saved_ea
-  D:0002H         SYMBOL        bit_value
-  -------         ENDDO         
-  C:088CH         LINE#         40
-  C:088CH         LINE#         41
-  C:088CH         LINE#         49
-  C:0891H         LINE#         50
-  C:0893H         LINE#         53
-  C:089CH         LINE#         56
-  C:089EH         LINE#         57
-  C:08A1H         LINE#         60
-  C:08A3H         LINE#         61
-  C:08A3H         LINE#         65
-  C:08B6H         LINE#         68
-  C:08BAH         LINE#         74
-  C:08BBH         LINE#         75
-BL51 BANKED LINKER/LOCATER V6.22.4.0                                                  02/08/2026  15:49:53  PAGE 6
-
-
-  C:08BCH         LINE#         79
-  C:08BEH         LINE#         80
-  C:08C1H         LINE#         85
-  C:08C3H         LINE#         86
-  C:08C6H         LINE#         92
-  C:08CFH         LINE#         98
-  C:08D2H         LINE#         104
-  C:08D4H         LINE#         105
-  C:08D7H         LINE#         114
-  C:08D9H         LINE#         117
-  C:08DEH         LINE#         119
-  -------         ENDPROC       OUTPUT_TO_SHIFT_REGISTERS
-  -------         PROC          PORT_INIT
-  C:09CCH         LINE#         122
-  C:09CCH         LINE#         123
-  C:09CCH         LINE#         125
-  C:09CEH         LINE#         126
-  C:09D0H         LINE#         127
-  C:09D2H         LINE#         129
-  -------         ENDPROC       PORT_INIT
-  -------         ENDMOD        SHIFT_OUTPUT
-
-  -------         MODULE        TX_HANDLER
-  C:0000H         SYMBOL        _ICE_DUMMY_
-  D:00A0H         PUBLIC        P2
-  C:08DFH         PUBLIC        _tx_handler
   -------         PROC          _TX_HANDLER
   D:0006H         SYMBOL        rx_char
   -------         DO            
   D:0007H         SYMBOL        high_nibble
-  D:000CH         SYMBOL        low_nibble
+  D:0073H         SYMBOL        low_nibble
   -------         ENDDO         
-  C:08DFH         LINE#         42
-  C:08E1H         LINE#         43
-  C:08E1H         LINE#         48
-  C:08E9H         LINE#         49
-  C:08E9H         LINE#         51
-  C:08ECH         LINE#         53
-  C:08ECH         LINE#         58
-  C:08F1H         LINE#         61
-  C:08F6H         LINE#         64
-  C:08F9H         LINE#         67
-  C:08FEH         LINE#         70
-  C:0905H         LINE#         71
-  C:0905H         LINE#         72
-  C:0909H         LINE#         73
-  C:0909H         LINE#         74
+  C:0AD3H         LINE#         131
+  C:0AD5H         LINE#         132
+  C:0AD5H         LINE#         137
+  C:0ADDH         LINE#         138
+  C:0ADDH         LINE#         139
+  C:0AE0H         LINE#         141
+  C:0AE0H         LINE#         144
+  C:0AE3H         LINE#         145
+  C:0AE3H         LINE#         147
+  C:0AE8H         LINE#         150
+  C:0AECH         LINE#         153
+BL51 BANKED LINKER/LOCATER V6.22.4.0                                                  03/16/2026  15:41:44  PAGE 7
+
+
+  C:0AEFH         LINE#         154
+  C:0AF1H         LINE#         155
+  C:0AF4H         LINE#         156
+  C:0AF7H         LINE#         157
+  C:0AF9H         LINE#         161
+  C:0AFCH         LINE#         163
+  C:0AFFH         LINE#         165
+  C:0AFFH         LINE#         168
+  C:0B04H         LINE#         169
+  C:0B09H         LINE#         172
+  C:0B0CH         LINE#         175
+  C:0B11H         LINE#         178
+  C:0B18H         LINE#         179
+  C:0B18H         LINE#         180
+  C:0B1CH         LINE#         181
+  C:0B1CH         LINE#         182
   -------         ENDPROC       _TX_HANDLER
-  -------         ENDMOD        TX_HANDLER
+  -------         ENDMOD        TX_ENCODER
+
+  -------         MODULE        TX_MAIN
+  C:0000H         SYMBOL        _ICE_DUMMY_
+  D:00A0H         PUBLIC        P2
+  C:0C97H         PUBLIC        BaudRate_Init
+  C:0A33H         PUBLIC        Timer2_ISR
+  B:00A8H.7       PUBLIC        EA
+  D:0008H         PUBLIC        rx_buf
+  D:0018H         PUBLIC        buffer_count
+  D:0019H         PUBLIC        counter_t2
+  C:0B9FH         PUBLIC        UART_ISR
+  B:00A8H.4       PUBLIC        ES
+  B:0098H.0       PUBLIC        RI
+  B:0098H.1       PUBLIC        TI
+  C:0CD9H         PUBLIC        Port_Init
+  B:00A0H.1       PUBLIC        SR_DATA
+  D:00CBH         PUBLIC        RCAP2H
+  D:00CAH         PUBLIC        RCAP2L
+  C:0B1DH         PUBLIC        main
+  C:0CA6H         PUBLIC        Init_Timer2
+  D:0099H         PUBLIC        SBUF
+  C:0CB4H         PUBLIC        UART_Init
+  D:0089H         PUBLIC        TMOD
+  C:09AFH         PUBLIC        output_to_shift_registers
+  C:0CE0H         PUBLIC        GlobalINT
+  D:001AH         PUBLIC        flag_t2_mod
+  D:00D7H         PUBLIC        PLLCON
+  B:00A8H.5       PUBLIC        ET2
+  B:00C8H.7       PUBLIC        TF2
+  D:008DH         PUBLIC        TH1
+  D:00CDH         PUBLIC        TH2
+  B:0098H.7       PUBLIC        SM0
+  B:0098H.6       PUBLIC        SM1
+  D:008BH         PUBLIC        TL1
+  D:00CCH         PUBLIC        TL2
+  B:0088H.6       PUBLIC        TR1
+  B:00C8H.2       PUBLIC        TR2
+  D:001BH         PUBLIC        rx_head
+  B:00A0H.0       PUBLIC        SR_CLK
+BL51 BANKED LINKER/LOCATER V6.22.4.0                                                  03/16/2026  15:41:44  PAGE 8
+
+
+  B:0098H.4       PUBLIC        REN
+  B:00A0H.4       PUBLIC        SR_CLR
+  D:00C8H         PUBLIC        T2CON
+  D:001CH         SYMBOL        pesec_config
+  B:00A0H.3       PUBLIC        SR_LATCH
+  D:001EH         PUBLIC        rx_tail
+  B:0020H.0       PUBLIC        buffer_flag
+  -------         PROC          PORT_INIT
+  C:0CD9H         LINE#         57
+  C:0CD9H         LINE#         58
+  C:0CD9H         LINE#         59
+  C:0CDBH         LINE#         60
+  C:0CDDH         LINE#         61
+  C:0CDFH         LINE#         62
+  -------         ENDPROC       PORT_INIT
+  -------         PROC          INIT_TIMER2
+  C:0CA6H         LINE#         68
+  C:0CA6H         LINE#         69
+  C:0CA6H         LINE#         70
+  C:0CA9H         LINE#         71
+  C:0CACH         LINE#         72
+  C:0CAFH         LINE#         73
+  C:0CB1H         LINE#         74
+  C:0CB3H         LINE#         75
+  -------         ENDPROC       INIT_TIMER2
+  -------         PROC          BAUDRATE_INIT
+  C:0C97H         LINE#         83
+  C:0C97H         LINE#         84
+  C:0C97H         LINE#         85
+  C:0C9AH         LINE#         86
+  C:0C9DH         LINE#         87
+  C:0CA0H         LINE#         88
+  C:0CA3H         LINE#         89
+  C:0CA5H         LINE#         90
+  -------         ENDPROC       BAUDRATE_INIT
+  -------         PROC          UART_INIT
+  C:0CB4H         LINE#         93
+  C:0CB4H         LINE#         94
+  C:0CB4H         LINE#         95
+  C:0CB6H         LINE#         96
+  C:0CB8H         LINE#         97
+  C:0CBAH         LINE#         98
+  C:0CBCH         LINE#         99
+  C:0CBEH         LINE#         100
+  C:0CC0H         LINE#         101
+  -------         ENDPROC       UART_INIT
+  -------         PROC          GLOBALINT
+  C:0CE0H         LINE#         104
+  C:0CE0H         LINE#         105
+  C:0CE0H         LINE#         106
+  C:0CE2H         LINE#         107
+  -------         ENDPROC       GLOBALINT
+  -------         PROC          UART_ISR
+  -------         DO            
+  D:0071H         SYMBOL        next_head
+  -------         ENDDO         
+  C:0B9FH         LINE#         115
+BL51 BANKED LINKER/LOCATER V6.22.4.0                                                  03/16/2026  15:41:44  PAGE 9
+
+
+  C:0BAAH         LINE#         117
+  C:0BADH         LINE#         118
+  C:0BADH         LINE#         120
+  C:0BAFH         LINE#         122
+  C:0BB6H         LINE#         123
+  C:0BBAH         LINE#         124
+  C:0BBAH         LINE#         125
+  C:0BC2H         LINE#         126
+  C:0BC5H         LINE#         127
+  C:0BC5H         LINE#         129
+  C:0BC5H         LINE#         130
+  C:0BC8H         LINE#         131
+  C:0BC8H         LINE#         132
+  C:0BCAH         LINE#         133
+  C:0BCAH         LINE#         134
+  -------         ENDPROC       UART_ISR
+  -------         PROC          TIMER2_ISR
+  C:0A33H         LINE#         145
+  C:0A37H         LINE#         147
+  C:0A39H         LINE#         149
+  C:0A3DH         LINE#         150
+  C:0A3DH         LINE#         152
+  C:0A44H         LINE#         153
+  C:0A44H         LINE#         154
+  C:0A44H         LINE#         155
+  C:0A44H         LINE#         156
+  C:0A46H         LINE#         158
+  C:0A46H         LINE#         159
+  C:0A48H         LINE#         160
+  C:0A4AH         LINE#         161
+  C:0A4AH         LINE#         162
+  C:0A4CH         LINE#         163
+  C:0A52H         LINE#         164
+  C:0A52H         LINE#         166
+  C:0A59H         LINE#         167
+  C:0A59H         LINE#         168
+  C:0A5BH         LINE#         169
+  C:0A5DH         LINE#         170
+  C:0A5FH         LINE#         171
+  C:0A61H         LINE#         172
+  C:0A63H         LINE#         174
+  C:0A63H         LINE#         175
+  C:0A65H         LINE#         176
+  C:0A67H         LINE#         177
+  C:0A69H         LINE#         178
+  C:0A6BH         LINE#         179
+  C:0A6BH         LINE#         180
+  C:0A6BH         LINE#         181
+  C:0A6DH         LINE#         182
+  C:0A72H         LINE#         183
+  C:0A72H         LINE#         185
+  C:0A79H         LINE#         186
+  C:0A79H         LINE#         187
+  C:0A7BH         LINE#         188
+  C:0A7DH         LINE#         189
+  C:0A7FH         LINE#         191
+  C:0A7FH         LINE#         192
+BL51 BANKED LINKER/LOCATER V6.22.4.0                                                  03/16/2026  15:41:44  PAGE 10
+
+
+  C:0A81H         LINE#         193
+  C:0A84H         LINE#         194
+  C:0A84H         LINE#         195
+  C:0A84H         LINE#         196
+  -------         ENDPROC       TIMER2_ISR
+  -------         PROC          OUTPUT_TO_SHIFT_REGISTERS
+  -------         DO            
+  D:0075H         SYMBOL        state_copy
+  D:0077H         SYMBOL        ecc_copy
+  D:0003H         SYMBOL        bit_pos
+  D:0005H         SYMBOL        bit_value
+  -------         ENDDO         
+  C:09AFH         LINE#         209
+  C:09AFH         LINE#         210
+  C:09AFH         LINE#         217
+  C:09B8H         LINE#         218
+  C:09C1H         LINE#         221
+  C:09C3H         LINE#         222
+  C:09C3H         LINE#         223
+  C:09D6H         LINE#         224
+  C:09DAH         LINE#         226
+  C:09DDH         LINE#         227
+  C:09E0H         LINE#         228
+  C:09E3H         LINE#         229
+  C:09E5H         LINE#         230
+  C:09E8H         LINE#         231
+  C:09F1H         LINE#         234
+  C:09F3H         LINE#         235
+  C:09F3H         LINE#         236
+  C:0A06H         LINE#         237
+  C:0A0AH         LINE#         239
+  C:0A0DH         LINE#         240
+  C:0A10H         LINE#         241
+  C:0A13H         LINE#         242
+  C:0A15H         LINE#         243
+  C:0A18H         LINE#         244
+  C:0A21H         LINE#         247
+  C:0A24H         LINE#         248
+  C:0A27H         LINE#         249
+  C:0A2AH         LINE#         250
+  C:0A2DH         LINE#         251
+  C:0A2FH         LINE#         252
+  C:0A32H         LINE#         253
+  -------         ENDPROC       OUTPUT_TO_SHIFT_REGISTERS
+  -------         PROC          MAIN
+  -------         DO            
+  D:0072H         SYMBOL        rx_byte
+  -------         ENDDO         
+  C:0B1DH         LINE#         258
+  C:0B1DH         LINE#         259
+  C:0B1DH         LINE#         264
+  C:0B20H         LINE#         268
+  C:0B23H         LINE#         269
+  C:0B26H         LINE#         270
+  C:0B29H         LINE#         271
+  C:0B2CH         LINE#         274
+  C:0B37H         LINE#         277
+BL51 BANKED LINKER/LOCATER V6.22.4.0                                                  03/16/2026  15:41:44  PAGE 11
+
+
+  C:0B3AH         LINE#         280
+  C:0B3AH         LINE#         281
+  C:0B3AH         LINE#         283
+  C:0B40H         LINE#         284
+  C:0B40H         LINE#         285
+  C:0B49H         LINE#         286
+  C:0B50H         LINE#         287
+  C:0B55H         LINE#         288
+  C:0B55H         LINE#         291
+  C:0B58H         LINE#         292
+  C:0B58H         LINE#         293
+  C:0B5AH         LINE#         294
+  C:0B5CH         LINE#         295
+  C:0B5FH         LINE#         296
+  C:0B61H         LINE#         297
+  C:0B61H         LINE#         298
+  -------         ENDPROC       MAIN
+  -------         ENDMOD        TX_MAIN
+
+  -------         MODULE        ?C?CLDOPTR
+  C:0BD3H         PUBLIC        ?C?CLDOPTR
+  -------         ENDMOD        ?C?CLDOPTR
 
 ******************************************************************************
-* RESTRICTED VERSION WITH 0800H BYTE CODE SIZE LIMIT; USED: 014CH BYTE (16%) *
+* RESTRICTED VERSION WITH 0800H BYTE CODE SIZE LIMIT; USED: 042FH BYTE (52%) *
 ******************************************************************************
 
-Program Size: data=16.2 xdata=0 code=476
+Program Size: data=124.1 xdata=0 code=1260
 LINK/LOCATE RUN COMPLETE.  0 WARNING(S),  0 ERROR(S)

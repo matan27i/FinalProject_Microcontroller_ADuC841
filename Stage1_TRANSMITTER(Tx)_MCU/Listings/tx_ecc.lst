@@ -1,0 +1,236 @@
+C51 COMPILER V9.60.7.0   TX_ECC                                                            03/16/2026 15:41:44 PAGE 1   
+
+
+C51 COMPILER V9.60.7.0, COMPILATION OF MODULE TX_ECC
+OBJECT MODULE PLACED IN .\Objects\tx_ecc.obj
+COMPILER INVOKED BY: C:\Keil_v5\C51\BIN\C51.EXE tx_ecc.c OPTIMIZE(8,SPEED) BROWSE DEBUG OBJECTEXTEND PRINT(.\Listings\tx
+                    -_ecc.lst) TABS(2) OBJECT(.\Objects\tx_ecc.obj)
+
+line level    source
+
+   1          /* File: ecc.c
+   2           * Group 3: PESEC Error Correction
+   3           * ================================
+   4           * Target: ADuC841 (8052 single-cycle core)
+   5           *
+   6           * Contains:
+   7           *   - pesec_redundancy_reg: the 10-bit ECC redundancy vector
+   8           *   - Dynamic matrix storage (D and A) and block solver metadata
+   9           *   - Init_PESEC_Matrices(): builds D and A from block-size config
+  10           *   - Syndrome helpers and delta solver
+  11           *   - ECC(): main encode cycle — differential redundancy update + output
+  12           *
+  13           * PESEC ENCODER OVERVIEW:
+  14           *   The encoder maintains a redundancy register R such that [x | R] is
+  15           *   always a valid codeword.  When the data vector x changes, a
+  16           *   "syndrome gap" is computed and resolved into a minimal set of bit
+  17           *   flips (delta_vector) applied to R via XOR.
+  18           *
+  19           * Portability: Pure algorithmic logic.  The only external call is
+  20           *              output_to_shift_registers() from Group 1.
+  21           */
+  22          
+  23          #include "tx_header.h"
+  24          
+  25          /* =========================================================================
+  26           * STATE VARIABLE DEFINITIONS  (owned by this module)
+  27           * ========================================================================= */
+  28          
+  29          /* 10-bit redundancy register, updated differentially.
+  30           * [N2] Not volatile: only accessed from main-loop call chain. */
+  31          uint16_t pesec_redundancy_reg = 0;
+  32          
+  33          /* Dynamic matrix storage */
+  34          uint8_t PESEC_MAT_D[20];   /* Redundancy-bit columns */
+  35          uint8_t PESEC_MAT_A[40];   /* Data-bit columns       */
+  36          
+  37          /* Block solver metadata */
+  38          uint8_t pesec_num_blocks;
+  39          uint8_t pesec_bit_offsets[MAX_PESEC_BLOCKS];
+  40          uint8_t pesec_col_offsets[MAX_PESEC_BLOCKS];
+  41          uint8_t pesec_chunk_masks[MAX_PESEC_BLOCKS];
+  42          
+  43          /* Column counts */
+  44          uint8_t pesec_num_d_cols;
+  45          uint8_t pesec_num_a_cols;
+  46          
+  47          /* =========================================================================
+  48           * MATRIX INITIALISATION
+  49           * =========================================================================
+  50           * Builds matrices D (redundancy columns) and A (data columns) from an
+  51           * array of block sizes.  Also pre-computes per-block masks and offsets
+  52           * for O(1) delta solving.
+  53           *
+  54           * For config {m1, m2, ...}:
+C51 COMPILER V9.60.7.0   TX_ECC                                                            03/16/2026 15:41:44 PAGE 2   
+
+  55           *   Block b contributes (2^mb - 1) columns to D.
+  56           *   A = syndrome-space values NOT present in D.
+  57           * ========================================================================= */
+  58          void Init_PESEC_Matrices(uint8_t* m_sizes, uint8_t num_blocks)
+  59          {
+  60   1          uint8_t i, b, val;
+  61   1          uint8_t is_in_d;
+  62   1          uint8_t total_m = 0;
+  63   1          uint8_t current_col_offset = 0;
+  64   1          uint8_t max_syndrome;
+  65   1      
+  66   1          pesec_num_blocks = num_blocks;
+  67   1          pesec_num_d_cols = 0;
+  68   1          pesec_num_a_cols = 0;
+  69   1      
+  70   1          /* --- Build Matrix D and pre-calculate solver metadata --- */
+  71   1          for (b = 0; b < num_blocks; b++)
+  72   1          {
+  73   2              pesec_bit_offsets[b] = total_m;
+  74   2              pesec_col_offsets[b] = current_col_offset;
+  75   2              pesec_chunk_masks[b] = ((1 << m_sizes[b]) - 1) << total_m;
+  76   2      
+  77   2              /* Each block contributes columns 1..(2^m - 1) shifted by total_m */
+  78   2              for (i = 1; i < (1 << m_sizes[b]); i++)
+  79   2              {
+  80   3                  PESEC_MAT_D[pesec_num_d_cols++] = (i << total_m);
+  81   3              }
+  82   2      
+  83   2              total_m += m_sizes[b];
+  84   2              current_col_offset += ((1 << m_sizes[b]) - 1);
+  85   2          }
+  86   1      
+  87   1          max_syndrome = (1 << total_m) - 1;
+  88   1      
+  89   1          /* --- Build Matrix A: everything in syndrome space NOT in D --- */
+  90   1          for (val = 1; val <= max_syndrome; val++)
+  91   1          {
+  92   2              is_in_d = 0;
+  93   2      
+  94   2              for (i = 0; i < pesec_num_d_cols; i++)
+  95   2              {
+  96   3                  if (PESEC_MAT_D[i] == val)
+  97   3                  {
+  98   4                      is_in_d = 1;
+  99   4                      break;
+ 100   4                  }
+ 101   3              }
+ 102   2      
+ 103   2              if (is_in_d == 0)
+ 104   2              {
+ 105   3                  PESEC_MAT_A[pesec_num_a_cols++] = val;
+ 106   3              }
+ 107   2          }
+ 108   1      }
+ 109          
+ 110          /* =========================================================================
+ 111           * SYNDROME COMPUTATION HELPERS
+ 112           * ========================================================================= */
+ 113          
+ 114          /* Generic syndrome: XOR matrix columns selected by set bits in reg_val */
+ 115          static uint8_t calc_pesec_synd(uint16_t reg_val, uint8_t* mat_ptr, uint8_t cols)
+ 116          {
+C51 COMPILER V9.60.7.0   TX_ECC                                                            03/16/2026 15:41:44 PAGE 3   
+
+ 117   1          uint8_t synd_res = 0;
+ 118   1          uint8_t idx;
+ 119   1      
+ 120   1          for (idx = 0; idx < cols; idx++)
+ 121   1          {
+ 122   2              if ((reg_val >> idx) & 1)
+ 123   2              {
+ 124   3                  synd_res ^= mat_ptr[idx];
+ 125   3              }
+ 126   2          }
+ 127   1          return synd_res;
+ 128   1      }
+ 129          
+ 130          /* Syndrome of data bits via Matrix A */
+ 131          static uint8_t get_data_pesec_synd(uint16_t data_val)
+ 132          {
+ 133   1          return calc_pesec_synd(data_val, PESEC_MAT_A, pesec_num_a_cols);
+ 134   1      }
+ 135          
+ 136          /* Syndrome of redundancy bits via Matrix D */
+ 137          static uint8_t get_red_pesec_synd(uint16_t red_val)
+ 138          {
+ 139   1          return calc_pesec_synd(red_val, PESEC_MAT_D, pesec_num_d_cols);
+ 140   1      }
+ 141          
+ 142          /* =========================================================================
+ 143           * DELTA SOLVER
+ 144           * =========================================================================
+ 145           * Converts a syndrome gap into the minimal set of redundancy-bit flips.
+ 146           * Iterates through each H1-type sub-block, extracts its chunk of the
+ 147           * syndrome gap, and maps it to a single bit position in the redundancy
+ 148           * register.  O(num_blocks) — effectively O(1) for small block counts.
+ 149           * ========================================================================= */
+ 150          static uint16_t solve_pesec_delta(uint8_t synd_gap)
+ 151          {
+ 152   1          uint16_t delta_vec = 0;
+ 153   1          uint8_t  b, chunk, val;
+ 154   1      
+ 155   1          for (b = 0; b < pesec_num_blocks; b++)
+ 156   1          {
+ 157   2              chunk = synd_gap & pesec_chunk_masks[b];
+ 158   2      
+ 159   2              if (chunk != 0)
+ 160   2              {
+ 161   3                  val = chunk >> pesec_bit_offsets[b];
+ 162   3                  delta_vec |= (1 << (pesec_col_offsets[b] + val - 1));
+ 163   3              }
+ 164   2          }
+ 165   1      
+ 166   1          return delta_vec;
+ 167   1      }
+ 168          
+ 169          /* =========================================================================
+ 170           * MAIN ECC FUNCTION
+ 171           * =========================================================================
+ 172           * Called after each nibble encoding cycle in process_nibble().
+ 173           *
+ 174           * Steps:
+ 175           *   1. Compute syndrome of data bits (Matrix A × current_bus_state)
+ 176           *   2. Compute syndrome of redundancy bits (Matrix D × pesec_redundancy_reg)
+ 177           *   3. XOR to find the syndrome gap
+ 178           *   4. Solve for the optimal redundancy-bit flip vector
+C51 COMPILER V9.60.7.0   TX_ECC                                                            03/16/2026 15:41:44 PAGE 4   
+
+ 179           *   5. Apply the differential update to pesec_redundancy_reg
+ 180           *   6. Output all 25 bits to shift registers
+ 181           * ========================================================================= */
+ 182          void ECC(void)
+ 183          {
+ 184   1          uint8_t  synd_data;
+ 185   1          uint8_t  synd_red;
+ 186   1          uint8_t  synd_diff;
+ 187   1          uint16_t delta_vector;
+ 188   1      
+ 189   1          /* Step 1: Syndrome of the new data */
+ 190   1          synd_data = get_data_pesec_synd(current_bus_state);
+ 191   1      
+ 192   1          /* Step 2: Syndrome of the current redundancy */
+ 193   1          synd_red = get_red_pesec_synd(pesec_redundancy_reg);
+ 194   1      
+ 195   1          /* Step 3: Syndrome gap */
+ 196   1          synd_diff = synd_data ^ synd_red;
+ 197   1      
+ 198   1          /* Step 4: Solve for minimal redundancy flip */
+ 199   1          delta_vector = solve_pesec_delta(synd_diff);
+ 200   1      
+ 201   1          /* Step 5: Apply differential update */
+ 202   1          pesec_redundancy_reg ^= delta_vector;
+ 203   1      
+ 204   1          /* Step 6: Output 25 bits to daisy-chained shift registers */
+ 205   1          output_to_shift_registers();
+ 206   1      }
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =    481    ----
+   CONSTANT SIZE    =   ----    ----
+   XDATA SIZE       =   ----    ----
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =     80      15
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)

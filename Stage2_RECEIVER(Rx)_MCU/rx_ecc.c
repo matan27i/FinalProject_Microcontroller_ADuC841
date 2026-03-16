@@ -23,28 +23,33 @@
    MODULE STATE VARIABLES
    ========================================================================= */
 
-/* --- PESEC matrices (built at startup, read-only thereafter) --- */
-uint8_t PESEC_MAT_D[20];       /* Redundancy-bit columns         */
-uint8_t PESEC_MAT_A[40];       /* Data-bit columns               */
+/* --- PESEC matrices (built at startup, read-only thereafter) ---
+   [MEM] Placed in XDATA to free DATA space.  These are only accessed
+   from the main-loop call chain, never from ISRs, so the extra
+   MOVX cycle is acceptable.  Saves 60 bytes of DATA. */
+uint8_t xdata PESEC_MAT_D[20];       /* Redundancy-bit columns         */
+uint8_t xdata PESEC_MAT_A[40];       /* Data-bit columns               */
 
-/* --- Block solver metadata --- */
-uint8_t pesec_num_blocks;
-uint8_t pesec_bit_offsets[MAX_PESEC_BLOCKS];
-uint8_t pesec_col_offsets[MAX_PESEC_BLOCKS];
-uint8_t pesec_chunk_masks[MAX_PESEC_BLOCKS];
+/* --- Block solver metadata ---
+   [MEM] XDATA: 16 bytes saved.  Main-loop only. */
+uint8_t xdata pesec_num_blocks;
+uint8_t xdata pesec_bit_offsets[MAX_PESEC_BLOCKS];
+uint8_t xdata pesec_col_offsets[MAX_PESEC_BLOCKS];
+uint8_t xdata pesec_chunk_masks[MAX_PESEC_BLOCKS];
 
 /* --- Column counts --- */
-uint8_t pesec_num_d_cols;
-uint8_t pesec_num_a_cols;
+uint8_t xdata pesec_num_d_cols;
+uint8_t xdata pesec_num_a_cols;
 
 /* --- H1 differential state ---
-   [N1] volatile removed: no ISRs access these; main-loop only. */
-uint16_t rx_previous_bus_state = 0;
-uint16_t rx_errors_corrected   = 0;
-uint16_t rx_errors_detected    = 0;
+   [N1] volatile removed: no ISRs access these; main-loop only.
+   [MEM] XDATA: 8 bytes saved. */
+uint16_t xdata rx_previous_bus_state = 0;
+uint16_t xdata rx_errors_corrected   = 0;
+uint16_t xdata rx_errors_detected    = 0;
 
 /* --- PESEC correction statistics --- */
-uint16_t rx_pesec_corrections  = 0;
+uint16_t xdata rx_pesec_corrections  = 0;
 
 
 /* =========================================================================

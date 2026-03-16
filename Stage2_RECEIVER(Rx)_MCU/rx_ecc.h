@@ -45,16 +45,16 @@
      Only the first 15 columns correspond to physical data bits;
      columns A[15]..A[20] map to virtual bit positions that are always 0.
    ========================================================================= */
-extern uint8_t PESEC_MAT_D[20];     /* Redundancy-bit columns (max 20)  */
-extern uint8_t PESEC_MAT_A[40];     /* Data-bit columns (max 40)        */
+extern uint8_t xdata PESEC_MAT_D[20];     /* Redundancy-bit columns (max 20)  */
+extern uint8_t xdata PESEC_MAT_A[40];     /* Data-bit columns (max 40)        */
 
-extern uint8_t pesec_num_blocks;                        /* Active block count        */
-extern uint8_t pesec_bit_offsets[MAX_PESEC_BLOCKS];     /* Syndrome bit offset/block */
-extern uint8_t pesec_col_offsets[MAX_PESEC_BLOCKS];     /* Column offset in D/block  */
-extern uint8_t pesec_chunk_masks[MAX_PESEC_BLOCKS];     /* Syndrome chunk mask/block */
+extern uint8_t xdata pesec_num_blocks;                        /* Active block count        */
+extern uint8_t xdata pesec_bit_offsets[MAX_PESEC_BLOCKS];     /* Syndrome bit offset/block */
+extern uint8_t xdata pesec_col_offsets[MAX_PESEC_BLOCKS];     /* Column offset in D/block  */
+extern uint8_t xdata pesec_chunk_masks[MAX_PESEC_BLOCKS];     /* Syndrome chunk mask/block */
 
-extern uint8_t pesec_num_d_cols;    /* Number of columns in Matrix D */
-extern uint8_t pesec_num_a_cols;    /* Number of columns in Matrix A */
+extern uint8_t xdata pesec_num_d_cols;    /* Number of columns in Matrix D */
+extern uint8_t xdata pesec_num_a_cols;    /* Number of columns in Matrix A */
 
 /* =========================================================================
    H1 DIFFERENTIAL STATE
@@ -62,17 +62,18 @@ extern uint8_t pesec_num_a_cols;    /* Number of columns in Matrix A */
 
 /* Last accepted (error-corrected) 15-bit bus state.
    Initialised to 0 to match the TX encoder's starting state.
-   [N1] volatile removed: no ISRs access these; main-loop only. */
-extern uint16_t rx_previous_bus_state;
+   [N1] volatile removed: no ISRs access these; main-loop only.
+   [MEM] XDATA: saves 8 bytes of DATA. */
+extern uint16_t xdata rx_previous_bus_state;
 
 /* Running count of single-bit corrections applied by the H1 layer. */
-extern uint16_t rx_errors_corrected;
+extern uint16_t xdata rx_errors_corrected;
 
 /* Placeholder for future multi-bit error accounting. */
-extern uint16_t rx_errors_detected;
+extern uint16_t xdata rx_errors_detected;
 
 /* Running count of PESEC corrections applied. */
-extern uint16_t rx_pesec_corrections;
+extern uint16_t xdata rx_pesec_corrections;
 
 /* =========================================================================
    PESEC INITIALISATION

@@ -168,16 +168,16 @@
         </DebugOption>
         <Utilities>
           <Flash1>
-            <UseTargetDll>1</UseTargetDll>
+            <UseTargetDll>0</UseTargetDll>
             <UseExternalTool>0</UseExternalTool>
             <RunIndependent>0</RunIndependent>
             <UpdateFlashBeforeDebugging>0</UpdateFlashBeforeDebugging>
-            <Capability>1</Capability>
-            <DriverSelection>4099</DriverSelection>
+            <Capability>0</Capability>
+            <DriverSelection>-1</DriverSelection>
           </Flash1>
           <bUseTDR>0</bUseTDR>
-          <Flash2>BIN\MONADI.DLL</Flash2>
-          <Flash3>"" ()</Flash3>
+          <Flash2></Flash2>
+          <Flash3></Flash3>
           <Flash4></Flash4>
           <pFcarmOut></pFcarmOut>
           <pFcarmGrp></pFcarmGrp>
@@ -233,7 +233,7 @@
               <RCB>
                 <Type>0</Type>
                 <StartAddress>0x0</StartAddress>
-                <Size>0xffff</Size>
+                <Size>0x0</Size>
               </RCB>
               <RXB>
                 <Type>0</Type>
@@ -377,34 +377,39 @@
           <GroupName>Source Group 1</GroupName>
           <Files>
             <File>
-              <FileName>bus_encoder.c</FileName>
+              <FileName>tx_ecc.c</FileName>
               <FileType>1</FileType>
-              <FilePath>.\bus_encoder.c</FilePath>
+              <FilePath>.\tx_ecc.c</FilePath>
             </File>
             <File>
-              <FileName>main.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>.\main.c</FilePath>
-            </File>
-            <File>
-              <FileName>peripherals.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>.\peripherals.c</FilePath>
-            </File>
-            <File>
-              <FileName>shift_output.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>.\shift_output.c</FilePath>
-            </File>
-            <File>
-              <FileName>tx_handler.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>.\tx_handler.c</FilePath>
-            </File>
-            <File>
-              <FileName>header.h</FileName>
+              <FileName>tx_ecc.h</FileName>
               <FileType>5</FileType>
-              <FilePath>.\header.h</FilePath>
+              <FilePath>.\tx_ecc.h</FilePath>
+            </File>
+            <File>
+              <FileName>tx_encoder.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\tx_encoder.c</FilePath>
+            </File>
+            <File>
+              <FileName>tx_encoder.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>.\tx_encoder.h</FilePath>
+            </File>
+            <File>
+              <FileName>tx_header.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>.\tx_header.h</FilePath>
+            </File>
+            <File>
+              <FileName>tx_main.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\tx_main.c</FilePath>
+            </File>
+            <File>
+              <FileName>tx_main.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>.\tx_main.h</FilePath>
             </File>
           </Files>
         </Group>

@@ -58,12 +58,13 @@ typedef enum
      Incremented by rx_main.c each time rx_process_bus_state() is called.
    ---------------------------------------------------------------------------
 */
-/* [N1] volatile removed: no ISRs access these; main-loop only. */
-extern rx_state_t rx_current_state;
-extern uint8_t    rx_stored_high_nibble;
-extern uint8_t    rx_byte_ready;
-extern uint16_t   rx_bytes_decoded;
-extern uint16_t   rx_states_processed;
+/* [N1] volatile removed: no ISRs access these; main-loop only.
+   [MEM] XDATA: saves 7 bytes of DATA. */
+extern rx_state_t xdata rx_current_state;
+extern uint8_t    xdata rx_stored_high_nibble;
+extern uint8_t    xdata rx_byte_ready;
+extern uint16_t   xdata rx_bytes_decoded;
+extern uint16_t   xdata rx_states_processed;
 
 /* ---------------------------------------------------------------------------
    rx_compute_syndrome

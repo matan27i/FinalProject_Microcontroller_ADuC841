@@ -1,7 +1,6 @@
-".\Objects\main.obj",
-".\Objects\peripherals.obj",
-".\Objects\rx_input.obj",
 ".\Objects\rx_decoder.obj",
-".\Objects\rx_output.obj" 
+".\Objects\rx_ecc.obj",
+".\Objects\rx_hw.obj",
+".\Objects\rx_main.obj" 
 TO ".\Objects\Receiver(Rx)" 
 PRINT(".\Listings\Receiver(Rx).m51") RAMSIZE(256) 

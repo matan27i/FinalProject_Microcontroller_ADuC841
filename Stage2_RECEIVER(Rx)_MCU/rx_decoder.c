@@ -24,22 +24,23 @@
 */
 
 /* [N1] volatile removed: no ISRs access these variables.
-   All access is from the main-loop call chain only. */
+   All access is from the main-loop call chain only.
+   [MEM] Placed in XDATA to free DATA space (7 bytes saved). */
 
 /* Current position in the nibble-reassembly FSM. */
-rx_state_t rx_current_state    = RX_STATE_WAIT_HIGH;
+rx_state_t xdata rx_current_state    = RX_STATE_WAIT_HIGH;
 
 /* High nibble stored between the WAIT_HIGH and WAIT_LOW calls. */
-uint8_t    rx_stored_high_nibble = 0;
+uint8_t    xdata rx_stored_high_nibble = 0;
 
 /* Pulsed to 1 each time a complete byte is dispatched via UART. */
-uint8_t    rx_byte_ready       = 0;
+uint8_t    xdata rx_byte_ready       = 0;
 
 /* Cumulative bytes successfully decoded and transmitted. */
-uint16_t   rx_bytes_decoded    = 0;
+uint16_t   xdata rx_bytes_decoded    = 0;
 
 /* Cumulative bus states processed (incremented by rx_main.c). */
-uint16_t   rx_states_processed = 0;
+uint16_t   xdata rx_states_processed = 0;
 
 
 /* ---------------------------------------------------------------------------

@@ -1,26 +1,32 @@
 /* =============================================================================
    File: rx_main.c
-   Module: Group 1 -- Main entry point and pipeline loop
+   Module: Group 1 -- Main entry point and pipeline loop (SPI Slave version)
+
+   MODIFICATION SUMMARY:
+     The original design polled a DATA_READY GPIO (P3.2) for rising edges
+     and called rx_read_full_bus() to capture 25 parallel bits.  This
+     version replaces that input mechanism with SPI slave reception:
+
+       Old path:  DATA_READY edge -> rx_read_full_bus() -> pipeline
+       New path:  SPI ISR fills rx_spi_data/rx_spi_red -> pipeline
+
+     The five-stage decode pipeline (A through E) is preserved exactly.
+     Stages B-E are completely unchanged.  Stage A is replaced by the
+     SPI ISR in rx_hw.c; the main loop simply checks rx_spi_frame_ready.
 
    Responsibilities:
-     - Hardware startup sequence.
+     - Hardware startup sequence (clock, XRAM, UART, SPI slave).
      - PESEC matrix initialisation (must match TX config).
-     - Rising-edge detection on DATA_READY.
-     - Sequencing the full decode pipeline per bus state:
-         Stage A: rx_read_full_bus()         (hw module -- read 25 bits)
-         Stage B: rx_is_bus_reset()          (decoder module -- reset detect)
-         Stage C: rx_pesec_correct()         (ecc module -- 25-bit PESEC)
-         Stage D: rx_correct_bus_state()     (ecc module -- H1 differential)
-         Stage E: rx_process_bus_state()     (decoder module -- nibble FSM)
+     - Checking the SPI frame-ready flag each iteration.
+     - Sequencing the full decode pipeline per received frame:
+         (Stage A: handled by SPI ISR -- see rx_hw.c)
+         Stage B: rx_is_bus_reset()        (decoder -- reset detect)
+         Stage C: rx_pesec_correct()       (ecc -- 25-bit PESEC)
+         Stage D: rx_correct_bus_state()   (ecc -- H1 differential)
+         Stage E: rx_process_bus_state()   (decoder -- nibble FSM)
 
    This file owns no domain logic.  It is intentionally thin so that
    the three functional modules can be tested independently.
-
-   RESET SYNCHRONISATION:
-     When the TX receives '=', it zeros all 25 output bits via a hardware
-     clear of the shift registers.  The RX detects this all-zero condition
-     and resets its internal state to match, preventing decode corruption
-     from the discontinuous bus transition.
    =============================================================================
 */
 
@@ -38,46 +44,27 @@
 */
 static uint8_t pesec_config[] = {3, 2};
 
-/* ---------------------------------------------------------------------------
-   rx_prev_data_ready
-   ---------------------------------------------------------------------------
-   Local edge-detection latch for the DATA_READY polling loop.
-   Using uint8_t for portability (avoids C51-specific 'bit' type).
-   ---------------------------------------------------------------------------
-*/
-static uint8_t rx_prev_data_ready = 0;
-
 
 /* ---------------------------------------------------------------------------
    rx_perform_full_reset
    ---------------------------------------------------------------------------
-   Resets all receiver state to match the TX post-reset condition:
-     - H1 differential baseline to zero.
-     - PESEC correction counters cleared (optional, for clean stats).
-     - Nibble FSM back to WAIT_HIGH.
+   Resets all receiver state to match the TX post-reset condition.
+   Called when an all-zero 25-bit word is detected, indicating the TX
+   has executed its '=' reset command.
 
-   Called when an all-zero 25-bit word is detected on the bus, indicating
-   the TX has executed its '=' reset command.
-
-   IMPORTANT: This must bring the RX into exact synchronisation with the
-   TX, which after reset has:
+   After TX reset:
      current_bus_state    = 0
      pesec_redundancy_reg = 0
    ---------------------------------------------------------------------------
 */
 static void rx_perform_full_reset(void)
 {
-    /* Reset H1 differential baseline to match TX post-reset state. */
     rx_previous_bus_state = 0;
 
-    /* Reset ECC statistics (optional; aids debugging). */
     rx_errors_corrected  = 0;
     rx_errors_detected   = 0;
     rx_pesec_corrections = 0;
 
-    /* Reset the nibble-reassembly FSM.
-       Any partially-received nibble is discarded, which is correct:
-       after TX reset the nibble sequence restarts from scratch. */
     rx_reset_state_machine();
 }
 
@@ -91,13 +78,11 @@ void main(void)
     uint16_t raw_data;
     uint16_t raw_red;
     uint16_t corrected_data;
-    uint8_t  curr_data_ready;
 
     /* ------------------------------------------------------------------
        [C1] Set core clock to full crystal speed FIRST.
        PLLCON default = 0x53 -> CD=3 -> fCORE = 11.0592/8 = 1.38 MHz.
-       Timer 3 baud config requires fCORE = 11.0592 MHz (CD=0).
-       At CD=3 the UART runs at 1200 baud instead of 9600.
+       Timer 3 baud config and SPI slave timing require full speed.
        On ADuC841, reserved bits must be written as 0 (datasheet p. 49).
        ------------------------------------------------------------------
     */
@@ -109,13 +94,13 @@ void main(void)
     CFG841 |= 0x01;  /* XRAMEN = 1 */
 
     /* ------------------------------------------------------------------
-       [M1] Hardware initialisation -- peripherals BEFORE interrupts.
-       Order: Timer 3 (baud clock) -> UART -> Ports.
+       Hardware initialisation -- peripherals BEFORE interrupts.
+       Order: Timer 3 (baud clock) -> UART -> SPI Slave + INT0.
        ------------------------------------------------------------------
     */
     RX_Timer3_Init();
     RX_UART_Init();
-    RX_Port_Init();
+    RX_SPI_Slave_Init();
 
     /* ------------------------------------------------------------------
        PESEC matrix initialisation.
@@ -126,8 +111,7 @@ void main(void)
 
     /* ------------------------------------------------------------------
        Decoder and error-correction module reset.
-       All baselines start at 0 to match the TX encoder's initial state
-       before any nibble has been transmitted.
+       All baselines start at 0 to match the TX encoder's initial state.
        ------------------------------------------------------------------
     */
     rx_reset_state_machine();
@@ -137,47 +121,58 @@ void main(void)
     rx_pesec_corrections  = 0;
 
     /* ------------------------------------------------------------------
+       Enable global interrupts LAST, after all peripherals are ready.
+       This enables: INT0 (frame sync) and SPI interrupt (vector 6).
+       ------------------------------------------------------------------
+    */
+    EA = 1;
+
+    /* ------------------------------------------------------------------
        Main pipeline loop
+       ------------------------------------------------------------------
+       The loop structure is deliberately simple:
+         1. Pump the UART TX buffer (non-blocking).
+         2. Check if the SPI ISR has delivered a new 25-bit frame.
+         3. If yes, run the decode pipeline (stages B through E).
+
+       The SPI ISR handles all timing-critical reception.  The main loop
+       only needs to process frames faster than they arrive, which is
+       easily satisfied: the TX produces one frame every ~280 us, and
+       the decode pipeline (syndrome + delta solve + nibble FSM) takes
+       well under 100 us on the 8051 at 11 MHz.
        ------------------------------------------------------------------
     */
     while (1)
     {
-        /* [M2] Pump the non-blocking UART TX buffer each iteration.
-           This ensures bytes are sent without blocking the loop. */
+        /* Pump the non-blocking UART TX buffer each iteration. */
         rx_uart_pump();
 
-        curr_data_ready = (uint8_t)DATA_READY;
-
-        if (curr_data_ready && !rx_prev_data_ready)
+        /* Check for a new SPI frame. */
+        if (rx_spi_frame_ready)
         {
-            /* --- Rising edge detected: new 25-bit word available. --- */
-
-            /* Stage A: Read the full 25-bit word. */
-            rx_read_full_bus(&raw_data, &raw_red);
+            /* --- Consume the SPI frame --- */
+            /* Disable interrupts briefly to take an atomic snapshot
+               of the two 16-bit staging registers, then clear the flag.
+               This prevents a new ISR write from corrupting the read. */
+            EA = 0;
+            raw_data = rx_spi_data;
+            raw_red  = rx_spi_red;
+            rx_spi_frame_ready = 0;
+            EA = 1;
 
             /* Stage B: TX reset detection.
-               When the TX receives '=', it clears all shift register
-               outputs to zero.  This all-zero word is not a valid
-               data encoding, so it uniquely signals a reset. */
+               All-zero 25-bit word means the TX executed '='. */
             if (rx_is_bus_reset(raw_data, raw_red))
             {
                 rx_perform_full_reset();
-
-                /* Do NOT process this sample through the decode pipeline.
-                   The next valid DATA_READY edge will carry real data
-                   starting from the TX's fresh zero-state. */
-                rx_prev_data_ready = curr_data_ready;
                 continue;
             }
 
             /* Stage C: PESEC error correction (25-bit codeword).
-               raw_data and raw_red are corrected IN PLACE.
-               On uncorrectable error, we proceed best-effort;
-               the H1 layer may catch the residual corruption. */
+               raw_data and raw_red are corrected IN PLACE. */
             rx_pesec_correct(&raw_data, &raw_red);
 
-            /* Stage D: H1 differential validation (15-bit data).
-               Verifies the transition weight and updates the baseline. */
+            /* Stage D: H1 differential validation (15-bit data). */
             corrected_data = rx_correct_bus_state(raw_data);
 
             /* Stage E: Nibble extraction and byte reassembly. */
@@ -185,7 +180,5 @@ void main(void)
 
             rx_states_processed++;
         }
-
-        rx_prev_data_ready = curr_data_ready;
     }
 }
