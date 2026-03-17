@@ -1,4 +1,4 @@
-C51 COMPILER V9.60.7.0   TX_MAIN                                                           03/16/2026 15:41:44 PAGE 1   
+C51 COMPILER V9.60.7.0   TX_MAIN                                                           03/17/2026 14:35:08 PAGE 1   
 
 
 C51 COMPILER V9.60.7.0, COMPILATION OF MODULE TX_MAIN
@@ -17,310 +17,282 @@ line level    source
    7           *   - State variables for UART reception and Timer2 hardware
    8           *   - All peripheral initialisation (Timers, UART, Ports)
    9           *   - Interrupt Service Routines (UART, Timer2)
-  10           *   - Shift-register output driver (25-bit: 15 data + 10 ECC)
+  10           *   - Shift-register output driver (26-bit: 1 parity + 10 ECC + 15 data)
   11           *   - Main entry point and event loop
   12           *
-  13           * Portability: To retarget to another MCU, replace the register-level
-  14           *              code in this file and update the pin definitions in header.h.
-  15           *              Groups 2 and 3 are hardware-independent.
-  16           *
-  17           * FIX LOG:
-  18           *   [C1] Added PLLCON write (CD=0) so core runs at full 11.0592 MHz.
-  19           *        Replaced Timer 3 baud-rate generator with Timer 1 Mode 2
-  20           *        (Timer 3 cannot produce 9600 baud at 11.0592 MHz).
-  21           *   [M1] Moved GlobalINT() to end of init sequence.
-  22           *   [M2] Corrected Timer 2 reload from 0xD4CD to T2_RELOAD constants
-  23           *        (0xFF84 = 124 counts = ~11.2 us at 11.0592 MHz).
-  24           *   [M4] Replaced single-byte UART capture with ring buffer to prevent
-  25           *        data loss during shift-register output.
-  26           *   [N1] Removed redundant EA=1 from Init_Timer2().
-  27           *   [N3] Replaced hardcoded 0xD4/0xCD with T2_RELOAD_H/L constants.
-  28           */
-  29          
-  30          #include "tx_header.h"
-  31          
-  32          /* =========================================================================
-  33           * STATE VARIABLE DEFINITIONS  (owned by this module)
-  34           * ========================================================================= */
-  35          
-  36          /* UART / main-loop flags */
-  37          volatile bit    buffer_flag  = 0;   /* Batch terminator received             */
-  38          volatile uint8_t buffer_count = 0;  /* Nibbles processed in current batch    */
+  13           * FIX LOG:
+  14           *   [C1] Added PLLCON write (CD=0) so core runs at full 11.0592 MHz.
+  15           *   [M1] Moved GlobalINT() to end of init sequence.
+  16           *   [M2] Corrected Timer 2 reload to T2_RELOAD constants.
+  17           *   [M4] Replaced single-byte UART capture with ring buffer.
+  18           *   [N1] Removed redundant EA=1 from Init_Timer2().
+  19           *   [N3] Replaced hardcoded reload values with T2_RELOAD_H/L constants.
+  20           *   [W4] output_to_shift_registers() now shifts 26 bits: the overall
+  21           *        parity bit (from tx_ecc.c) is shifted out first, followed by
+  22           *        the 10 ECC redundancy bits and 15 data bits.
+  23           */
+  24          
+  25          #include "tx_header.h"
+  26          
+  27          /* =========================================================================
+  28           * STATE VARIABLE DEFINITIONS  (owned by this module)
+  29           * ========================================================================= */
+  30          
+  31          /* UART / main-loop flags */
+  32          volatile bit    buffer_flag  = 0;
+  33          volatile uint8_t buffer_count = 0;
+  34          
+  35          /* [M4] UART receive ring buffer */
+  36          volatile uint8_t rx_buf[RX_BUF_SIZE];
+  37          volatile uint8_t rx_head = 0;
+  38          volatile uint8_t rx_tail = 0;
   39          
-  40          /* [M4] UART receive ring buffer — replaces single-byte tx_temp_byte/tx_flag */
-  41          volatile uint8_t rx_buf[RX_BUF_SIZE];
-  42          volatile uint8_t rx_head = 0;       /* Next write position (ISR)             */
-  43          volatile uint8_t rx_tail = 0;       /* Next read position (main loop)        */
-  44          
-  45          /* Timer 2 shift-register driver state */
-  46          volatile uint8_t counter_t2   = 0;  /* Edge counter for ISR                  */
-  47          volatile uint8_t flag_t2_mod  = 0;  /* ISR mode: 0=clock, 1=clear, 2=latch  */
-  48          
-  49          /* PESEC block configuration (passed to ECC init at startup) */
-  50          static uint8_t pesec_config[] = {3, 2};
-  51          
-  52          /* =========================================================================
-  53           * HARDWARE INITIALISATION
-  54           * ========================================================================= */
-C51 COMPILER V9.60.7.0   TX_MAIN                                                           03/16/2026 15:41:44 PAGE 2   
+  40          /* Timer 2 shift-register driver state */
+  41          volatile uint8_t counter_t2   = 0;
+  42          volatile uint8_t flag_t2_mod  = 0;
+  43          
+  44          /* PESEC block configuration (passed to ECC init at startup) */
+  45          static uint8_t pesec_config[] = {3, 2};
+  46          
+  47          /* =========================================================================
+  48           * HARDWARE INITIALISATION
+  49           * ========================================================================= */
+  50          
+  51          void Port_Init(void)
+  52          {
+  53   1          SR_CLK   = 0;
+  54   1          SR_LATCH = 1;
+C51 COMPILER V9.60.7.0   TX_MAIN                                                           03/17/2026 14:35:08 PAGE 2   
 
-  55          
-  56          /* Port_Init — Set shift-register control pins to safe idle state */
-  57          void Port_Init(void)
-  58          {
-  59   1          SR_CLK   = 0;  /* Clock idle low   */
-  60   1          SR_LATCH = 1;  /* Latch idle high  */
-  61   1          SR_CLR   = 1;  /* Clear deasserted */
-  62   1      }
-  63          
-  64          /* Init_Timer2 — Configure Timer 2 for shift-register clock generation.
-  65           * [M2] Reload value 0xFF84 gives 124 counts = ~11.2 us at 11.0592 MHz.
-  66           * [N1] EA is NOT set here; GlobalINT() handles it after all inits.
-  67           * Timer is NOT started here; individual output routines start it. */
-  68          void Init_Timer2(void)
+  55   1          SR_CLR   = 1;
+  56   1      }
+  57          
+  58          void Init_Timer2(void)
+  59          {
+  60   1          T2CON  = 0x00;
+  61   1          RCAP2H = T2_RELOAD_H;
+  62   1          RCAP2L = T2_RELOAD_L;
+  63   1          ET2    = 1;
+  64   1          TR2    = 0;
+  65   1      }
+  66          
+  67          /* [C1] Timer 1 Mode 2 (8-bit autoreload) for 9600 baud. */
+  68          void BaudRate_Init(void)
   69          {
-  70   1          T2CON  = 0x00;
-  71   1          RCAP2H = T2_RELOAD_H;
-  72   1          RCAP2L = T2_RELOAD_L;
-  73   1          ET2    = 1;     /* Enable Timer 2 interrupt */
-  74   1          TR2    = 0;     /* Stopped until needed     */
+  70   1          TMOD &= 0x0F;
+  71   1          TMOD |= 0x20;
+  72   1          TH1   = 0xDC;
+  73   1          TL1   = 0xDC;
+  74   1          TR1   = 1;
   75   1      }
   76          
-  77          /* [C1] BaudRate_Init — Timer 1 Mode 2 (8-bit autoreload) for 9600 baud.
-  78           * At fCORE = 11.0592 MHz, SMOD = 0:
-  79           *   Baud = fCORE / (32 * (256 - TH1)) = 11059200 / (32 * 36) = 9600
-  80           *   TH1  = 256 - 36 = 220 = 0xDC
-  81           *
-  82           * Replaces Timer3_Init which cannot produce 9600 baud at this clock. */
-  83          void BaudRate_Init(void)
-  84          {
-  85   1          TMOD &= 0x0F;      /* Clear Timer 1 mode bits, preserve Timer 0 */
-  86   1          TMOD |= 0x20;      /* Timer 1: Mode 2 (8-bit autoreload) */
-  87   1          TH1   = 0xDC;      /* Reload value for 9600 baud */
-  88   1          TL1   = 0xDC;
-  89   1          TR1   = 1;          /* Start Timer 1 */
+  77          void UART_Init(void)
+  78          {
+  79   1          SM0 = 0;
+  80   1          SM1 = 1;
+  81   1          REN = 1;
+  82   1          RI  = 0;
+  83   1          TI  = 0;
+  84   1          ES  = 1;
+  85   1      }
+  86          
+  87          void GlobalINT(void)
+  88          {
+  89   1          EA = 1;
   90   1      }
   91          
-  92          /* UART_Init — 8N1, variable baud rate (set by Timer 1) */
-  93          void UART_Init(void)
-  94          {
-  95   1          SM0 = 0;  /* Mode 1: 8-bit UART      */
-  96   1          SM1 = 1;  /* Variable baud rate      */
-  97   1          REN = 1;  /* Enable receiver         */
-  98   1          RI  = 0;  /* Clear receive flag      */
-  99   1          TI  = 0;  /* Clear transmit flag     */
- 100   1          ES  = 1;  /* Enable serial interrupt */
- 101   1      }
- 102          
- 103          /* GlobalINT — Master interrupt enable */
- 104          void GlobalINT(void)
- 105          {
- 106   1          EA = 1;
- 107   1      }
- 108          
- 109          /* =========================================================================
- 110           * INTERRUPT SERVICE ROUTINES
- 111           * ========================================================================= */
- 112          
- 113          /* [M4] UART ISR — Store received byte into ring buffer.
- 114           * Drops the byte silently if buffer is full. */
- 115          void UART_ISR(void) interrupt 4
- 116          {
-C51 COMPILER V9.60.7.0   TX_MAIN                                                           03/16/2026 15:41:44 PAGE 3   
+  92          /* =========================================================================
+  93           * INTERRUPT SERVICE ROUTINES
+  94           * ========================================================================= */
+  95          
+  96          void UART_ISR(void) interrupt 4
+  97          {
+  98   1          if (RI)
+  99   1          {
+ 100   2              uint8_t next_head;
+ 101   2              RI = 0;
+ 102   2      
+ 103   2              next_head = (rx_head + 1) % RX_BUF_SIZE;
+ 104   2              if (next_head != rx_tail)
+ 105   2              {
+ 106   3                  rx_buf[rx_head] = SBUF;
+ 107   3                  rx_head = next_head;
+ 108   3              }
+ 109   2          }
+ 110   1          if (TI)
+ 111   1          {
+ 112   2              TI = 0;
+ 113   2          }
+ 114   1      }
+ 115          
+ 116          void Timer2_ISR(void) interrupt 5
+C51 COMPILER V9.60.7.0   TX_MAIN                                                           03/17/2026 14:35:08 PAGE 3   
 
- 117   1          if (RI)
- 118   1          {
- 119   2              uint8_t next_head;
- 120   2              RI = 0;
- 121   2      
- 122   2              next_head = (rx_head + 1) % RX_BUF_SIZE;
- 123   2              if (next_head != rx_tail)
- 124   2              {
- 125   3                  rx_buf[rx_head] = SBUF;
- 126   3                  rx_head = next_head;
- 127   3              }
- 128   2              /* else: buffer full, byte is dropped */
- 129   2          }
- 130   1          if (TI)
- 131   1          {
- 132   2              TI = 0;
- 133   2          }
- 134   1      }
- 135          
- 136          /* Timer2 ISR (vector 5) — Drives shift-register clock/latch/clear sequences.
- 137           *
- 138           * Mode 0 (flag_t2_mod == 0): Toggle SR_CLK twice  -> one full clock cycle
- 139           *                             (shifts one bit into 74HC595).
- 140           * Mode 1 (flag_t2_mod == 1): Assert SR_CLR low + SR_LATCH low, toggle CLK
- 141           *                             4 times, then restore -> hardware reset.
- 142           * Mode 2 (flag_t2_mod == 2): Toggle SR_LATCH twice -> one latch pulse
- 143           *                             (transfers shift reg -> output reg).
- 144           */
- 145          void Timer2_ISR(void) interrupt 5
- 146          {
- 147   1          TF2 = 0;  /* Clear overflow flag (required for Timer 2) */
- 148   1      
- 149   1          if (flag_t2_mod == 0)
- 150   1          {
- 151   2              /* --- Mode 0: Clock one bit --- */
- 152   2              if (counter_t2 < 2)
- 153   2              {
- 154   3                  SR_CLK = !SR_CLK;
- 155   3                  counter_t2++;
- 156   3              }
- 157   2              else
- 158   2              {
- 159   3                  TR2    = 0;
- 160   3                  SR_CLK = 0;   /* Ensure idle-low */
- 161   3              }
- 162   2          }
- 163   1          else if (flag_t2_mod == 1)
- 164   1          {
- 165   2              /* --- Mode 1: Hardware clear sequence --- */
- 166   2              if (counter_t2 < 4)
- 167   2              {
- 168   3                  SR_CLR   = 0;
- 169   3                  SR_LATCH = 0;
- 170   3                  SR_CLK   = !SR_CLK;
- 171   3                  counter_t2++;
- 172   3              }
- 173   2              else
- 174   2              {
- 175   3                  TR2        = 0;
- 176   3                  SR_CLK     = 0;   /* Force clock idle-low after clear */
- 177   3                  SR_LATCH   = 1;
- 178   3                  SR_CLR     = 1;
-C51 COMPILER V9.60.7.0   TX_MAIN                                                           03/16/2026 15:41:44 PAGE 4   
+ 117          {
+ 118   1          TF2 = 0;
+ 119   1      
+ 120   1          if (flag_t2_mod == 0)
+ 121   1          {
+ 122   2              if (counter_t2 < 2)
+ 123   2              {
+ 124   3                  SR_CLK = !SR_CLK;
+ 125   3                  counter_t2++;
+ 126   3              }
+ 127   2              else
+ 128   2              {
+ 129   3                  TR2    = 0;
+ 130   3                  SR_CLK = 0;
+ 131   3              }
+ 132   2          }
+ 133   1          else if (flag_t2_mod == 1)
+ 134   1          {
+ 135   2              if (counter_t2 < 4)
+ 136   2              {
+ 137   3                  SR_CLR   = 0;
+ 138   3                  SR_LATCH = 0;
+ 139   3                  SR_CLK   = !SR_CLK;
+ 140   3                  counter_t2++;
+ 141   3              }
+ 142   2              else
+ 143   2              {
+ 144   3                  TR2        = 0;
+ 145   3                  SR_CLK     = 0;
+ 146   3                  SR_LATCH   = 1;
+ 147   3                  SR_CLR     = 1;
+ 148   3                  flag_t2_mod = 0;
+ 149   3              }
+ 150   2          }
+ 151   1          else if (flag_t2_mod == 2)
+ 152   1          {
+ 153   2              if (counter_t2 < 2)
+ 154   2              {
+ 155   3                  SR_LATCH = !SR_LATCH;
+ 156   3                  counter_t2++;
+ 157   3              }
+ 158   2              else
+ 159   2              {
+ 160   3                  TR2         = 0;
+ 161   3                  flag_t2_mod = 0;
+ 162   3              }
+ 163   2          }
+ 164   1      }
+ 165          
+ 166          /* =========================================================================
+ 167           * SHIFT-REGISTER OUTPUT DRIVER
+ 168           * =========================================================================
+ 169           * [W4] Serialises the full 26-bit word (1 parity + 10 ECC + 15 data,
+ 170           * MSB-first) into daisy-chained 74HC595 shift registers, then pulses
+ 171           * the latch.
+ 172           *
+ 173           * SHIFT ORDER (first bit shifted -> farthest chain position):
+ 174           *   Phase 0:  1 overall parity bit  (pesec_overall_parity)
+ 175           *   Phase 1: 10 ECC redundancy bits (pesec_redundancy_reg, MSB-first)
+ 176           *   Phase 2: 15 data bits           (current_bus_state, MSB-first)
+ 177           *   Phase 3:  Latch pulse
+ 178           *
+C51 COMPILER V9.60.7.0   TX_MAIN                                                           03/17/2026 14:35:08 PAGE 4   
 
- 179   3                  flag_t2_mod = 0;
- 180   3              }
- 181   2          }
- 182   1          else if (flag_t2_mod == 2)
- 183   1          {
- 184   2              /* --- Mode 2: Latch pulse --- */
- 185   2              if (counter_t2 < 2)
- 186   2              {
- 187   3                  SR_LATCH = !SR_LATCH;
- 188   3                  counter_t2++;
- 189   3              }
- 190   2              else
- 191   2              {
- 192   3                  TR2         = 0;
- 193   3                  flag_t2_mod = 0;
- 194   3              }
- 195   2          }
- 196   1      }
- 197          
- 198          /* =========================================================================
- 199           * SHIFT-REGISTER OUTPUT DRIVER
- 200           * =========================================================================
- 201           * Serialises the full 25-bit word (10 ECC + 15 data, MSB-first) into
- 202           * daisy-chained 74HC595 shift registers, then pulses the latch.
- 203           *
- 204           * Uses Timer 2 ISR for clock generation (non-blocking per bit, but the
- 205           * function blocks until all bits are shifted out).
- 206           *
- 207           * [N3] Uses T2_RELOAD_H/L constants instead of hardcoded values.
- 208           * ========================================================================= */
- 209          void output_to_shift_registers(void)
- 210          {
- 211   1          uint16_t state_copy;
- 212   1          uint16_t ecc_copy;
- 213   1          signed char bit_pos;
- 214   1          uint8_t bit_value;
- 215   1      
- 216   1          /* Snapshot both registers for consistency during output */
- 217   1          state_copy = current_bus_state & BUS_STATE_MASK;
- 218   1          ecc_copy   = pesec_redundancy_reg & PESEC_RED_MASK;
- 219   1      
- 220   1          /* --- Phase 1: Shift out 10 ECC redundancy bits (MSB-first) --- */
- 221   1          for (bit_pos = 9; bit_pos >= 0; bit_pos--)
- 222   1          {
- 223   2              bit_value = (uint8_t)((ecc_copy >> bit_pos) & 0x0001);
- 224   2              SR_DATA   = bit_value;
- 225   2      
- 226   2              counter_t2 = 0;
- 227   2              TH2 = T2_RELOAD_H;
- 228   2              TL2 = T2_RELOAD_L;
- 229   2              TR2 = 1;
- 230   2              while (TR2 == 1);   /* Wait for one clock cycle */
- 231   2          }
- 232   1      
- 233   1          /* --- Phase 2: Shift out 15 data bits (MSB-first) --- */
- 234   1          for (bit_pos = (HAMMING_N - 1); bit_pos >= 0; bit_pos--)
- 235   1          {
- 236   2              bit_value = (uint8_t)((state_copy >> bit_pos) & 0x0001);
- 237   2              SR_DATA   = bit_value;
- 238   2      
- 239   2              counter_t2 = 0;
- 240   2              TH2 = T2_RELOAD_H;
-C51 COMPILER V9.60.7.0   TX_MAIN                                                           03/16/2026 15:41:44 PAGE 5   
+ 179           * The parity bit is shifted first so it arrives at the output pin
+ 180           * connected to the Arduino Mega's PC7 (pin 30).  The ECC and data
+ 181           * bits retain their original mapping.
+ 182           * ========================================================================= */
+ 183          void output_to_shift_registers(void)
+ 184          {
+ 185   1          uint16_t state_copy;
+ 186   1          uint16_t ecc_copy;
+ 187   1          uint8_t  parity_copy;
+ 188   1          signed char bit_pos;
+ 189   1          uint8_t bit_value;
+ 190   1      
+ 191   1          /* Snapshot all three values for consistency during output. */
+ 192   1          state_copy  = current_bus_state & BUS_STATE_MASK;
+ 193   1          ecc_copy    = pesec_redundancy_reg & PESEC_RED_MASK;
+ 194   1          parity_copy = pesec_overall_parity & 0x01u;
+ 195   1      
+ 196   1          /* --- Phase 0: [W4] Shift out 1 overall parity bit --- */
+ 197   1          SR_DATA = parity_copy;
+ 198   1      
+ 199   1          counter_t2 = 0;
+ 200   1          TH2 = T2_RELOAD_H;
+ 201   1          TL2 = T2_RELOAD_L;
+ 202   1          TR2 = 1;
+ 203   1          while (TR2 == 1);
+ 204   1      
+ 205   1          /* --- Phase 1: Shift out 10 ECC redundancy bits (MSB-first) --- */
+ 206   1          for (bit_pos = 9; bit_pos >= 0; bit_pos--)
+ 207   1          {
+ 208   2              bit_value = (uint8_t)((ecc_copy >> bit_pos) & 0x0001);
+ 209   2              SR_DATA   = bit_value;
+ 210   2      
+ 211   2              counter_t2 = 0;
+ 212   2              TH2 = T2_RELOAD_H;
+ 213   2              TL2 = T2_RELOAD_L;
+ 214   2              TR2 = 1;
+ 215   2              while (TR2 == 1);
+ 216   2          }
+ 217   1      
+ 218   1          /* --- Phase 2: Shift out 15 data bits (MSB-first) --- */
+ 219   1          for (bit_pos = (HAMMING_N - 1); bit_pos >= 0; bit_pos--)
+ 220   1          {
+ 221   2              bit_value = (uint8_t)((state_copy >> bit_pos) & 0x0001);
+ 222   2              SR_DATA   = bit_value;
+ 223   2      
+ 224   2              counter_t2 = 0;
+ 225   2              TH2 = T2_RELOAD_H;
+ 226   2              TL2 = T2_RELOAD_L;
+ 227   2              TR2 = 1;
+ 228   2              while (TR2 == 1);
+ 229   2          }
+ 230   1      
+ 231   1          /* --- Phase 3: Latch pulse (transfer shift reg -> output reg) --- */
+ 232   1          flag_t2_mod = 2;
+ 233   1          counter_t2  = 0;
+ 234   1          TH2 = T2_RELOAD_H;
+ 235   1          TL2 = T2_RELOAD_L;
+ 236   1          TR2 = 1;
+ 237   1          while (TR2 == 1);
+ 238   1      }
+ 239          
+ 240          /* =========================================================================
+C51 COMPILER V9.60.7.0   TX_MAIN                                                           03/17/2026 14:35:08 PAGE 5   
 
- 241   2              TL2 = T2_RELOAD_L;
- 242   2              TR2 = 1;
- 243   2              while (TR2 == 1);   /* Wait for one clock cycle */
- 244   2          }
- 245   1      
- 246   1          /* --- Phase 3: Latch pulse (transfer shift reg -> output reg) --- */
- 247   1          flag_t2_mod = 2;
- 248   1          counter_t2  = 0;
- 249   1          TH2 = T2_RELOAD_H;
- 250   1          TL2 = T2_RELOAD_L;
- 251   1          TR2 = 1;
- 252   1          while (TR2 == 1);   /* Wait for latch pulse to complete */
- 253   1      }
- 254          
- 255          /* =========================================================================
- 256           * MAIN ENTRY POINT
- 257           * ========================================================================= */
- 258          void main(void)
- 259          {
- 260   1          /* [C1] Set core clock to full crystal speed.
- 261   1           * PLLCON default = 0x53 -> CD=3 -> fCORE = 11.0592/8 = 1.38 MHz.
- 262   1           * We need CD=0 -> fCORE = 11.0592 MHz for correct Timer 2 timing.
- 263   1           * On ADuC841, core_clk = crystal_freq / 2^CD (datasheet p. 49). */
- 264   1          PLLCON = (PLLCON & 0xF8);  /* CD = 0: fCORE = 11.0592 MHz */
- 265   1      
- 266   1          /* [M1] Initialise all peripherals BEFORE enabling interrupts.
- 267   1           * This prevents ISR entry with unconfigured peripheral registers. */
- 268   1          Port_Init();
- 269   1          BaudRate_Init();
- 270   1          UART_Init();
- 271   1          Init_Timer2();
- 272   1      
- 273   1          /* ECC Initialisation (Group 3) */
- 274   1          Init_PESEC_Matrices(pesec_config, 2);
- 275   1      
- 276   1          /* [M1] Enable interrupts LAST, after all peripherals are ready */
- 277   1          GlobalINT();
- 278   1      
- 279   1          /* --- Event Loop --- */
- 280   1          while (1)
- 281   1          {
- 282   2              /* [M4] Drain UART ring buffer one byte at a time */
- 283   2              if (rx_tail != rx_head)
- 284   2              {
- 285   3                  uint8_t rx_byte = rx_buf[rx_tail];
- 286   3                  rx_tail = (rx_tail + 1) % RX_BUF_SIZE;
- 287   3                  tx_handler(rx_byte);
- 288   3              }
- 289   2      
- 290   2              /* Handle batch terminator */
- 291   2              if (buffer_flag)
- 292   2              {
- 293   3                  ES = 0;             /* Enter critical section  */
- 294   3                  buffer_flag  = 0;
- 295   3                  buffer_count = 0;
- 296   3                  ES = 1;             /* Exit critical section   */
- 297   3              }
- 298   2          }
- 299   1      }
+ 241           * MAIN ENTRY POINT
+ 242           * ========================================================================= */
+ 243          void main(void)
+ 244          {
+ 245   1          PLLCON = (PLLCON & 0xF8);
+ 246   1      
+ 247   1          Port_Init();
+ 248   1          BaudRate_Init();
+ 249   1          UART_Init();
+ 250   1          Init_Timer2();
+ 251   1      
+ 252   1          Init_PESEC_Matrices(pesec_config, 2);
+ 253   1      
+ 254   1          GlobalINT();
+ 255   1      
+ 256   1          while (1)
+ 257   1          {
+ 258   2              if (rx_tail != rx_head)
+ 259   2              {
+ 260   3                  uint8_t rx_byte = rx_buf[rx_tail];
+ 261   3                  rx_tail = (rx_tail + 1) % RX_BUF_SIZE;
+ 262   3                  tx_handler(rx_byte);
+ 263   3              }
+ 264   2      
+ 265   2              if (buffer_flag)
+ 266   2              {
+ 267   3                  ES = 0;
+ 268   3                  buffer_flag  = 0;
+ 269   3                  buffer_count = 0;
+ 270   3                  ES = 1;
+ 271   3              }
+ 272   2          }
+ 273   1      }
 
 
 MODULE INFORMATION:   STATIC OVERLAYABLE
-C51 COMPILER V9.60.7.0   TX_MAIN                                                           03/16/2026 15:41:44 PAGE 6   
-
-   CODE SIZE        =    392    ----
+   CODE SIZE        =    414    ----
    CONSTANT SIZE    =   ----    ----
    XDATA SIZE       =   ----    ----
    PDATA SIZE       =   ----    ----

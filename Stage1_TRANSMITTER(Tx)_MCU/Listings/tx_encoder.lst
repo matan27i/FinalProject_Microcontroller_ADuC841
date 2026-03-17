@@ -1,4 +1,4 @@
-C51 COMPILER V9.60.7.0   TX_ENCODER                                                        03/16/2026 15:41:44 PAGE 1   
+C51 COMPILER V9.60.7.0   TX_ENCODER                                                        03/17/2026 14:35:08 PAGE 1   
 
 
 C51 COMPILER V9.60.7.0, COMPILATION OF MODULE TX_ENCODER
@@ -18,188 +18,147 @@ line level    source
    8           *   - Syndrome computation (on-the-fly, no lookup tables)
    9           *   - Minimal-weight codeword selection (O(1) for H1-type matrices)
   10           *   - process_nibble(): stateful differential encoder
-  11           *   - tx_handler(): UART byte → nibble splitter
+  11           *   - tx_handler(): UART byte -> nibble splitter
   12           *
-  13           * H1-TYPE MATRIX STRUCTURE (4×15):
-  14           *   Column i (1-based) = binary representation of i.
-  15           *   Syndrome S = XOR of column indices for every set bit in x.
+  13           * FIX LOG:
+  14           *   [W4] tx_handler '=' reset now also clears pesec_overall_parity
+  15           *        to ensure the 26th bit is zero after a full bus reset.
   16           *
-  17           * MINIMAL-WEIGHT SELECTION:
-  18           *   For s_target in {1..15}, w = 1 << (s_target - 1)  is weight-1
-  19           *   and provably minimal (H1-type minimum distance = 3).
-  20           *
-  21           * Portability: No hardware dependencies.  Calls ECC() from Group 3
-  22           *              (which in turn calls output_to_shift_registers() in
-  23           *              Group 1) at the end of each nibble cycle.
-  24           */
+  17           * Portability: No hardware dependencies.  Calls ECC() from Group 3.
+  18           */
+  19          
+  20          #include "tx_header.h"
+  21          
+  22          /* =========================================================================
+  23           * STATE VARIABLE DEFINITIONS  (owned by this module)
+  24           * ========================================================================= */
   25          
-  26          #include "tx_header.h"
+  26          uint16_t current_bus_state = 0;
   27          
   28          /* =========================================================================
-  29           * STATE VARIABLE DEFINITIONS  (owned by this module)
+  29           * SYNDROME COMPUTATION
   30           * ========================================================================= */
-  31          
-  32          /* The 15-bit physical bus state vector x.
-  33           * Only bits 0..14 are meaningful (BUS_STATE_MASK = 0x7FFF).
-  34           * H * current_bus_state^T  gives the current syndrome.
-  35           * Initialised to 0 -> syndrome 0, bus in zero state.
-  36           * [N2] Not volatile: only accessed from main-loop call chain. */
-  37          uint16_t current_bus_state = 0;
-  38          
-  39          /* =========================================================================
-  40           * SYNDROME COMPUTATION
-  41           * =========================================================================
-  42           * Computes S = H * x^T using the H1-type identity: column i = i.
-  43           * No stored matrix.  Loop through set bits and XOR their 1-based index.
-  44           * ========================================================================= */
-  45          uint8_t compute_syndrome_from_bus(uint16_t bus_state)
-  46          {
-  47   1          uint8_t  syndrome = 0;
-  48   1          uint8_t  col_idx;
-  49   1          uint16_t temp_state;
-  50   1      
-  51   1          temp_state = bus_state & BUS_STATE_MASK;
-  52   1      
-  53   1          for (col_idx = 1; col_idx <= HAMMING_N; col_idx++)
-  54   1          {
-C51 COMPILER V9.60.7.0   TX_ENCODER                                                        03/16/2026 15:41:44 PAGE 2   
+  31          uint8_t compute_syndrome_from_bus(uint16_t bus_state)
+  32          {
+  33   1          uint8_t  syndrome = 0;
+  34   1          uint8_t  col_idx;
+  35   1          uint16_t temp_state;
+  36   1      
+  37   1          temp_state = bus_state & BUS_STATE_MASK;
+  38   1      
+  39   1          for (col_idx = 1; col_idx <= HAMMING_N; col_idx++)
+  40   1          {
+  41   2              if (temp_state & 0x0001)
+  42   2              {
+  43   3                  syndrome ^= col_idx;
+  44   3              }
+  45   2              temp_state >>= 1;
+  46   2          }
+  47   1      
+  48   1          return syndrome;
+  49   1      }
+  50          
+  51          /* =========================================================================
+  52           * MINIMAL-WEIGHT CODEWORD SEARCH
+  53           * ========================================================================= */
+  54          uint16_t find_minimal_w(uint8_t s_target)
+C51 COMPILER V9.60.7.0   TX_ENCODER                                                        03/17/2026 14:35:08 PAGE 2   
 
-  55   2              if (temp_state & 0x0001)
-  56   2              {
-  57   3                  syndrome ^= col_idx;
-  58   3              }
-  59   2              temp_state >>= 1;
-  60   2          }
-  61   1      
-  62   1          return syndrome;
-  63   1      }
-  64          
-  65          /* =========================================================================
-  66           * MINIMAL-WEIGHT CODEWORD SEARCH
-  67           * =========================================================================
-  68           * Exploits H1-type structure:
-  69           *   s_target == 0  →  w = 0          (weight-0, no change)
-  70           *   s_target != 0  →  w = 1 << (s-1) (weight-1, single bit flip)
-  71           * Provably minimal and fully deterministic.
-  72           * ========================================================================= */
-  73          uint16_t find_minimal_w(uint8_t s_target)
-  74          {
-  75   1          s_target &= 0x0F;
+  55          {
+  56   1          s_target &= 0x0F;
+  57   1      
+  58   1          if (s_target == 0)
+  59   1          {
+  60   2              return 0;
+  61   2          }
+  62   1      
+  63   1          return ((uint16_t)1 << (s_target - 1));
+  64   1      }
+  65          
+  66          /* =========================================================================
+  67           * PROCESS NIBBLE  (Core Stateful Encoder)
+  68           * ========================================================================= */
+  69          void process_nibble(uint8_t s_new)
+  70          {
+  71   1          uint8_t  s_old;
+  72   1          uint8_t  s_target;
+  73   1          uint16_t w;
+  74   1      
+  75   1          s_new &= 0x0F;
   76   1      
-  77   1          if (s_target == 0)
-  78   1          {
-  79   2              return 0;
-  80   2          }
-  81   1      
-  82   1          return ((uint16_t)1 << (s_target - 1));
-  83   1      }
-  84          
-  85          /* =========================================================================
-  86           * PROCESS NIBBLE  (Core Stateful Encoder)
-  87           * =========================================================================
-  88           * Steps:
-  89           *   1. S_old    = H * current_bus_state^T
-  90           *   2. S_target = S_new XOR S_old
-  91           *   3. w        = minimal-weight vector with H * w^T = S_target
-  92           *   4. current_bus_state ^= w          (differential toggle)
-  93           *   5. Call ECC() to compute redundancy and output all 25 bits
-  94           * ========================================================================= */
-  95          void process_nibble(uint8_t s_new)
-  96          {
-  97   1          uint8_t  s_old;
-  98   1          uint8_t  s_target;
-  99   1          uint16_t w;
- 100   1      
- 101   1          s_new &= 0x0F;
- 102   1      
- 103   1          /* Step 1: Current syndrome from bus state */
- 104   1          s_old = compute_syndrome_from_bus(current_bus_state);
- 105   1      
- 106   1          /* Step 2: Target syndrome (mod-2 arithmetic) */
- 107   1          s_target = s_new ^ s_old;
- 108   1      
- 109   1          /* Step 3: Find minimal-weight change vector */
- 110   1          w = find_minimal_w(s_target);
- 111   1      
- 112   1          /* Step 4: Differential update (XOR, never overwrite) */
- 113   1          current_bus_state ^= w;
- 114   1          current_bus_state &= BUS_STATE_MASK;
- 115   1      
- 116   1          /* Step 5: Compute ECC and output to hardware */
-C51 COMPILER V9.60.7.0   TX_ENCODER                                                        03/16/2026 15:41:44 PAGE 3   
+  77   1          s_old = compute_syndrome_from_bus(current_bus_state);
+  78   1      
+  79   1          s_target = s_new ^ s_old;
+  80   1      
+  81   1          w = find_minimal_w(s_target);
+  82   1      
+  83   1          current_bus_state ^= w;
+  84   1          current_bus_state &= BUS_STATE_MASK;
+  85   1      
+  86   1          ECC();
+  87   1      }
+  88          
+  89          /* =========================================================================
+  90           * TX HANDLER  (UART Character -> Nibble Splitter)
+  91           * ========================================================================= */
+  92          void tx_handler(uint8_t rx_char)
+  93          {
+  94   1          uint8_t high_nibble;
+  95   1          uint8_t low_nibble;
+  96   1      
+  97   1          /* --- Batch terminators --- */
+  98   1          if (rx_char == '\r' || rx_char == '\n')
+  99   1          {
+ 100   2              buffer_flag = 1;
+ 101   2              return;
+ 102   2          }
+ 103   1      
+ 104   1          /* --- Full reset command --- */
+ 105   1          if (rx_char == '=')
+ 106   1          {
+ 107   2              /* Reset encoder state */
+ 108   2              current_bus_state = 0;
+ 109   2      
+ 110   2              /* Reset ECC redundancy register to stay in sync */
+ 111   2              pesec_redundancy_reg = 0;
+ 112   2      
+ 113   2              /* [W4] Reset overall parity bit so the 26th output is zero.
+ 114   2               * After reset, all 26 bits (data + red + parity) are zero,
+ 115   2               * which the RX detects as a bus-reset condition. */
+ 116   2              pesec_overall_parity = 0;
+C51 COMPILER V9.60.7.0   TX_ENCODER                                                        03/17/2026 14:35:08 PAGE 3   
 
- 117   1          ECC();
- 118   1      }
- 119          
- 120          /* =========================================================================
- 121           * TX HANDLER  (UART Character → Nibble Splitter)
- 122           * =========================================================================
- 123           * INPUT:  8-bit character from UART.
- 124           * OUTPUT: Two calls to process_nibble (high nibble first, then low).
- 125           *
- 126           * Special characters:
- 127           *   '\r', '\n'  — Batch terminators.  Set buffer_flag, no nibble output.
- 128           *   '='         — Full bus + ECC reset.  Clears shift registers via
- 129           *                 hardware clear sequence, resets both state vectors.
- 130           * ========================================================================= */
- 131          void tx_handler(uint8_t rx_char)
- 132          {
- 133   1          uint8_t high_nibble;
- 134   1          uint8_t low_nibble;
- 135   1      
- 136   1          /* --- Batch terminators --- */
- 137   1          if (rx_char == '\r' || rx_char == '\n')
- 138   1          {
- 139   2              buffer_flag = 1;
- 140   2              return;
- 141   2          }
- 142   1      
- 143   1          /* --- Full reset command --- */
- 144   1          if (rx_char == '=')
- 145   1          {
- 146   2              /* Reset encoder state */
- 147   2              current_bus_state = 0;
- 148   2      
- 149   2              /* FIX: Reset ECC redundancy register to stay in sync */
- 150   2              pesec_redundancy_reg = 0;
- 151   2      
- 152   2              /* Hardware clear of shift registers (Mode 1) */
- 153   2              flag_t2_mod = 1;
- 154   2              counter_t2  = 0;
- 155   2              TH2 = T2_RELOAD_H;
- 156   2              TL2 = T2_RELOAD_L;
- 157   2              TR2 = 1;
- 158   2      
- 159   2              /* FIX: Block until clear sequence completes to prevent
- 160   2               * race condition with subsequent UART characters */
- 161   2              while (TR2 == 1);
- 162   2      
- 163   2              buffer_flag = 1;
- 164   2              return;
- 165   2          }
- 166   1      
- 167   1          /* --- Normal data character: split into two nibbles --- */
- 168   1          high_nibble = (rx_char >> 4) & 0x0F;
- 169   1          low_nibble  = rx_char & 0x0F;
- 170   1      
- 171   1          /* Process HIGH nibble first (per protocol spec) */
- 172   1          process_nibble(high_nibble);
- 173   1      
- 174   1          /* Process LOW nibble second */
- 175   1          process_nibble(low_nibble);
- 176   1      
- 177   1          /* [C2] Track nibble count — guard accounts for +2 increment */
- 178   1          if (buffer_count <= 253)
-C51 COMPILER V9.60.7.0   TX_ENCODER                                                        03/16/2026 15:41:44 PAGE 4   
-
- 179   1          {
- 180   2              buffer_count += 2;
- 181   2          }
- 182   1      }
+ 117   2      
+ 118   2              /* Hardware clear of shift registers (Mode 1) */
+ 119   2              flag_t2_mod = 1;
+ 120   2              counter_t2  = 0;
+ 121   2              TH2 = T2_RELOAD_H;
+ 122   2              TL2 = T2_RELOAD_L;
+ 123   2              TR2 = 1;
+ 124   2      
+ 125   2              while (TR2 == 1);
+ 126   2      
+ 127   2              buffer_flag = 1;
+ 128   2              return;
+ 129   2          }
+ 130   1      
+ 131   1          /* --- Normal data character: split into two nibbles --- */
+ 132   1          high_nibble = (rx_char >> 4) & 0x0F;
+ 133   1          low_nibble  = rx_char & 0x0F;
+ 134   1      
+ 135   1          process_nibble(high_nibble);
+ 136   1      
+ 137   1          process_nibble(low_nibble);
+ 138   1      
+ 139   1          if (buffer_count <= 253)
+ 140   1          {
+ 141   2              buffer_count += 2;
+ 142   2          }
+ 143   1      }
 
 
 MODULE INFORMATION:   STATIC OVERLAYABLE
-   CODE SIZE        =    163    ----
+   CODE SIZE        =    165    ----
    CONSTANT SIZE    =   ----    ----
    XDATA SIZE       =   ----    ----
    PDATA SIZE       =   ----    ----

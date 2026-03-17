@@ -1,4 +1,4 @@
-C51 COMPILER V9.60.7.0   RX_MAIN                                                           03/16/2026 15:50:26 PAGE 1   
+C51 COMPILER V9.60.7.0   RX_MAIN                                                           03/17/2026 14:35:28 PAGE 1   
 
 
 C51 COMPILER V9.60.7.0, COMPILATION OF MODULE RX_MAIN
@@ -13,199 +13,135 @@ line level    source
    3             Module: Group 1 -- Main entry point and pipeline loop (SPI Slave version)
    4          
    5             MODIFICATION SUMMARY:
-   6               The original design polled a DATA_READY GPIO (P3.2) for rising edges
-   7               and called rx_read_full_bus() to capture 25 parallel bits.  This
-   8               version replaces that input mechanism with SPI slave reception:
-   9          
-  10                 Old path:  DATA_READY edge -> rx_read_full_bus() -> pipeline
-  11                 New path:  SPI ISR fills rx_spi_data/rx_spi_red -> pipeline
-  12          
-  13               The five-stage decode pipeline (A through E) is preserved exactly.
-  14               Stages B-E are completely unchanged.  Stage A is replaced by the
-  15               SPI ISR in rx_hw.c; the main loop simply checks rx_spi_frame_ready.
-  16          
-  17             Responsibilities:
-  18               - Hardware startup sequence (clock, XRAM, UART, SPI slave).
-  19               - PESEC matrix initialisation (must match TX config).
-  20               - Checking the SPI frame-ready flag each iteration.
-  21               - Sequencing the full decode pipeline per received frame:
-  22                   (Stage A: handled by SPI ISR -- see rx_hw.c)
-  23                   Stage B: rx_is_bus_reset()        (decoder -- reset detect)
-  24                   Stage C: rx_pesec_correct()       (ecc -- 25-bit PESEC)
-  25                   Stage D: rx_correct_bus_state()   (ecc -- H1 differential)
-  26                   Stage E: rx_process_bus_state()   (decoder -- nibble FSM)
+   6               [W4] The main loop now snapshots rx_spi_parity alongside data and
+   7               redundancy, and passes it to rx_pesec_correct() for SEC+DED decoding.
+   8               The reset detection (rx_is_bus_reset) is unchanged: all 26 bits
+   9               (data + red + parity) are zero after a TX '=' reset.
+  10          
+  11             Pipeline stages:
+  12               (Stage A: handled by SPI ISR -- see rx_hw.c)
+  13               Stage B: rx_is_bus_reset()        (decoder -- reset detect)
+  14               Stage C: rx_pesec_correct()       (ecc -- 26-bit SEC+DED)
+  15               Stage D: rx_correct_bus_state()   (ecc -- H1 differential)
+  16               Stage E: rx_process_bus_state()   (decoder -- nibble FSM)
+  17             =============================================================================
+  18          */
+  19          
+  20          #include "rx_system.h"
+  21          
+  22          /* ---------------------------------------------------------------------------
+  23             PESEC block configuration -- MUST MATCH THE TX ENCODER.
+  24             ---------------------------------------------------------------------------
+  25          */
+  26          static uint8_t pesec_config[] = {3, 2};
   27          
-  28             This file owns no domain logic.  It is intentionally thin so that
-  29             the three functional modules can be tested independently.
-  30             =============================================================================
-  31          */
-  32          
-  33          #include "rx_system.h"
-  34          
-  35          /* ---------------------------------------------------------------------------
-  36             PESEC block configuration -- MUST MATCH THE TX ENCODER.
-  37          
-  38             The TX uses:  static uint8_t pesec_config[] = {3, 2};
-  39             This produces:
-  40               Block 0 (m=3): 7 redundancy columns, syndrome bits [2:0]
-  41               Block 1 (m=2): 3 redundancy columns, syndrome bits [4:3]
-  42               Total: 10 redundancy bits, 5-bit syndrome
-  43             ---------------------------------------------------------------------------
-  44          */
-  45          static uint8_t pesec_config[] = {3, 2};
-  46          
-  47          
-  48          /* ---------------------------------------------------------------------------
-  49             rx_perform_full_reset
-  50             ---------------------------------------------------------------------------
-  51             Resets all receiver state to match the TX post-reset condition.
-  52             Called when an all-zero 25-bit word is detected, indicating the TX
-  53             has executed its '=' reset command.
-  54          
-C51 COMPILER V9.60.7.0   RX_MAIN                                                           03/16/2026 15:50:26 PAGE 2   
+  28          
+  29          /* ---------------------------------------------------------------------------
+  30             rx_perform_full_reset
+  31             ---------------------------------------------------------------------------
+  32          */
+  33          static void rx_perform_full_reset(void)
+  34          {
+  35   1          rx_previous_bus_state = 0;
+  36   1      
+  37   1          rx_errors_corrected  = 0;
+  38   1          rx_errors_detected   = 0;
+  39   1          rx_pesec_corrections = 0;
+  40   1      
+  41   1          rx_reset_state_machine();
+  42   1      }
+  43          
+  44          
+  45          /* ---------------------------------------------------------------------------
+  46             main
+  47             ---------------------------------------------------------------------------
+  48          */
+  49          void main(void)
+  50          {
+  51   1          uint16_t raw_data;
+  52   1          uint16_t raw_red;
+  53   1          uint8_t  raw_parity;        /* [W4] Overall parity from 26th bit */
+  54   1          uint16_t corrected_data;
+C51 COMPILER V9.60.7.0   RX_MAIN                                                           03/17/2026 14:35:28 PAGE 2   
 
-  55             After TX reset:
-  56               current_bus_state    = 0
-  57               pesec_redundancy_reg = 0
-  58             ---------------------------------------------------------------------------
-  59          */
-  60          static void rx_perform_full_reset(void)
-  61          {
-  62   1          rx_previous_bus_state = 0;
-  63   1      
-  64   1          rx_errors_corrected  = 0;
-  65   1          rx_errors_detected   = 0;
-  66   1          rx_pesec_corrections = 0;
-  67   1      
-  68   1          rx_reset_state_machine();
-  69   1      }
-  70          
-  71          
-  72          /* ---------------------------------------------------------------------------
-  73             main
-  74             ---------------------------------------------------------------------------
-  75          */
-  76          void main(void)
-  77          {
-  78   1          uint16_t raw_data;
-  79   1          uint16_t raw_red;
-  80   1          uint16_t corrected_data;
-  81   1      
-  82   1          /* ------------------------------------------------------------------
-  83   1             [C1] Set core clock to full crystal speed FIRST.
-  84   1             PLLCON default = 0x53 -> CD=3 -> fCORE = 11.0592/8 = 1.38 MHz.
-  85   1             Timer 3 baud config and SPI slave timing require full speed.
-  86   1             On ADuC841, reserved bits must be written as 0 (datasheet p. 49).
-  87   1             ------------------------------------------------------------------
-  88   1          */
-  89   1          PLLCON = 0x00;  /* CD=0: fCORE = 11.0592 MHz */
-  90   1      
-  91   1          /* Enable internal 2 KB XRAM mapped to bottom of external data space.
-  92   1             Required because tx_buf in rx_hw.c is declared xdata.
-  93   1             Use ORL (|=) to preserve the auto-configured EPM bits (p. 45). */
-  94   1          CFG841 |= 0x01;  /* XRAMEN = 1 */
-  95   1      
-  96   1          /* ------------------------------------------------------------------
-  97   1             Hardware initialisation -- peripherals BEFORE interrupts.
-  98   1             Order: Timer 3 (baud clock) -> UART -> SPI Slave + INT0.
-  99   1             ------------------------------------------------------------------
- 100   1          */
- 101   1          RX_Timer3_Init();
- 102   1          RX_UART_Init();
- 103   1          RX_SPI_Slave_Init();
- 104   1      
- 105   1          /* ------------------------------------------------------------------
- 106   1             PESEC matrix initialisation.
- 107   1             Uses the same block configuration as the TX encoder: {3, 2}.
- 108   1             ------------------------------------------------------------------
- 109   1          */
- 110   1          rx_init_pesec_matrices(pesec_config, 2);
- 111   1      
- 112   1          /* ------------------------------------------------------------------
- 113   1             Decoder and error-correction module reset.
- 114   1             All baselines start at 0 to match the TX encoder's initial state.
- 115   1             ------------------------------------------------------------------
- 116   1          */
-C51 COMPILER V9.60.7.0   RX_MAIN                                                           03/16/2026 15:50:26 PAGE 3   
+  55   1      
+  56   1          /* Set core clock to full crystal speed. */
+  57   1          PLLCON = 0x00;
+  58   1      
+  59   1          /* Enable internal 2 KB XRAM. */
+  60   1          CFG841 |= 0x01;
+  61   1      
+  62   1          /* Hardware initialisation. */
+  63   1          RX_Timer3_Init();
+  64   1          RX_UART_Init();
+  65   1          RX_SPI_Slave_Init();
+  66   1      
+  67   1          /* PESEC matrix initialisation. */
+  68   1          rx_init_pesec_matrices(pesec_config, 2);
+  69   1      
+  70   1          /* Decoder and error-correction module reset. */
+  71   1          rx_reset_state_machine();
+  72   1          rx_previous_bus_state = 0;
+  73   1          rx_errors_corrected   = 0;
+  74   1          rx_errors_detected    = 0;
+  75   1          rx_pesec_corrections  = 0;
+  76   1      
+  77   1          /* Enable global interrupts LAST. */
+  78   1          EA = 1;
+  79   1      
+  80   1          /* Main pipeline loop. */
+  81   1          while (1)
+  82   1          {
+  83   2              rx_uart_pump();
+  84   2      
+  85   2              if (rx_spi_frame_ready)
+  86   2              {
+  87   3                  /* Atomically snapshot the SPI staging registers.
+  88   3                     [W4] Now also captures the overall parity bit. */
+  89   3                  EA = 0;
+  90   3                  raw_data   = rx_spi_data;
+  91   3                  raw_red    = rx_spi_red;
+  92   3                  raw_parity = rx_spi_parity;    /* [W4] */
+  93   3                  rx_spi_frame_ready = 0;
+  94   3                  EA = 1;
+  95   3      
+  96   3                  /* Stage B: TX reset detection.
+  97   3                     After TX '=' reset, all 26 bits are zero.  The parity
+  98   3                     of an all-zero 25-bit word is 0, so the overall parity
+  99   3                     bit is also 0.  The existing rx_is_bus_reset() check
+ 100   3                     (data==0 && red==0) remains correct. */
+ 101   3                  if (rx_is_bus_reset(raw_data, raw_red))
+ 102   3                  {
+ 103   4                      rx_perform_full_reset();
+ 104   4                      continue;
+ 105   4                  }
+ 106   3      
+ 107   3                  /* Stage C: [W4] SEC+DED PESEC error correction.
+ 108   3                     Now passes the overall parity bit so the decoder can
+ 109   3                     distinguish single errors (correctable) from double
+ 110   3                     errors (detectable but uncorrectable). */
+ 111   3                  rx_pesec_correct(&raw_data, &raw_red, raw_parity);
+ 112   3      
+ 113   3                  /* Stage D: H1 differential validation. */
+ 114   3                  corrected_data = rx_correct_bus_state(raw_data);
+ 115   3      
+ 116   3                  /* Stage E: Nibble extraction and byte reassembly. */
+C51 COMPILER V9.60.7.0   RX_MAIN                                                           03/17/2026 14:35:28 PAGE 3   
 
- 117   1          rx_reset_state_machine();
- 118   1          rx_previous_bus_state = 0;
- 119   1          rx_errors_corrected   = 0;
- 120   1          rx_errors_detected    = 0;
- 121   1          rx_pesec_corrections  = 0;
- 122   1      
- 123   1          /* ------------------------------------------------------------------
- 124   1             Enable global interrupts LAST, after all peripherals are ready.
- 125   1             This enables: INT0 (frame sync) and SPI interrupt (vector 6).
- 126   1             ------------------------------------------------------------------
- 127   1          */
- 128   1          EA = 1;
- 129   1      
- 130   1          /* ------------------------------------------------------------------
- 131   1             Main pipeline loop
- 132   1             ------------------------------------------------------------------
- 133   1             The loop structure is deliberately simple:
- 134   1               1. Pump the UART TX buffer (non-blocking).
- 135   1               2. Check if the SPI ISR has delivered a new 25-bit frame.
- 136   1               3. If yes, run the decode pipeline (stages B through E).
- 137   1      
- 138   1             The SPI ISR handles all timing-critical reception.  The main loop
- 139   1             only needs to process frames faster than they arrive, which is
- 140   1             easily satisfied: the TX produces one frame every ~280 us, and
- 141   1             the decode pipeline (syndrome + delta solve + nibble FSM) takes
- 142   1             well under 100 us on the 8051 at 11 MHz.
- 143   1             ------------------------------------------------------------------
- 144   1          */
- 145   1          while (1)
- 146   1          {
- 147   2              /* Pump the non-blocking UART TX buffer each iteration. */
- 148   2              rx_uart_pump();
- 149   2      
- 150   2              /* Check for a new SPI frame. */
- 151   2              if (rx_spi_frame_ready)
- 152   2              {
- 153   3                  /* --- Consume the SPI frame --- */
- 154   3                  /* Disable interrupts briefly to take an atomic snapshot
- 155   3                     of the two 16-bit staging registers, then clear the flag.
- 156   3                     This prevents a new ISR write from corrupting the read. */
- 157   3                  EA = 0;
- 158   3                  raw_data = rx_spi_data;
- 159   3                  raw_red  = rx_spi_red;
- 160   3                  rx_spi_frame_ready = 0;
- 161   3                  EA = 1;
- 162   3      
- 163   3                  /* Stage B: TX reset detection.
- 164   3                     All-zero 25-bit word means the TX executed '='. */
- 165   3                  if (rx_is_bus_reset(raw_data, raw_red))
- 166   3                  {
- 167   4                      rx_perform_full_reset();
- 168   4                      continue;
- 169   4                  }
- 170   3      
- 171   3                  /* Stage C: PESEC error correction (25-bit codeword).
- 172   3                     raw_data and raw_red are corrected IN PLACE. */
- 173   3                  rx_pesec_correct(&raw_data, &raw_red);
- 174   3      
- 175   3                  /* Stage D: H1 differential validation (15-bit data). */
- 176   3                  corrected_data = rx_correct_bus_state(raw_data);
- 177   3      
- 178   3                  /* Stage E: Nibble extraction and byte reassembly. */
-C51 COMPILER V9.60.7.0   RX_MAIN                                                           03/16/2026 15:50:26 PAGE 4   
-
- 179   3                  rx_process_bus_state(corrected_data);
- 180   3      
- 181   3                  rx_states_processed++;
- 182   3              }
- 183   2          }
- 184   1      }
+ 117   3                  rx_process_bus_state(corrected_data);
+ 118   3      
+ 119   3                  rx_states_processed++;
+ 120   3              }
+ 121   2          }
+ 122   1      }
 
 
 MODULE INFORMATION:   STATIC OVERLAYABLE
-   CODE SIZE        =    177    ----
+   CODE SIZE        =    183    ----
    CONSTANT SIZE    =   ----    ----
    XDATA SIZE       =   ----    ----
    PDATA SIZE       =   ----    ----
-   DATA SIZE        =      2       6
+   DATA SIZE        =      2       7
    IDATA SIZE       =   ----    ----
    BIT SIZE         =   ----    ----
 END OF MODULE INFORMATION.

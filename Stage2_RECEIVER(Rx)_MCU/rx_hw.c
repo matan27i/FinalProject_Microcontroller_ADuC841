@@ -3,71 +3,28 @@
    Module: Group 1 -- Hardware Abstraction Layer (SPI Slave version)
    Target: ADuC841 (8052 single-cycle core, 11.0592 MHz crystal)
 
-   MODIFICATION SUMMARY:
-     The original design read 25 parallel bits from P0, P1, P2, and P3
-     with polling on a DATA_READY GPIO.  This version replaces that
-     entire input path with SPI slave reception from the Arduino Mega
-     2560 bridge.
+   FIX LOG:
+     [F2] RX_SPI_Slave_Init() now writes 0 to P1.5 to force it from
+          analog mode (ADuC841 power-on default) to digital input mode
+          BEFORE enabling the SPI peripheral.  Without this fix, the /SS
+          pin cannot reliably detect the master's slave-select assertion,
+          causing intermittent SPI frame loss or corruption.
+     [W4] SPI ISR now extracts the overall parity bit from byte 1 bit 7
+          and stores it in rx_spi_parity for the SEC+DED decode pipeline.
 
-   SPI SLAVE OPERATION:
-     The Mega sends a 4-byte frame (data_lo, data_hi, ecc_lo, ecc_hi)
-     with /SS driven low for the duration.  Two interrupt sources
-     cooperate to receive and assemble the frame:
+   ADuC841 PORT 1 ANALOG-MODE ANOMALY:
+   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+   On the ADuC841, all Port 1 pins power up in ANALOG INPUT mode.  In
+   this mode the digital input buffer is disabled and the pin reads as
+   indeterminate.  Writing a 0 to a P1 bit switches that pin to DIGITAL
+   mode.  This must be done BEFORE enabling any peripheral (like SPI)
+   that relies on reading the pin.
 
-       INT0 (P3.2, falling edge):
-         Fires when the Mega asserts /SS low, signalling the start of
-         a new 4-byte frame.  Resets the byte counter to 0, ensuring
-         frame alignment even after glitches or startup transients.
+   The SPI /SS pin is P1.5.  If SPE is set while P1.5 is still in
+   analog mode, the SPI slave cannot detect /SS transitions and will
+   either ignore frames entirely or sample data at random phases.
 
-       SPI/I2C interrupt (vector 6):
-         Fires after each byte is clocked in.  Stores the byte in a
-         4-element buffer and increments the counter.  When the 4th
-         byte is stored, it assembles the 25-bit word and sets the
-         rx_spi_frame_ready flag for the main loop.
-
-     This two-interrupt design guarantees that byte 0 is always the
-     first byte after /SS falls, regardless of prior state.
-
-   ADuC841 SPI PERIPHERAL OVERVIEW:
-   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-     SPICON (SFR F8h, bit-addressable):
-       Bit 7  ISPI   -- SPI interrupt enable/flag
-                         In slave mode, set to 1 to enable ISR.
-                         Cleared by hardware on ISR entry or by
-                         reading SPIDAT.
-       Bit 6  WCOL   -- Write collision flag (read-only).
-       Bit 5  SPE    -- SPI Enable.  When set, the SPI pins take
-                         over their alternate functions.
-       Bit 4  SPIM   -- SPI Master/Slave select.
-                         0 = Slave mode (we use this).
-                         1 = Master mode.
-       Bit 3  CPOL   -- Clock polarity.
-                         0 = SCLK idle low (Mode 0/1).
-       Bit 2  CPHA   -- Clock phase.
-                         0 = sample on leading edge (Mode 0).
-       Bit 1-0 SPR1:SPR0 -- Clock rate divisor (Master only; ignored
-                             in slave mode).
-
-     SPIDAT (SFR F7h):
-       Read:  Returns the last received byte.
-       Write: Loads the transmit shift register (not used here).
-
-     SPISTA (SFR read address):
-       Contains the ISPI flag copy and WCOL.  Reading SPISTA then
-       SPIDAT clears the interrupt flag.
-
-     SPI INTERRUPT:
-       The SPI/I2C interrupt is at vector 6 (address 0x0033).
-       It is enabled by:
-         1. Setting ISPI (SPICON.7) = 1.
-         2. Setting EA = 1 (global interrupt enable).
-
-   NOTE ON PIN VERIFICATION:
-     The SPI peripheral pins (SCLOCK, MOSI, MISO, /SS) are automatically
-     routed when SPE=1.  The exact physical pins depend on the ADuC841
-     package variant.  Consult your specific datasheet (Table 10, "Pin
-     Function Description") and ensure the Mega's SPI lines are wired
-     to the correct ADuC841 pins.
+   Reference: ADuC841 datasheet, "Port 1" section (p. 60-62).
    =============================================================================
 */
 
@@ -77,17 +34,15 @@
    SPI RECEIVE STATE VARIABLES
    ========================================================================= */
 
-/* Staging registers: assembled 25-bit word from the last complete frame.
+/* Staging registers: assembled 26-bit word from the last complete frame.
    Written atomically by the SPI ISR; read by the main loop when
    rx_spi_frame_ready == 1. */
-volatile uint16_t rx_spi_data       = 0;
-volatile uint16_t rx_spi_red        = 0;
+volatile uint16_t rx_spi_data        = 0;
+volatile uint16_t rx_spi_red         = 0;
+volatile uint8_t  rx_spi_parity      = 0;   /* [W4] Overall parity bit */
 volatile uint8_t  rx_spi_frame_ready = 0;
 
-/* ISR-private byte accumulation buffer and counter.
-   These are only accessed within interrupt context (INT0 + SPI ISR),
-   and since the 8051 does not nest interrupts by default, no additional
-   synchronisation is required. */
+/* ISR-private byte accumulation buffer and counter. */
 static uint8_t spi_rx_buf[4];
 static uint8_t spi_byte_idx = 0;
 
@@ -100,17 +55,7 @@ static uint8_t spi_byte_idx = 0;
    INT0 ISR (vector 0, address 0x0003) -- /SS Frame-Sync
    ---------------------------------------------------------------------------
    Fires on the falling edge of /SS (Mega asserts slave select).
-   Resets the byte counter to 0 so the next SPI byte received is
-   interpreted as byte 0 of the frame.
-
-   This ensures frame alignment is re-established at the start of every
-   SPI transfer, even if a previous transfer was interrupted or the
-   system just powered up.
-
-   TIMING: The Mega inserts a ~125 ns delay between /SS assertion and
-   the first SCK edge.  The INT0 ISR entry latency on the 8051 is
-   3-8 machine cycles (~0.3-0.7 us at 11.0592 MHz), which completes
-   well before the first SPI byte finishes (~2 us at 4 MHz SCK).
+   Resets the byte counter to 0 so the next SPI byte is byte 0.
    ---------------------------------------------------------------------------
 */
 void INT0_FrameSync_ISR(void) interrupt 0
@@ -122,23 +67,17 @@ void INT0_FrameSync_ISR(void) interrupt 0
 /* ---------------------------------------------------------------------------
    SPI/I2C ISR (vector 6, address 0x0033) -- Byte Received
    ---------------------------------------------------------------------------
-   Fires after each complete 8-bit SPI transfer.  The received byte is
-   in SPIDAT.
+   Fires after each complete 8-bit SPI transfer.
 
    FRAME PROTOCOL (4 bytes per frame):
-     Index 0: H1 data bits  [7:0]   -> low byte of data word
-     Index 1: H1 data bits [14:8]   -> high byte of data word (bit 7 = 0)
-     Index 2: ECC red bits  [7:0]   -> low byte of redundancy word
-     Index 3: ECC red bits  [9:8]   -> high byte of redundancy (bits 7-2 = 0)
+     Index 0: H1 data bits  [7:0]
+     Index 1: bit 7 = overall parity (W4)
+              bits [6:0] = H1 data bits [14:8]
+     Index 2: ECC red bits  [7:0]
+     Index 3: ECC red bits  [9:8] (bits 7-2 = 0)
 
-   After storing byte 3, the ISR assembles the two 16-bit values and
-   sets rx_spi_frame_ready = 1.  The main loop detects this flag and
-   feeds the data into the decode pipeline.
-
-   INTERRUPT FLAG CLEARING:
-     On the ADuC841, reading SPIDAT clears the SPI interrupt flag.
-     The ISPI bit in SPICON is automatically cleared on ISR entry on
-     some ADuC841 revisions; reading SPIDAT ensures it is cleared on all.
+   After storing byte 3, the ISR assembles the 15-bit data, 10-bit
+   redundancy, and 1-bit parity, then sets rx_spi_frame_ready = 1.
    ---------------------------------------------------------------------------
 */
 void SPI_Receive_ISR(void) interrupt 6
@@ -148,8 +87,6 @@ void SPI_Receive_ISR(void) interrupt 6
     /* Read SPIDAT to get the received byte AND clear the interrupt flag. */
     rx_byte = SPIDAT;
 
-    /* Guard: if index is out of range (should not happen with INT0 sync),
-       silently ignore the byte. */
     if (spi_byte_idx >= 4)
     {
         return;
@@ -158,26 +95,26 @@ void SPI_Receive_ISR(void) interrupt 6
     spi_rx_buf[spi_byte_idx] = rx_byte;
     spi_byte_idx++;
 
-    /* Check if a complete 4-byte frame has been received. */
     if (spi_byte_idx == 4)
     {
         /* Assemble the 15-bit data word from bytes 0 and 1.
-           Byte 0 = data[7:0], Byte 1 = data[14:8] (bits 6:0 valid). */
+           Byte 0 = data[7:0].
+           Byte 1 bits [6:0] = data[14:8].
+           Byte 1 bit 7 = overall parity (extracted separately). */
         rx_spi_data = (uint16_t)spi_rx_buf[0]
                     | (((uint16_t)(spi_rx_buf[1] & 0x7Fu)) << 8);
 
-        /* Assemble the 10-bit redundancy word from bytes 2 and 3.
-           Byte 2 = red[7:0], Byte 3 = red[9:8] (bits 1:0 valid). */
+        /* Assemble the 10-bit redundancy word from bytes 2 and 3. */
         rx_spi_red  = (uint16_t)spi_rx_buf[2]
                     | (((uint16_t)(spi_rx_buf[3] & 0x03u)) << 8);
 
-        /* Signal the main loop that a new frame is available. */
-        rx_spi_frame_ready = 1;
+        /* [W4] Extract the overall parity bit from byte 1, bit 7.
+           This is the TX-computed even parity of all 25 bits
+           (15 data + 10 redundancy).  It rides in the previously-
+           unused high bit of byte 1. */
+        rx_spi_parity = (spi_rx_buf[1] >> 7) & 0x01u;
 
-        /* Do not reset spi_byte_idx here.  The next INT0 falling edge
-           (start of the next frame) will reset it.  This prevents a
-           stale or spurious SPI clock from being misinterpreted as
-           the start of a new frame without /SS re-assertion. */
+        rx_spi_frame_ready = 1;
     }
 }
 
@@ -187,14 +124,7 @@ void SPI_Receive_ISR(void) interrupt 6
    ========================================================================= */
 
 /* ---------------------------------------------------------------------------
-   RX_Timer3_Init  (unchanged from original)
-   ---------------------------------------------------------------------------
-   Configures Timer 3 as the dedicated UART baud-rate generator targeting
-   exactly 9600 baud with a 11.0592 MHz crystal.
-
-     T3CON = 0x86  ->  T3BAUDEN=1, DIV=6
-     T3FD  = 0x08  ->  Fractional correction
-     Baud  = 22118400 / (32 * 72) = 9600.0 (exact)
+   RX_Timer3_Init  (unchanged)
    ---------------------------------------------------------------------------
 */
 void RX_Timer3_Init(void)
@@ -205,10 +135,7 @@ void RX_Timer3_Init(void)
 
 
 /* ---------------------------------------------------------------------------
-   RX_UART_Init  (unchanged from original)
-   ---------------------------------------------------------------------------
-   8-bit UART, transmit-only, 9600 baud (clocked by Timer 3).
-   TI pre-armed so the first SBUF write does not stall.
+   RX_UART_Init  (unchanged)
    ---------------------------------------------------------------------------
 */
 void RX_UART_Init(void)
@@ -220,39 +147,33 @@ void RX_UART_Init(void)
     TI  = 0;
     ES  = 0;
 
-    TI  = 1;   /* Pre-arm for first byte. */
+    TI  = 1;
 }
 
 
 /* ---------------------------------------------------------------------------
    RX_SPI_Slave_Init
    ---------------------------------------------------------------------------
-   Configures the ADuC841 SPI peripheral as a slave and sets up INT0
-   for frame synchronisation.
+   [F2] FIX: P1.5 ANALOG-MODE BUG
 
-   SPI CONFIGURATION (SPICON = 0xA0):
-     Bit 7  ISPI = 1   Enable SPI interrupt.
-     Bit 6  WCOL = 0   (read-only, cannot set)
-     Bit 5  SPE  = 1   Enable SPI peripheral; pins become SPI function.
-     Bit 4  SPIM = 0   Slave mode.
-     Bit 3  CPOL = 0   Clock idle low  (SPI Mode 0, matches Mega config).
-     Bit 2  CPHA = 0   Sample on leading (rising) edge (SPI Mode 0).
-     Bit 1-0 SPR = 00  (Ignored in slave mode.)
+   The ADuC841 Port 1 defaults to ANALOG INPUT mode on power-up.
+   In analog mode, the digital input buffer is disconnected, so the
+   pin cannot reliably read logic levels.  P1.5 is the SPI /SS pin.
+   If SPE is enabled while P1.5 is still analog, the SPI slave
+   peripheral cannot detect the master's slave-select assertion.
 
-     Combined: 1_0_1_0_0_0_0_0 = 0xA0
+   FIX: Write 0 to P1.5 BEFORE enabling SPE.  On the ADuC841, writing
+   a 0 to any Port 1 bit switches that pin from analog to digital mode.
+   We use a bitwise AND to clear only P1.5 without disturbing other P1
+   bits that may be intentionally left in analog mode for ADC use.
 
-   INT0 CONFIGURATION:
-     P3.2 (INT0) is connected to the Mega's /SS output.
-     Configured for falling-edge trigger (IT0 = 1).
-     Enabled via EX0 = 1 in the IE register.
+   After the digital-mode switch, SPI is enabled as before.
 
-   Pre-load SPIDAT with 0x00 so the slave has a defined first
-   response byte (the Mega ignores MISO, but this is good practice).
+   [W4] rx_spi_parity is reset to 0 alongside the other staging registers.
 
-   GLOBAL INTERRUPT NOTE:
-     This function enables the SPI and INT0 interrupt sources but does
-     NOT set EA=1.  The caller (main) must set EA=1 after all
-     initialisations are complete, exactly as the original design did.
+   SPICON = 0xA0:
+     ISPI=1 (SPI interrupt enable), SPE=1 (SPI enable),
+     SPIM=0 (slave), CPOL=0, CPHA=0 (Mode 0), SPR=00 (ignored).
    ---------------------------------------------------------------------------
 */
 void RX_SPI_Slave_Init(void)
@@ -262,40 +183,40 @@ void RX_SPI_Slave_Init(void)
     rx_spi_frame_ready = 0;
     rx_spi_data        = 0;
     rx_spi_red         = 0;
+    rx_spi_parity      = 0;   /* [W4] */
 
-    /* Pre-load transmit register (slave sends 0x00 -- Mega ignores it). */
+    /* [F2] Force P1.5 (/SS) from analog mode to digital input mode.
+       On ADuC841, writing 0 to a Port 1 bit activates the digital
+       input buffer for that pin.  This MUST happen before SPE is set,
+       otherwise the SPI slave cannot detect /SS transitions.
+
+       P1 &= ~0x20  clears bit 5 only.  Bits 0-4 and 6-7 are preserved
+       so that any ADC channels configured on other P1 pins remain
+       undisturbed.  If additional SPI pins (MOSI, MISO, SCLOCK) also
+       reside on Port 1, clear those bits here too -- consult the
+       datasheet for your specific package variant. */
+    P1 &= ~0x20u;   /* P1.5 = 0 -> digital mode for /SS */
+
+    /* Pre-load transmit register. */
     SPIDAT = 0x00u;
 
     /* Configure SPI: slave mode, Mode 0, interrupt enabled.
        ISPI=1, SPE=1, SPIM=0, CPOL=0, CPHA=0, SPR=00 => 0xA0. */
     SPICON = 0xA0u;
 
-    /* Configure INT0 (P3.2) for falling-edge trigger.
-       IT0 = 1: edge-triggered (not level).
-       IE0 is auto-cleared by hardware on ISR entry. */
+    /* Configure INT0 (P3.2) for falling-edge trigger. */
     IT0 = 1;
-
-    /* Clear any pending INT0 flag from startup noise. */
     IE0 = 0;
-
-    /* Enable INT0 interrupt source. */
     EX0 = 1;
 
-    /* NOTE: EA (global interrupt enable) is NOT set here.
-       The caller must set EA=1 after all init functions complete.
-       This prevents ISR entry with partially-configured peripherals. */
+    /* EA is NOT set here; caller must set EA=1 after all inits. */
 }
 
 
 /* =========================================================================
-   NON-BLOCKING UART TX BUFFER  (unchanged from original)
-   =========================================================================
-   Bytes are enqueued by rx_send_uart_byte() and drained by rx_uart_pump()
-   which the main loop calls on every iteration.
+   NON-BLOCKING UART TX BUFFER  (unchanged)
    ========================================================================= */
 
-/* TX buffer in XRAM (2 KB internal, accessed via MOVX).
-   CFG841.XRAMEN must be set in main() before first access. */
 #define TX_BUF_SIZE 16
 static uint8_t xdata tx_buf[TX_BUF_SIZE];
 static uint8_t tx_head = 0;
@@ -309,7 +230,7 @@ void rx_send_uart_byte(uint8_t data_byte)
     next_head = (tx_head + 1) % TX_BUF_SIZE;
     if (next_head == tx_tail)
     {
-        return;  /* Buffer full, drop byte. */
+        return;
     }
 
     tx_buf[tx_head] = data_byte;
