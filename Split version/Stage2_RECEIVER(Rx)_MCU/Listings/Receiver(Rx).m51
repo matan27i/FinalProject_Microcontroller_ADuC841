@@ -1,4 +1,4 @@
-BL51 BANKED LINKER/LOCATER V6.22.4.0                                                    03/17/2026  14:35:28  PAGE 1
+BL51 BANKED LINKER/LOCATER V6.22.4.0                                                    03/23/2026  11:25:55  PAGE 1
 
 
 BL51 BANKED LINKER/LOCATER V6.22.4.0, INVOKED BY:
@@ -59,7 +59,7 @@ LINK MAP OF MODULE:  .\Objects\Receiver(Rx) (RX_DECODER)
             CODE    0E1BH     001FH     UNIT         ?PR?_RX_COMPUTE_SYNDROME?RX_DECODER
             CODE    0E3AH     001EH     UNIT         ?PR?_FIND_MINIMAL_W?RX_ECC
             CODE    0E58H     001EH     UNIT         ?PR?RX_SPI_SLAVE_INIT?RX_HW
-BL51 BANKED LINKER/LOCATER V6.22.4.0                                                  03/17/2026  14:35:28  PAGE 2
+BL51 BANKED LINKER/LOCATER V6.22.4.0                                                  03/23/2026  11:25:55  PAGE 2
 
 
             CODE    0E76H     001DH     UNIT         ?PR?_PARITY16?RX_ECC
@@ -119,7 +119,7 @@ SEGMENT                                           DATA_GROUP
 ?PR?_RX_CORRECT_BUS_STATE?RX_ECC                000FH    0006H
   +--> ?PR?_RX_COMPUTE_SYNDROME?RX_DECODER
   +--> ?PR?_FIND_MINIMAL_W?RX_ECC
-BL51 BANKED LINKER/LOCATER V6.22.4.0                                                  03/17/2026  14:35:28  PAGE 3
+BL51 BANKED LINKER/LOCATER V6.22.4.0                                                  03/23/2026  11:25:55  PAGE 3
 
 
 
@@ -179,7 +179,7 @@ SYMBOL TABLE OF MODULE:  .\Objects\Receiver(Rx) (RX_DECODER)
   C:0D2DH         LINE#         60
   C:0D2DH         LINE#         64
   C:0D30H         LINE#         66
-BL51 BANKED LINKER/LOCATER V6.22.4.0                                                  03/17/2026  14:35:28  PAGE 4
+BL51 BANKED LINKER/LOCATER V6.22.4.0                                                  03/23/2026  11:25:55  PAGE 4
 
 
   C:0D3AH         LINE#         67
@@ -239,7 +239,7 @@ SYMBOL TABLE OF MODULE:  .\Objects\Receiver(Rx) (RX_DECODER)
   C:0DBEH         SYMBOL        _calc_pesec_syndrome_generic
   X:0017H         PUBLIC        pesec_num_blocks
   C:0984H         PUBLIC        _rx_init_pesec_matrices
-BL51 BANKED LINKER/LOCATER V6.22.4.0                                                  03/17/2026  14:35:28  PAGE 5
+BL51 BANKED LINKER/LOCATER V6.22.4.0                                                  03/23/2026  11:25:55  PAGE 5
 
 
   C:0ED8H         SYMBOL        _get_red_syndrome
@@ -299,7 +299,7 @@ SYMBOL TABLE OF MODULE:  .\Objects\Receiver(Rx) (RX_DECODER)
   C:0ADBH         LINE#         119
   C:0ADEH         LINE#         120
   -------         ENDPROC       _RX_INIT_PESEC_MATRICES
-BL51 BANKED LINKER/LOCATER V6.22.4.0                                                  03/17/2026  14:35:28  PAGE 6
+BL51 BANKED LINKER/LOCATER V6.22.4.0                                                  03/23/2026  11:25:55  PAGE 6
 
 
   -------         PROC          _CALC_PESEC_SYNDROME_GENERIC
@@ -359,7 +359,7 @@ SYMBOL TABLE OF MODULE:  .\Objects\Receiver(Rx) (RX_DECODER)
   D:0017H         SYMBOL        i
   D:0018H         SYMBOL        search_limit
   -------         ENDDO         
-BL51 BANKED LINKER/LOCATER V6.22.4.0                                                  03/17/2026  14:35:28  PAGE 7
+BL51 BANKED LINKER/LOCATER V6.22.4.0                                                  03/23/2026  11:25:55  PAGE 7
 
 
   C:0800H         LINE#         233
@@ -419,7 +419,7 @@ SYMBOL TABLE OF MODULE:  .\Objects\Receiver(Rx) (RX_DECODER)
   C:0E3AH         LINE#         331
   C:0E3AH         LINE#         332
   C:0E3DH         LINE#         334
-BL51 BANKED LINKER/LOCATER V6.22.4.0                                                  03/17/2026  14:35:28  PAGE 8
+BL51 BANKED LINKER/LOCATER V6.22.4.0                                                  03/23/2026  11:25:55  PAGE 8
 
 
   C:0E40H         LINE#         335
@@ -479,7 +479,7 @@ SYMBOL TABLE OF MODULE:  .\Objects\Receiver(Rx) (RX_DECODER)
   C:0EE7H         PUBLIC        RX_UART_Init
   D:00F7H         PUBLIC        SPIDAT
   C:0E58H         PUBLIC        RX_SPI_Slave_Init
-BL51 BANKED LINKER/LOCATER V6.22.4.0                                                  03/17/2026  14:35:28  PAGE 9
+BL51 BANKED LINKER/LOCATER V6.22.4.0                                                  03/23/2026  11:25:55  PAGE 9
 
 
   B:00A8H.0       PUBLIC        EX0
@@ -539,7 +539,7 @@ SYMBOL TABLE OF MODULE:  .\Objects\Receiver(Rx) (RX_DECODER)
   -------         ENDPROC       RX_UART_INIT
   -------         PROC          RX_SPI_SLAVE_INIT
   C:0E58H         LINE#         179
-BL51 BANKED LINKER/LOCATER V6.22.4.0                                                  03/17/2026  14:35:28  PAGE 10
+BL51 BANKED LINKER/LOCATER V6.22.4.0                                                  03/23/2026  11:25:55  PAGE 10
 
 
   C:0E58H         LINE#         180
@@ -599,7 +599,7 @@ SYMBOL TABLE OF MODULE:  .\Objects\Receiver(Rx) (RX_DECODER)
   C:0E93H         LINE#         35
   C:0E9AH         LINE#         37
   C:0EA0H         LINE#         38
-BL51 BANKED LINKER/LOCATER V6.22.4.0                                                  03/17/2026  14:35:28  PAGE 11
+BL51 BANKED LINKER/LOCATER V6.22.4.0                                                  03/23/2026  11:25:55  PAGE 11
 
 
   C:0EA6H         LINE#         39
@@ -659,7 +659,7 @@ SYMBOL TABLE OF MODULE:  .\Objects\Receiver(Rx) (RX_DECODER)
   C:0C33H         PUBLIC        ?C?ILDPTR
   -------         ENDMOD        ?C?ILDPTR
 
-BL51 BANKED LINKER/LOCATER V6.22.4.0                                                  03/17/2026  14:35:28  PAGE 12
+BL51 BANKED LINKER/LOCATER V6.22.4.0                                                  03/23/2026  11:25:55  PAGE 12
 
 
   -------         MODULE        ?C?ISTPTR

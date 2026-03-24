@@ -1,4 +1,4 @@
-C51 COMPILER V9.60.7.0   RX_ECC                                                            03/17/2026 14:35:28 PAGE 1   
+C51 COMPILER V9.60.7.0   RX_ECC                                                            03/23/2026 11:25:55 PAGE 1   
 
 
 C51 COMPILER V9.60.7.0, COMPILATION OF MODULE RX_ECC
@@ -62,7 +62,7 @@ line level    source
   52          uint8_t xdata pesec_bit_offsets[MAX_PESEC_BLOCKS];
   53          uint8_t xdata pesec_col_offsets[MAX_PESEC_BLOCKS];
   54          uint8_t xdata pesec_chunk_masks[MAX_PESEC_BLOCKS];
-C51 COMPILER V9.60.7.0   RX_ECC                                                            03/17/2026 14:35:28 PAGE 2   
+C51 COMPILER V9.60.7.0   RX_ECC                                                            03/23/2026 11:25:55 PAGE 2   
 
   55          
   56          /* --- Column counts --- */
@@ -126,7 +126,7 @@ line level    source
  114   2      
  115   2              if (is_in_d == 0)
  116   2              {
-C51 COMPILER V9.60.7.0   RX_ECC                                                            03/17/2026 14:35:28 PAGE 3   
+C51 COMPILER V9.60.7.0   RX_ECC                                                            03/23/2026 11:25:55 PAGE 3   
 
  117   3                  PESEC_MAT_A[pesec_num_a_cols++] = val;
  118   3              }
@@ -190,7 +190,7 @@ line level    source
  176   1      
  177   1          return (x & 1u);
  178   1      }
-C51 COMPILER V9.60.7.0   RX_ECC                                                            03/17/2026 14:35:28 PAGE 4   
+C51 COMPILER V9.60.7.0   RX_ECC                                                            03/23/2026 11:25:55 PAGE 4   
 
  179          
  180          
@@ -254,7 +254,7 @@ line level    source
  238   1          uint8_t i;
  239   1          uint8_t search_limit;
  240   1      
-C51 COMPILER V9.60.7.0   RX_ECC                                                            03/17/2026 14:35:28 PAGE 5   
+C51 COMPILER V9.60.7.0   RX_ECC                                                            03/23/2026 11:25:55 PAGE 5   
 
  241   1          /* Step 1: Compute full PESEC syndrome over the received 25 bits. */
  242   1          syndrome = get_data_syndrome(*data_bits) ^ get_red_syndrome(*red_bits);
@@ -318,7 +318,7 @@ line level    source
  300   3                  *data_bits &= BUS_STATE_MASK;
  301   3                  rx_pesec_corrections++;
  302   3                  return PESEC_CORRECTED_DATA;
-C51 COMPILER V9.60.7.0   RX_ECC                                                            03/17/2026 14:35:28 PAGE 6   
+C51 COMPILER V9.60.7.0   RX_ECC                                                            03/23/2026 11:25:55 PAGE 6   
 
  303   3              }
  304   2          }
@@ -382,7 +382,7 @@ line level    source
  362   1          else
  363   1          {
  364   2              result = (rx_previous_bus_state ^ expected_delta) & BUS_STATE_MASK;
-C51 COMPILER V9.60.7.0   RX_ECC                                                            03/17/2026 14:35:28 PAGE 7   
+C51 COMPILER V9.60.7.0   RX_ECC                                                            03/23/2026 11:25:55 PAGE 7   
 
  365   2              rx_errors_corrected++;
  366   2          }
