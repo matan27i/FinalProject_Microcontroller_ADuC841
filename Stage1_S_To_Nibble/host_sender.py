@@ -16,7 +16,7 @@ USAGE:
     python host_sender.py
 
 Enter text when prompted. Press Enter to send.
-The script adds '\\n' as a batch terminator after your input.
+The script adds \\n as a batch terminator after your input.
 
 CONFIGURATION:
 Edit the PORT and BAUDRATE variables below to match your setup.
