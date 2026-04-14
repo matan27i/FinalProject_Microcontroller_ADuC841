@@ -1,0 +1,264 @@
+C51 COMPILER V9.60.7.0   TX_ECC                                                            03/17/2026 14:35:07 PAGE 1   
+
+
+C51 COMPILER V9.60.7.0, COMPILATION OF MODULE TX_ECC
+OBJECT MODULE PLACED IN .\Objects\tx_ecc.obj
+COMPILER INVOKED BY: C:\Keil_v5\C51\BIN\C51.EXE tx_ecc.c OPTIMIZE(8,SPEED) BROWSE DEBUG OBJECTEXTEND PRINT(.\Listings\tx
+                    -_ecc.lst) TABS(2) OBJECT(.\Objects\tx_ecc.obj)
+
+line level    source
+
+   1          /* File: ecc.c
+   2           * Group 3: PESEC Error Correction + SEC+DED Overall Parity
+   3           * =========================================================
+   4           * Target: ADuC841 (8052 single-cycle core)
+   5           *
+   6           * Contains:
+   7           *   - pesec_redundancy_reg: the 10-bit ECC redundancy vector
+   8           *   - pesec_overall_parity: the 26th bit for SEC+DED (W4 upgrade)
+   9           *   - Dynamic matrix storage (D and A) and block solver metadata
+  10           *   - Init_PESEC_Matrices(): builds D and A from block-size config
+  11           *   - Syndrome helpers and delta solver
+  12           *   - ECC(): main encode cycle -- redundancy update + parity + output
+  13           *
+  14           * SEC+DED UPGRADE (W4):
+  15           *   After computing the redundancy, a single overall even-parity bit P
+  16           *   is computed over all 25 bits (15 data + 10 redundancy).  This
+  17           *   expands the physical bus word to 26 bits and upgrades the error
+  18           *   model from SEC to SEC+DED.
+  19           *
+  20           * Portability: Pure algorithmic logic.  The only external call is
+  21           *              output_to_shift_registers() from Group 1.
+  22           */
+  23          
+  24          #include "tx_header.h"
+  25          
+  26          /* =========================================================================
+  27           * STATE VARIABLE DEFINITIONS  (owned by this module)
+  28           * ========================================================================= */
+  29          
+  30          /* 10-bit redundancy register, updated differentially.
+  31           * [N2] Not volatile: only accessed from main-loop call chain. */
+  32          uint16_t pesec_redundancy_reg = 0;
+  33          
+  34          /* [W4] Overall even-parity bit for SEC+DED.
+  35           * Computed fresh from all 25 bits (15 data + 10 redundancy) after each
+  36           * redundancy update.  Read by output_to_shift_registers() in tx_main.c
+  37           * to shift it out as the 26th bit on the bus.
+  38           * Value: 0 = even number of 1s in the 25-bit word, 1 = odd. */
+  39          uint8_t pesec_overall_parity = 0;
+  40          
+  41          /* Dynamic matrix storage */
+  42          uint8_t PESEC_MAT_D[20];   /* Redundancy-bit columns */
+  43          uint8_t PESEC_MAT_A[40];   /* Data-bit columns       */
+  44          
+  45          /* Block solver metadata */
+  46          uint8_t pesec_num_blocks;
+  47          uint8_t pesec_bit_offsets[MAX_PESEC_BLOCKS];
+  48          uint8_t pesec_col_offsets[MAX_PESEC_BLOCKS];
+  49          uint8_t pesec_chunk_masks[MAX_PESEC_BLOCKS];
+  50          
+  51          /* Column counts */
+  52          uint8_t pesec_num_d_cols;
+  53          uint8_t pesec_num_a_cols;
+  54          
+C51 COMPILER V9.60.7.0   TX_ECC                                                            03/17/2026 14:35:07 PAGE 2   
+
+  55          /* =========================================================================
+  56           * MATRIX INITIALISATION
+  57           * ========================================================================= */
+  58          void Init_PESEC_Matrices(uint8_t* m_sizes, uint8_t num_blocks)
+  59          {
+  60   1          uint8_t i, b, val;
+  61   1          uint8_t is_in_d;
+  62   1          uint8_t total_m = 0;
+  63   1          uint8_t current_col_offset = 0;
+  64   1          uint8_t max_syndrome;
+  65   1      
+  66   1          pesec_num_blocks = num_blocks;
+  67   1          pesec_num_d_cols = 0;
+  68   1          pesec_num_a_cols = 0;
+  69   1      
+  70   1          for (b = 0; b < num_blocks; b++)
+  71   1          {
+  72   2              pesec_bit_offsets[b] = total_m;
+  73   2              pesec_col_offsets[b] = current_col_offset;
+  74   2              pesec_chunk_masks[b] = ((1 << m_sizes[b]) - 1) << total_m;
+  75   2      
+  76   2              for (i = 1; i < (1 << m_sizes[b]); i++)
+  77   2              {
+  78   3                  PESEC_MAT_D[pesec_num_d_cols++] = (i << total_m);
+  79   3              }
+  80   2      
+  81   2              total_m += m_sizes[b];
+  82   2              current_col_offset += ((1 << m_sizes[b]) - 1);
+  83   2          }
+  84   1      
+  85   1          max_syndrome = (1 << total_m) - 1;
+  86   1      
+  87   1          for (val = 1; val <= max_syndrome; val++)
+  88   1          {
+  89   2              is_in_d = 0;
+  90   2      
+  91   2              for (i = 0; i < pesec_num_d_cols; i++)
+  92   2              {
+  93   3                  if (PESEC_MAT_D[i] == val)
+  94   3                  {
+  95   4                      is_in_d = 1;
+  96   4                      break;
+  97   4                  }
+  98   3              }
+  99   2      
+ 100   2              if (is_in_d == 0)
+ 101   2              {
+ 102   3                  PESEC_MAT_A[pesec_num_a_cols++] = val;
+ 103   3              }
+ 104   2          }
+ 105   1      }
+ 106          
+ 107          /* =========================================================================
+ 108           * SYNDROME COMPUTATION HELPERS
+ 109           * ========================================================================= */
+ 110          
+ 111          static uint8_t calc_pesec_synd(uint16_t reg_val, uint8_t* mat_ptr, uint8_t cols)
+ 112          {
+ 113   1          uint8_t synd_res = 0;
+ 114   1          uint8_t idx;
+ 115   1      
+ 116   1          for (idx = 0; idx < cols; idx++)
+C51 COMPILER V9.60.7.0   TX_ECC                                                            03/17/2026 14:35:07 PAGE 3   
+
+ 117   1          {
+ 118   2              if ((reg_val >> idx) & 1)
+ 119   2              {
+ 120   3                  synd_res ^= mat_ptr[idx];
+ 121   3              }
+ 122   2          }
+ 123   1          return synd_res;
+ 124   1      }
+ 125          
+ 126          static uint8_t get_data_pesec_synd(uint16_t data_val)
+ 127          {
+ 128   1          return calc_pesec_synd(data_val, PESEC_MAT_A, pesec_num_a_cols);
+ 129   1      }
+ 130          
+ 131          static uint8_t get_red_pesec_synd(uint16_t red_val)
+ 132          {
+ 133   1          return calc_pesec_synd(red_val, PESEC_MAT_D, pesec_num_d_cols);
+ 134   1      }
+ 135          
+ 136          /* =========================================================================
+ 137           * PARITY COMPUTATION HELPER  (W4 -- SEC+DED)
+ 138           * =========================================================================
+ 139           * Computes the population parity (popcount mod 2) of a 16-bit value
+ 140           * using XOR folding.  Optimised for the 8051 instruction set:
+ 141           *   1. XOR the high byte into the low byte (one 8-bit XOR).
+ 142           *   2. Fold the resulting byte: nibbles, pairs, then single bit.
+ 143           * Total: 5 XORs + 3 shifts + 1 AND -- no branches, no lookup table.
+ 144           *
+ 145           * Returns: 0 if the number of set bits is even, 1 if odd.
+ 146           * ========================================================================= */
+ 147          static uint8_t parity16(uint16_t v)
+ 148          {
+ 149   1          uint8_t x;
+ 150   1      
+ 151   1          x = (uint8_t)(v >> 8) ^ (uint8_t)(v);
+ 152   1          x ^= x >> 4;
+ 153   1          x ^= x >> 2;
+ 154   1          x ^= x >> 1;
+ 155   1      
+ 156   1          return (x & 1u);
+ 157   1      }
+ 158          
+ 159          /* =========================================================================
+ 160           * DELTA SOLVER
+ 161           * ========================================================================= */
+ 162          static uint16_t solve_pesec_delta(uint8_t synd_gap)
+ 163          {
+ 164   1          uint16_t delta_vec = 0;
+ 165   1          uint8_t  b, chunk, val;
+ 166   1      
+ 167   1          for (b = 0; b < pesec_num_blocks; b++)
+ 168   1          {
+ 169   2              chunk = synd_gap & pesec_chunk_masks[b];
+ 170   2      
+ 171   2              if (chunk != 0)
+ 172   2              {
+ 173   3                  val = chunk >> pesec_bit_offsets[b];
+ 174   3                  delta_vec |= (1 << (pesec_col_offsets[b] + val - 1));
+ 175   3              }
+ 176   2          }
+ 177   1      
+ 178   1          return delta_vec;
+C51 COMPILER V9.60.7.0   TX_ECC                                                            03/17/2026 14:35:07 PAGE 4   
+
+ 179   1      }
+ 180          
+ 181          /* =========================================================================
+ 182           * MAIN ECC FUNCTION
+ 183           * =========================================================================
+ 184           * Called after each nibble encoding cycle in process_nibble().
+ 185           *
+ 186           * Steps:
+ 187           *   1. Compute syndrome of data bits (Matrix A x current_bus_state)
+ 188           *   2. Compute syndrome of redundancy bits (Matrix D x pesec_redundancy_reg)
+ 189           *   3. XOR to find the syndrome gap
+ 190           *   4. Solve for the optimal redundancy-bit flip vector
+ 191           *   5. Apply the differential update to pesec_redundancy_reg
+ 192           *   6. [W4] Compute overall even parity of all 25 bits
+ 193           *   7. Output all 26 bits to shift registers
+ 194           * ========================================================================= */
+ 195          void ECC(void)
+ 196          {
+ 197   1          uint8_t  synd_data;
+ 198   1          uint8_t  synd_red;
+ 199   1          uint8_t  synd_diff;
+ 200   1          uint16_t delta_vector;
+ 201   1      
+ 202   1          /* Step 1: Syndrome of the new data */
+ 203   1          synd_data = get_data_pesec_synd(current_bus_state);
+ 204   1      
+ 205   1          /* Step 2: Syndrome of the current redundancy */
+ 206   1          synd_red = get_red_pesec_synd(pesec_redundancy_reg);
+ 207   1      
+ 208   1          /* Step 3: Syndrome gap */
+ 209   1          synd_diff = synd_data ^ synd_red;
+ 210   1      
+ 211   1          /* Step 4: Solve for minimal redundancy flip */
+ 212   1          delta_vector = solve_pesec_delta(synd_diff);
+ 213   1      
+ 214   1          /* Step 5: Apply differential update */
+ 215   1          pesec_redundancy_reg ^= delta_vector;
+ 216   1      
+ 217   1          /* Step 6: [W4] Compute overall even parity of all 25 bits.
+ 218   1           *
+ 219   1           * P = parity(data[14:0]) XOR parity(redundancy[9:0])
+ 220   1           *
+ 221   1           * The parity of the 25-bit concatenation [data | red] equals the
+ 222   1           * XOR of the individual parities because parity is linear over
+ 223   1           * disjoint bit fields.  The receiver checks:
+ 224   1           *   received_P XOR parity(received_data) XOR parity(received_red)
+ 225   1           * and combines the result with the PESEC syndrome to distinguish
+ 226   1           * single errors (correctable) from double errors (detectable). */
+ 227   1          pesec_overall_parity = parity16(current_bus_state & BUS_STATE_MASK)
+ 228   1                               ^ parity16(pesec_redundancy_reg & PESEC_RED_MASK);
+ 229   1      
+ 230   1          /* Step 7: Output 26 bits to daisy-chained shift registers */
+ 231   1          output_to_shift_registers();
+ 232   1      }
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =    536    ----
+   CONSTANT SIZE    =   ----    ----
+   XDATA SIZE       =   ----    ----
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =     81      15
+C51 COMPILER V9.60.7.0   TX_ECC                                                            03/17/2026 14:35:07 PAGE 5   
+
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)
