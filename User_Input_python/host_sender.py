@@ -12,15 +12,9 @@ The MCU firmware splits each character into:
 
 Each nibble becomes a 4-bit syndrome S_new for the H1 encoder.
 
-USAGE:
-    python host_sender.py
 
 Enter text when prompted. Press Enter to send.
-The script adds '\\n' as a batch terminator after your input.
-
-CONFIGURATION:
-Edit the PORT and BAUDRATE variables below to match your setup.
-"""
+The script adds '\\n' as a batch terminator after your input."""
 
 import serial
 import time
