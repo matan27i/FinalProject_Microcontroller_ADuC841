@@ -1,6 +1,5 @@
 /* File: encoder.c
  * Group 2: H1-Type Bus Encoding & UART Character Handling
- * ========================================================
  * Target: ADuC841 (8052 single-cycle core)
  *
  * Contains:
@@ -19,9 +18,9 @@
 
 #include "tx_header.h"
 
-/* =========================================================================
+/* 
  * STATE VARIABLE DEFINITIONS  (owned by this module)
- * ========================================================================= */
+ */
 
 uint16_t current_bus_state = 0;
 
@@ -48,9 +47,9 @@ uint8_t compute_syndrome_from_bus(uint16_t bus_state)
     return syndrome;
 }
 
-/* =========================================================================
+/* 
  * MINIMAL-WEIGHT CODEWORD SEARCH
- * ========================================================================= */
+ */
 uint16_t find_minimal_w(uint8_t s_target)
 {
     s_target &= 0x0F;
@@ -63,9 +62,9 @@ uint16_t find_minimal_w(uint8_t s_target)
     return ((uint16_t)1 << (s_target - 1));
 }
 
-/* =========================================================================
+/* 
  * PROCESS NIBBLE  (Core Stateful Encoder)
- * ========================================================================= */
+ */
 void process_nibble(uint8_t s_new)
 {
     uint8_t  s_old;
@@ -86,9 +85,9 @@ void process_nibble(uint8_t s_new)
     ECC();
 }
 
-/* =========================================================================
+/* 
  * TX HANDLER  (UART Character -> Nibble Splitter)
- * ========================================================================= */
+ */
 void tx_handler(uint8_t rx_char)
 {
     uint8_t high_nibble;

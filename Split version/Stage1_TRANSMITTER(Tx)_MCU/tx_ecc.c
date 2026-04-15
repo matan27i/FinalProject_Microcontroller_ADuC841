@@ -1,6 +1,5 @@
 /* File: ecc.c
  * Group 3: PESEC Error Correction + SEC+DED Overall Parity
- * =========================================================
  * Target: ADuC841 (8052 single-cycle core)
  *
  * Contains:
@@ -23,9 +22,9 @@
 
 #include "tx_header.h"
 
-/* =========================================================================
+/* 
  * STATE VARIABLE DEFINITIONS  (owned by this module)
- * ========================================================================= */
+ */
 
 /* 10-bit redundancy register, updated differentially.
  * [N2] Not volatile: only accessed from main-loop call chain. */
@@ -52,9 +51,9 @@ uint8_t pesec_chunk_masks[MAX_PESEC_BLOCKS];
 uint8_t pesec_num_d_cols;
 uint8_t pesec_num_a_cols;
 
-/* =========================================================================
+/* 
  * MATRIX INITIALISATION
- * ========================================================================= */
+ */
 void Init_PESEC_Matrices(uint8_t* m_sizes, uint8_t num_blocks)
 {
     uint8_t i, b, val;
@@ -104,9 +103,9 @@ void Init_PESEC_Matrices(uint8_t* m_sizes, uint8_t num_blocks)
     }
 }
 
-/* =========================================================================
+/* 
  * SYNDROME COMPUTATION HELPERS
- * ========================================================================= */
+ */
 
 static uint8_t calc_pesec_synd(uint16_t reg_val, uint8_t* mat_ptr, uint8_t cols)
 {
@@ -156,9 +155,9 @@ static uint8_t parity16(uint16_t v)
     return (x & 1u);
 }
 
-/* =========================================================================
+/* 
  * DELTA SOLVER
- * ========================================================================= */
+ */
 static uint16_t solve_pesec_delta(uint8_t synd_gap)
 {
     uint16_t delta_vec = 0;
@@ -178,9 +177,8 @@ static uint16_t solve_pesec_delta(uint8_t synd_gap)
     return delta_vec;
 }
 
-/* =========================================================================
+/* 
  * MAIN ECC FUNCTION
- * =========================================================================
  * Called after each nibble encoding cycle in process_nibble().
  *
  * Steps:

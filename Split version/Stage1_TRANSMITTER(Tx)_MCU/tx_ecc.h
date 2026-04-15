@@ -1,6 +1,5 @@
 /* File: ecc.h
  * Group 3: PESEC Error Correction + SEC+DED Overall Parity
- * =========================================================
  * Declares the PESEC redundancy state, overall parity bit, matrix
  * storage, block solver metadata, and prototypes for matrix
  * initialisation and ECC computation.

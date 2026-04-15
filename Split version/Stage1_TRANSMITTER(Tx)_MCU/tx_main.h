@@ -1,6 +1,5 @@
 /* File: main.h
  * Group 1: Main Loop & Hardware Peripherals
- * ==========================================
  * Declares state variables owned by main.c (UART flags, Timer2 state,
  * buffer tracking) and prototypes for all hardware initialisation and
  * shift-register output functions.
