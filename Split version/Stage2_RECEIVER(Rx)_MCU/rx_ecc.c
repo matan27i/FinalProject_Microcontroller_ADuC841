@@ -1,4 +1,4 @@
-/* =============================================================================
+/*
    File: rx_ecc.c
    Module: Group 3 -- Error Correction (PESEC + H1 + SEC+DED)
 
@@ -32,14 +32,14 @@
 
    Portability:
      No hardware registers are accessed here.
-   =============================================================================
+   
 */
 
 #include "rx_system.h"
 
-/* =========================================================================
+/* 
    MODULE STATE VARIABLES
-   ========================================================================= */
+  */
 
 /* --- PESEC matrices (built at startup, read-only thereafter) ---
    [MEM] Placed in XDATA to free DATA space. */
@@ -67,9 +67,9 @@ uint16_t xdata rx_errors_detected    = 0;
 uint16_t xdata rx_pesec_corrections  = 0;
 
 
-/* =========================================================================
+/* 
    PESEC MATRIX INITIALISATION
-   ========================================================================= */
+    */
 void rx_init_pesec_matrices(uint8_t *m_sizes, uint8_t num_blocks)
 {
     uint8_t i, b, val;
@@ -120,9 +120,9 @@ void rx_init_pesec_matrices(uint8_t *m_sizes, uint8_t num_blocks)
 }
 
 
-/* =========================================================================
+/* 
    PESEC SYNDROME COMPUTATION (INTERNAL HELPERS)
-   ========================================================================= */
+    */
 
 static uint8_t calc_pesec_syndrome_generic(uint16_t reg_val,
                                            uint8_t *mat_ptr,
@@ -157,14 +157,14 @@ static uint8_t get_red_syndrome(uint16_t red_val)
 }
 
 
-/* =========================================================================
-   PARITY COMPUTATION HELPER  (W4 -- SEC+DED)
-   =========================================================================
+/* 
+   PARITY COMPUTATION HELPER
+   
    Computes the population parity (popcount mod 2) of a 16-bit value
    using XOR folding.  Identical to the TX encoder's implementation.
 
    Returns: 0 if even number of set bits, 1 if odd.
-   ========================================================================= */
+    */
 static uint8_t parity16(uint16_t v)
 {
     uint8_t x;
@@ -178,9 +178,9 @@ static uint8_t parity16(uint16_t v)
 }
 
 
-/* =========================================================================
+/* 
    PESEC ERROR CORRECTION  (SEC+DED UPGRADED)
-   =========================================================================
+   
 
    [W4] UPGRADED FROM SEC TO SEC+DED
 
@@ -323,9 +323,9 @@ uint8_t rx_pesec_correct(uint16_t *data_bits, uint16_t *red_bits,
 }
 
 
-/* =========================================================================
+/* 
    H1 DIFFERENTIAL ERROR CORRECTION  (unchanged from previous version)
-   ========================================================================= */
+    */
 
 uint16_t find_minimal_w(uint8_t s_target)
 {

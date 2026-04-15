@@ -1,19 +1,7 @@
-/* =============================================================================
+/* 
    File: rx_hw.c
-   Module: Group 1 -- Hardware Abstraction Layer (SPI Slave version)
-   Target: ADuC841 (8052 single-cycle core, 11.0592 MHz crystal)
-
-   FIX LOG:
-     [F2] RX_SPI_Slave_Init() now writes 0 to P1.5 to force it from
-          analog mode (ADuC841 power-on default) to digital input mode
-          BEFORE enabling the SPI peripheral.  Without this fix, the /SS
-          pin cannot reliably detect the master's slave-select assertion,
-          causing intermittent SPI frame loss or corruption.
-     [W4] SPI ISR now extracts the overall parity bit from byte 1 bit 7
-          and stores it in rx_spi_parity for the SEC+DED decode pipeline.
 
    ADuC841 PORT 1 ANALOG-MODE ANOMALY:
-   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
    On the ADuC841, all Port 1 pins power up in ANALOG INPUT mode.  In
    this mode the digital input buffer is disabled and the pin reads as
    indeterminate.  Writing a 0 to a P1 bit switches that pin to DIGITAL
@@ -23,16 +11,14 @@
    The SPI /SS pin is P1.5.  If SPE is set while P1.5 is still in
    analog mode, the SPI slave cannot detect /SS transitions and will
    either ignore frames entirely or sample data at random phases.
-
-   Reference: ADuC841 datasheet, "Port 1" section (p. 60-62).
-   =============================================================================
+   
 */
 
 #include "rx_system.h"
 
-/* =========================================================================
+/* 
    SPI RECEIVE STATE VARIABLES
-   ========================================================================= */
+    */
 
 /* Staging registers: assembled 26-bit word from the last complete frame.
    Written atomically by the SPI ISR; read by the main loop when
@@ -47,16 +33,16 @@ static uint8_t spi_rx_buf[4];
 static uint8_t spi_byte_idx = 0;
 
 
-/* =========================================================================
+/* 
    INTERRUPT SERVICE ROUTINES
-   ========================================================================= */
+    */
 
-/* ---------------------------------------------------------------------------
+/* 
    INT0 ISR (vector 0, address 0x0003) -- /SS Frame-Sync
-   ---------------------------------------------------------------------------
+   
    Fires on the falling edge of /SS (Mega asserts slave select).
    Resets the byte counter to 0 so the next SPI byte is byte 0.
-   ---------------------------------------------------------------------------
+   
 */
 void INT0_FrameSync_ISR(void) interrupt 0
 {
@@ -64,9 +50,9 @@ void INT0_FrameSync_ISR(void) interrupt 0
 }
 
 
-/* ---------------------------------------------------------------------------
+/* 
    SPI/I2C ISR (vector 6, address 0x0033) -- Byte Received
-   ---------------------------------------------------------------------------
+   
    Fires after each complete 8-bit SPI transfer.
 
    FRAME PROTOCOL (4 bytes per frame):
@@ -78,7 +64,7 @@ void INT0_FrameSync_ISR(void) interrupt 0
 
    After storing byte 3, the ISR assembles the 15-bit data, 10-bit
    redundancy, and 1-bit parity, then sets rx_spi_frame_ready = 1.
-   ---------------------------------------------------------------------------
+   
 */
 void SPI_Receive_ISR(void) interrupt 6
 {
@@ -119,13 +105,13 @@ void SPI_Receive_ISR(void) interrupt 6
 }
 
 
-/* =========================================================================
+/* 
    PERIPHERAL INITIALISATION
-   ========================================================================= */
+    */
 
-/* ---------------------------------------------------------------------------
+/* 
    RX_Timer3_Init  (unchanged)
-   ---------------------------------------------------------------------------
+   
 */
 void RX_Timer3_Init(void)
 {
@@ -134,9 +120,9 @@ void RX_Timer3_Init(void)
 }
 
 
-/* ---------------------------------------------------------------------------
+/* 
    RX_UART_Init  (unchanged)
-   ---------------------------------------------------------------------------
+   
 */
 void RX_UART_Init(void)
 {
@@ -151,9 +137,9 @@ void RX_UART_Init(void)
 }
 
 
-/* ---------------------------------------------------------------------------
+/* 
    RX_SPI_Slave_Init
-   ---------------------------------------------------------------------------
+   
    [F2] FIX: P1.5 ANALOG-MODE BUG
 
    The ADuC841 Port 1 defaults to ANALOG INPUT mode on power-up.
@@ -174,7 +160,7 @@ void RX_UART_Init(void)
    SPICON = 0xA0:
      ISPI=1 (SPI interrupt enable), SPE=1 (SPI enable),
      SPIM=0 (slave), CPOL=0, CPHA=0 (Mode 0), SPR=00 (ignored).
-   ---------------------------------------------------------------------------
+   
 */
 void RX_SPI_Slave_Init(void)
 {
@@ -213,9 +199,9 @@ void RX_SPI_Slave_Init(void)
 }
 
 
-/* =========================================================================
+/* 
    NON-BLOCKING UART TX BUFFER  (unchanged)
-   ========================================================================= */
+    */
 
 #define TX_BUF_SIZE 16
 static uint8_t xdata tx_buf[TX_BUF_SIZE];

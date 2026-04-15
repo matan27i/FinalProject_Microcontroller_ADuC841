@@ -1,4 +1,4 @@
-/* =============================================================================
+/* 
    File: rx_main.c
    Module: Group 1 -- Main entry point and pipeline loop (SPI Slave version)
 
@@ -14,21 +14,20 @@
      Stage C: rx_pesec_correct()       (ecc -- 26-bit SEC+DED)
      Stage D: rx_correct_bus_state()   (ecc -- H1 differential)
      Stage E: rx_process_bus_state()   (decoder -- nibble FSM)
-   =============================================================================
 */
 
 #include "rx_system.h"
 
-/* ---------------------------------------------------------------------------
+/* 
    PESEC block configuration -- MUST MATCH THE TX ENCODER.
-   ---------------------------------------------------------------------------
+   
 */
 static uint8_t pesec_config[] = {3, 2};
 
 
-/* ---------------------------------------------------------------------------
+/* 
    rx_perform_full_reset
-   ---------------------------------------------------------------------------
+   
 */
 static void rx_perform_full_reset(void)
 {

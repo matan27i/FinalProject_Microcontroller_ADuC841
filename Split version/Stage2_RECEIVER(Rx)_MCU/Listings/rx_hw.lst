@@ -1,4 +1,4 @@
-C51 COMPILER V9.60.7.0   RX_HW                                                             03/23/2026 11:25:55 PAGE 1   
+C51 COMPILER V9.60.7.0   RX_HW                                                             04/15/2026 19:37:44 PAGE 1   
 
 
 C51 COMPILER V9.60.7.0, COMPILATION OF MODULE RX_HW
@@ -62,7 +62,7 @@ line level    source
   52             ========================================================================= */
   53          
   54          /* ---------------------------------------------------------------------------
-C51 COMPILER V9.60.7.0   RX_HW                                                             03/23/2026 11:25:55 PAGE 2   
+C51 COMPILER V9.60.7.0   RX_HW                                                             04/15/2026 19:37:44 PAGE 2   
 
   55             INT0 ISR (vector 0, address 0x0003) -- /SS Frame-Sync
   56             ---------------------------------------------------------------------------
@@ -126,7 +126,7 @@ line level    source
  114   2                 unused high bit of byte 1. */
  115   2              rx_spi_parity = (spi_rx_buf[1] >> 7) & 0x01u;
  116   2      
-C51 COMPILER V9.60.7.0   RX_HW                                                             03/23/2026 11:25:55 PAGE 3   
+C51 COMPILER V9.60.7.0   RX_HW                                                             04/15/2026 19:37:44 PAGE 3   
 
  117   2              rx_spi_frame_ready = 1;
  118   2          }
@@ -190,7 +190,7 @@ line level    source
  176               SPIM=0 (slave), CPOL=0, CPHA=0 (Mode 0), SPR=00 (ignored).
  177             ---------------------------------------------------------------------------
  178          */
-C51 COMPILER V9.60.7.0   RX_HW                                                             03/23/2026 11:25:55 PAGE 4   
+C51 COMPILER V9.60.7.0   RX_HW                                                             04/15/2026 19:37:44 PAGE 4   
 
  179          void RX_SPI_Slave_Init(void)
  180          {
@@ -254,7 +254,7 @@ line level    source
  238   1      }
  239          
  240          
-C51 COMPILER V9.60.7.0   RX_HW                                                             03/23/2026 11:25:55 PAGE 5   
+C51 COMPILER V9.60.7.0   RX_HW                                                             04/15/2026 19:37:44 PAGE 5   
 
  241          void rx_uart_pump(void)
  242          {
