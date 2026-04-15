@@ -1,6 +1,5 @@
 /* File: encoder.h
  * Group 2: H1-Type Bus Encoding & UART Character Handling
- * ========================================================
  * Declares the stateful bus encoder state and prototypes for:
  *   - Syndrome computation from bus state
  *   - Minimal-weight codeword search

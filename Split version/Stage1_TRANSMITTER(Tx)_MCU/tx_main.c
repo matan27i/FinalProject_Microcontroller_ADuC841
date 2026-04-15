@@ -1,5 +1,7 @@
 /* File: main.c
  * Group 1: Main Loop & Hardware Peripherals
+ * ==========================================
+ * Target: ADuC841 (8052 single-cycle core, 11.0592 MHz crystal)
  *
  * Contains:
  *   - State variables for UART reception and Timer2 hardware
@@ -22,9 +24,9 @@
 
 #include "tx_header.h"
 
-/* 
+/* =========================================================================
  * STATE VARIABLE DEFINITIONS  (owned by this module)
- */
+ * ========================================================================= */
 
 /* UART / main-loop flags */
 volatile bit    buffer_flag  = 0;
@@ -42,9 +44,9 @@ volatile uint8_t flag_t2_mod  = 0;
 /* PESEC block configuration (passed to ECC init at startup) */
 static uint8_t pesec_config[] = {3, 2};
 
-/* 
+/* =========================================================================
  * HARDWARE INITIALISATION
- */
+ * ========================================================================= */
 
 void Port_Init(void)
 {
@@ -161,8 +163,9 @@ void Timer2_ISR(void) interrupt 5
     }
 }
 
-/* 
+/* =========================================================================
  * SHIFT-REGISTER OUTPUT DRIVER
+ * =========================================================================
  * [W4] Serialises the full 26-bit word (1 parity + 10 ECC + 15 data,
  * MSB-first) into daisy-chained 74HC595 shift registers, then pulses
  * the latch.
@@ -176,7 +179,7 @@ void Timer2_ISR(void) interrupt 5
  * The parity bit is shifted first so it arrives at the output pin
  * connected to the Arduino Mega's PC7 (pin 30).  The ECC and data
  * bits retain their original mapping.
- */
+ * ========================================================================= */
 void output_to_shift_registers(void)
 {
     uint16_t state_copy;
@@ -189,6 +192,11 @@ void output_to_shift_registers(void)
     state_copy  = current_bus_state & BUS_STATE_MASK;
     ecc_copy    = pesec_redundancy_reg & PESEC_RED_MASK;
     parity_copy = pesec_overall_parity & 0x01u;
+
+    /* [FIX] Ensure Mode-0 (single clock-pulse) for all bit shifts.
+     * Guards against stale flag_t2_mod if this function is ever
+     * entered from an unexpected context. */
+    flag_t2_mod = 0;
 
     /* --- Phase 0: [W4] Shift out 1 overall parity bit --- */
     SR_DATA = parity_copy;
@@ -239,7 +247,12 @@ void output_to_shift_registers(void)
  * ========================================================================= */
 void main(void)
 {
-    PLLCON = (PLLCON & 0xF8);
+    /* [FIX] ADuC841: CD=0 for full-speed core (11.0592 MHz).
+     * Per datasheet p.49, all non-CD bits in PLLCON are reserved
+     * on the ADuC841 and must be written as 0.  The previous
+     * read-modify-write (PLLCON & 0xF8) left reserved bits 6
+     * and 4 set from the power-on default of 0x53. */
+    PLLCON = 0x00;
 
     Port_Init();
     BaudRate_Init();
