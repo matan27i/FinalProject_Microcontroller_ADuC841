@@ -1,4 +1,4 @@
-C51 COMPILER V9.60.7.0   RX_HW                                                             04/15/2026 19:37:44 PAGE 1   
+C51 COMPILER V9.60.7.0   RX_HW                                                             04/15/2026 20:02:42 PAGE 1   
 
 
 C51 COMPILER V9.60.7.0, COMPILATION OF MODULE RX_HW
@@ -8,267 +8,254 @@ COMPILER INVOKED BY: C:\Keil_v5\C51\BIN\C51.EXE rx_hw.c OPTIMIZE(8,SPEED) BROWSE
 
 line level    source
 
-   1          /* =============================================================================
+   1          /* 
    2             File: rx_hw.c
-   3             Module: Group 1 -- Hardware Abstraction Layer (SPI Slave version)
-   4             Target: ADuC841 (8052 single-cycle core, 11.0592 MHz crystal)
-   5          
-   6             FIX LOG:
-   7               [F2] RX_SPI_Slave_Init() now writes 0 to P1.5 to force it from
-   8                    analog mode (ADuC841 power-on default) to digital input mode
-   9                    BEFORE enabling the SPI peripheral.  Without this fix, the /SS
-  10                    pin cannot reliably detect the master's slave-select assertion,
-  11                    causing intermittent SPI frame loss or corruption.
-  12               [W4] SPI ISR now extracts the overall parity bit from byte 1 bit 7
-  13                    and stores it in rx_spi_parity for the SEC+DED decode pipeline.
-  14          
-  15             ADuC841 PORT 1 ANALOG-MODE ANOMALY:
-  16             ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-  17             On the ADuC841, all Port 1 pins power up in ANALOG INPUT mode.  In
-  18             this mode the digital input buffer is disabled and the pin reads as
-  19             indeterminate.  Writing a 0 to a P1 bit switches that pin to DIGITAL
-  20             mode.  This must be done BEFORE enabling any peripheral (like SPI)
-  21             that relies on reading the pin.
+   3          
+   4             ADuC841 PORT 1 ANALOG-MODE ANOMALY:
+   5             On the ADuC841, all Port 1 pins power up in ANALOG INPUT mode.  In
+   6             this mode the digital input buffer is disabled and the pin reads as
+   7             indeterminate.  Writing a 0 to a P1 bit switches that pin to DIGITAL
+   8             mode.  This must be done BEFORE enabling any peripheral (like SPI)
+   9             that relies on reading the pin.
+  10          
+  11             The SPI /SS pin is P1.5.  If SPE is set while P1.5 is still in
+  12             analog mode, the SPI slave cannot detect /SS transitions and will
+  13             either ignore frames entirely or sample data at random phases.
+  14             
+  15          */
+  16          
+  17          #include "rx_system.h"
+  18          
+  19          /* 
+  20             SPI RECEIVE STATE VARIABLES
+  21              */
   22          
-  23             The SPI /SS pin is P1.5.  If SPE is set while P1.5 is still in
-  24             analog mode, the SPI slave cannot detect /SS transitions and will
-  25             either ignore frames entirely or sample data at random phases.
-  26          
-  27             Reference: ADuC841 datasheet, "Port 1" section (p. 60-62).
-  28             =============================================================================
-  29          */
+  23          /* Staging registers: assembled 26-bit word from the last complete frame.
+  24             Written atomically by the SPI ISR; read by the main loop when
+  25             rx_spi_frame_ready == 1. */
+  26          volatile uint16_t rx_spi_data        = 0;
+  27          volatile uint16_t rx_spi_red         = 0;
+  28          volatile uint8_t  rx_spi_parity      = 0;   /* [W4] Overall parity bit */
+  29          volatile uint8_t  rx_spi_frame_ready = 0;
   30          
-  31          #include "rx_system.h"
-  32          
-  33          /* =========================================================================
-  34             SPI RECEIVE STATE VARIABLES
-  35             ========================================================================= */
-  36          
-  37          /* Staging registers: assembled 26-bit word from the last complete frame.
-  38             Written atomically by the SPI ISR; read by the main loop when
-  39             rx_spi_frame_ready == 1. */
-  40          volatile uint16_t rx_spi_data        = 0;
-  41          volatile uint16_t rx_spi_red         = 0;
-  42          volatile uint8_t  rx_spi_parity      = 0;   /* [W4] Overall parity bit */
-  43          volatile uint8_t  rx_spi_frame_ready = 0;
-  44          
-  45          /* ISR-private byte accumulation buffer and counter. */
-  46          static uint8_t spi_rx_buf[4];
-  47          static uint8_t spi_byte_idx = 0;
-  48          
-  49          
-  50          /* =========================================================================
-  51             INTERRUPT SERVICE ROUTINES
-  52             ========================================================================= */
-  53          
-  54          /* ---------------------------------------------------------------------------
-C51 COMPILER V9.60.7.0   RX_HW                                                             04/15/2026 19:37:44 PAGE 2   
+  31          /* ISR-private byte accumulation buffer and counter. */
+  32          static uint8_t spi_rx_buf[4];
+  33          static uint8_t spi_byte_idx = 0;
+  34          
+  35          
+  36          /* 
+  37             INTERRUPT SERVICE ROUTINES
+  38              */
+  39          
+  40          /* 
+  41             INT0 ISR (vector 0, address 0x0003) -- /SS Frame-Sync
+  42             
+  43             Fires on the falling edge of /SS (Mega asserts slave select).
+  44             Resets the byte counter to 0 so the next SPI byte is byte 0.
+  45             
+  46          */
+  47          void INT0_FrameSync_ISR(void) interrupt 0
+  48          {
+  49   1          spi_byte_idx = 0;
+  50   1      }
+  51          
+  52          
+  53          /* 
+  54             SPI/I2C ISR (vector 6, address 0x0033) -- Byte Received
+C51 COMPILER V9.60.7.0   RX_HW                                                             04/15/2026 20:02:42 PAGE 2   
 
-  55             INT0 ISR (vector 0, address 0x0003) -- /SS Frame-Sync
-  56             ---------------------------------------------------------------------------
-  57             Fires on the falling edge of /SS (Mega asserts slave select).
-  58             Resets the byte counter to 0 so the next SPI byte is byte 0.
-  59             ---------------------------------------------------------------------------
-  60          */
-  61          void INT0_FrameSync_ISR(void) interrupt 0
-  62          {
-  63   1          spi_byte_idx = 0;
-  64   1      }
-  65          
-  66          
-  67          /* ---------------------------------------------------------------------------
-  68             SPI/I2C ISR (vector 6, address 0x0033) -- Byte Received
-  69             ---------------------------------------------------------------------------
-  70             Fires after each complete 8-bit SPI transfer.
-  71          
-  72             FRAME PROTOCOL (4 bytes per frame):
-  73               Index 0: H1 data bits  [7:0]
-  74               Index 1: bit 7 = overall parity (W4)
-  75                        bits [6:0] = H1 data bits [14:8]
-  76               Index 2: ECC red bits  [7:0]
-  77               Index 3: ECC red bits  [9:8] (bits 7-2 = 0)
-  78          
-  79             After storing byte 3, the ISR assembles the 15-bit data, 10-bit
-  80             redundancy, and 1-bit parity, then sets rx_spi_frame_ready = 1.
-  81             ---------------------------------------------------------------------------
-  82          */
-  83          void SPI_Receive_ISR(void) interrupt 6
-  84          {
-  85   1          uint8_t rx_byte;
-  86   1      
-  87   1          /* Read SPIDAT to get the received byte AND clear the interrupt flag. */
-  88   1          rx_byte = SPIDAT;
-  89   1      
-  90   1          if (spi_byte_idx >= 4)
-  91   1          {
-  92   2              return;
-  93   2          }
-  94   1      
-  95   1          spi_rx_buf[spi_byte_idx] = rx_byte;
-  96   1          spi_byte_idx++;
-  97   1      
-  98   1          if (spi_byte_idx == 4)
-  99   1          {
- 100   2              /* Assemble the 15-bit data word from bytes 0 and 1.
- 101   2                 Byte 0 = data[7:0].
- 102   2                 Byte 1 bits [6:0] = data[14:8].
- 103   2                 Byte 1 bit 7 = overall parity (extracted separately). */
- 104   2              rx_spi_data = (uint16_t)spi_rx_buf[0]
- 105   2                          | (((uint16_t)(spi_rx_buf[1] & 0x7Fu)) << 8);
- 106   2      
- 107   2              /* Assemble the 10-bit redundancy word from bytes 2 and 3. */
- 108   2              rx_spi_red  = (uint16_t)spi_rx_buf[2]
- 109   2                          | (((uint16_t)(spi_rx_buf[3] & 0x03u)) << 8);
- 110   2      
- 111   2              /* [W4] Extract the overall parity bit from byte 1, bit 7.
- 112   2                 This is the TX-computed even parity of all 25 bits
- 113   2                 (15 data + 10 redundancy).  It rides in the previously-
- 114   2                 unused high bit of byte 1. */
- 115   2              rx_spi_parity = (spi_rx_buf[1] >> 7) & 0x01u;
- 116   2      
-C51 COMPILER V9.60.7.0   RX_HW                                                             04/15/2026 19:37:44 PAGE 3   
+  55             
+  56             Fires after each complete 8-bit SPI transfer.
+  57          
+  58             FRAME PROTOCOL (4 bytes per frame):
+  59               Index 0: H1 data bits  [7:0]
+  60               Index 1: bit 7 = overall parity (W4)
+  61                        bits [6:0] = H1 data bits [14:8]
+  62               Index 2: ECC red bits  [7:0]
+  63               Index 3: ECC red bits  [9:8] (bits 7-2 = 0)
+  64          
+  65             After storing byte 3, the ISR assembles the 15-bit data, 10-bit
+  66             redundancy, and 1-bit parity, then sets rx_spi_frame_ready = 1.
+  67             
+  68          */
+  69          sbit DEBUG_LED = P3^4;
+  70          void SPI_Receive_ISR(void) interrupt 6
+  71          {
+  72   1          uint8_t rx_byte;
+  73   1          DEBUG_LED = !DEBUG_LED;
+  74   1          /* Read SPIDAT to get the received byte AND clear the interrupt flag. */
+  75   1          rx_byte = SPIDAT;
+  76   1      
+  77   1          if (spi_byte_idx >= 4)
+  78   1          {
+  79   2              return;
+  80   2          }
+  81   1      
+  82   1          spi_rx_buf[spi_byte_idx] = rx_byte;
+  83   1          spi_byte_idx++;
+  84   1      
+  85   1          if (spi_byte_idx == 4)
+  86   1          {
+  87   2              /* Assemble the 15-bit data word from bytes 0 and 1.
+  88   2                 Byte 0 = data[7:0].
+  89   2                 Byte 1 bits [6:0] = data[14:8].
+  90   2                 Byte 1 bit 7 = overall parity (extracted separately). */
+  91   2              rx_spi_data = (uint16_t)spi_rx_buf[0]
+  92   2                          | (((uint16_t)(spi_rx_buf[1] & 0x7Fu)) << 8);
+  93   2      
+  94   2              /* Assemble the 10-bit redundancy word from bytes 2 and 3. */
+  95   2              rx_spi_red  = (uint16_t)spi_rx_buf[2]
+  96   2                          | (((uint16_t)(spi_rx_buf[3] & 0x03u)) << 8);
+  97   2      
+  98   2              /* [W4] Extract the overall parity bit from byte 1, bit 7.
+  99   2                 This is the TX-computed even parity of all 25 bits
+ 100   2                 (15 data + 10 redundancy).  It rides in the previously-
+ 101   2                 unused high bit of byte 1. */
+ 102   2              rx_spi_parity = (spi_rx_buf[1] >> 7) & 0x01u;
+ 103   2      
+ 104   2              rx_spi_frame_ready = 1;
+ 105   2          }
+ 106   1      }
+ 107          
+ 108          
+ 109          /* 
+ 110             PERIPHERAL INITIALISATION
+ 111              */
+ 112          
+ 113          /* 
+ 114             RX_Timer3_Init  (unchanged)
+ 115             
+ 116          */
+C51 COMPILER V9.60.7.0   RX_HW                                                             04/15/2026 20:02:42 PAGE 3   
 
- 117   2              rx_spi_frame_ready = 1;
- 118   2          }
- 119   1      }
- 120          
- 121          
- 122          /* =========================================================================
- 123             PERIPHERAL INITIALISATION
- 124             ========================================================================= */
- 125          
- 126          /* ---------------------------------------------------------------------------
- 127             RX_Timer3_Init  (unchanged)
- 128             ---------------------------------------------------------------------------
- 129          */
- 130          void RX_Timer3_Init(void)
- 131          {
- 132   1          T3CON = 0x86u;
- 133   1          T3FD  = 0x08u;
- 134   1      }
- 135          
- 136          
- 137          /* ---------------------------------------------------------------------------
- 138             RX_UART_Init  (unchanged)
- 139             ---------------------------------------------------------------------------
- 140          */
- 141          void RX_UART_Init(void)
- 142          {
- 143   1          SM0 = 0;
- 144   1          SM1 = 1;
- 145   1          REN = 0;
- 146   1          RI  = 0;
- 147   1          TI  = 0;
- 148   1          ES  = 0;
- 149   1      
- 150   1          TI  = 1;
- 151   1      }
- 152          
- 153          
- 154          /* ---------------------------------------------------------------------------
- 155             RX_SPI_Slave_Init
- 156             ---------------------------------------------------------------------------
- 157             [F2] FIX: P1.5 ANALOG-MODE BUG
+ 117          void RX_Timer3_Init(void)
+ 118          {
+ 119   1          T3CON = 0x86u;
+ 120   1          T3FD  = 0x08u;
+ 121   1      }
+ 122          
+ 123          
+ 124          /* 
+ 125             RX_UART_Init  (unchanged)
+ 126             
+ 127          */
+ 128          void RX_UART_Init(void)
+ 129          {
+ 130   1          SM0 = 0;
+ 131   1          SM1 = 1;
+ 132   1          REN = 0;
+ 133   1          RI  = 0;
+ 134   1          TI  = 0;
+ 135   1          ES  = 0;
+ 136   1      
+ 137   1          TI  = 1;
+ 138   1      }
+ 139          
+ 140          
+ 141          /* 
+ 142             RX_SPI_Slave_Init
+ 143             
+ 144             [F2] FIX: P1.5 ANALOG-MODE BUG
+ 145          
+ 146             The ADuC841 Port 1 defaults to ANALOG INPUT mode on power-up.
+ 147             In analog mode, the digital input buffer is disconnected, so the
+ 148             pin cannot reliably read logic levels.  P1.5 is the SPI /SS pin.
+ 149             If SPE is enabled while P1.5 is still analog, the SPI slave
+ 150             peripheral cannot detect the master's slave-select assertion.
+ 151          
+ 152             FIX: Write 0 to P1.5 BEFORE enabling SPE.  On the ADuC841, writing
+ 153             a 0 to any Port 1 bit switches that pin from analog to digital mode.
+ 154             We use a bitwise AND to clear only P1.5 without disturbing other P1
+ 155             bits that may be intentionally left in analog mode for ADC use.
+ 156          
+ 157             After the digital-mode switch, SPI is enabled as before.
  158          
- 159             The ADuC841 Port 1 defaults to ANALOG INPUT mode on power-up.
- 160             In analog mode, the digital input buffer is disconnected, so the
- 161             pin cannot reliably read logic levels.  P1.5 is the SPI /SS pin.
- 162             If SPE is enabled while P1.5 is still analog, the SPI slave
- 163             peripheral cannot detect the master's slave-select assertion.
- 164          
- 165             FIX: Write 0 to P1.5 BEFORE enabling SPE.  On the ADuC841, writing
- 166             a 0 to any Port 1 bit switches that pin from analog to digital mode.
- 167             We use a bitwise AND to clear only P1.5 without disturbing other P1
- 168             bits that may be intentionally left in analog mode for ADC use.
- 169          
- 170             After the digital-mode switch, SPI is enabled as before.
- 171          
- 172             [W4] rx_spi_parity is reset to 0 alongside the other staging registers.
- 173          
- 174             SPICON = 0xA0:
- 175               ISPI=1 (SPI interrupt enable), SPE=1 (SPI enable),
- 176               SPIM=0 (slave), CPOL=0, CPHA=0 (Mode 0), SPR=00 (ignored).
- 177             ---------------------------------------------------------------------------
- 178          */
-C51 COMPILER V9.60.7.0   RX_HW                                                             04/15/2026 19:37:44 PAGE 4   
+ 159             [W4] rx_spi_parity is reset to 0 alongside the other staging registers.
+ 160          
+ 161             SPICON = 0xA0:
+ 162               ISPI=1 (SPI interrupt enable), SPE=1 (SPI enable),
+ 163               SPIM=0 (slave), CPOL=0, CPHA=0 (Mode 0), SPR=00 (ignored).
+ 164             
+ 165          */
+ 166          void RX_SPI_Slave_Init(void)
+ 167          {
+ 168   1          /* Reset SPI receive state. */
+ 169   1          spi_byte_idx       = 0;
+ 170   1          rx_spi_frame_ready = 0;
+ 171   1          rx_spi_data        = 0;
+ 172   1          rx_spi_red         = 0;
+ 173   1          rx_spi_parity      = 0;   /* [W4] */
+ 174   1      
+ 175   1          /* [F2] Force P1.5 (/SS) from analog mode to digital input mode.
+ 176   1             On ADuC841, writing 0 to a Port 1 bit activates the digital
+ 177   1             input buffer for that pin.  This MUST happen before SPE is set,
+ 178   1             otherwise the SPI slave cannot detect /SS transitions.
+C51 COMPILER V9.60.7.0   RX_HW                                                             04/15/2026 20:02:42 PAGE 4   
 
- 179          void RX_SPI_Slave_Init(void)
- 180          {
- 181   1          /* Reset SPI receive state. */
- 182   1          spi_byte_idx       = 0;
- 183   1          rx_spi_frame_ready = 0;
- 184   1          rx_spi_data        = 0;
- 185   1          rx_spi_red         = 0;
- 186   1          rx_spi_parity      = 0;   /* [W4] */
- 187   1      
- 188   1          /* [F2] Force P1.5 (/SS) from analog mode to digital input mode.
- 189   1             On ADuC841, writing 0 to a Port 1 bit activates the digital
- 190   1             input buffer for that pin.  This MUST happen before SPE is set,
- 191   1             otherwise the SPI slave cannot detect /SS transitions.
- 192   1      
- 193   1             P1 &= ~0x20  clears bit 5 only.  Bits 0-4 and 6-7 are preserved
- 194   1             so that any ADC channels configured on other P1 pins remain
- 195   1             undisturbed.  If additional SPI pins (MOSI, MISO, SCLOCK) also
- 196   1             reside on Port 1, clear those bits here too -- consult the
- 197   1             datasheet for your specific package variant. */
- 198   1          P1 &= ~0x20u;   /* P1.5 = 0 -> digital mode for /SS */
- 199   1      
- 200   1          /* Pre-load transmit register. */
- 201   1          SPIDAT = 0x00u;
- 202   1      
- 203   1          /* Configure SPI: slave mode, Mode 0, interrupt enabled.
- 204   1             ISPI=1, SPE=1, SPIM=0, CPOL=0, CPHA=0, SPR=00 => 0xA0. */
- 205   1          SPICON = 0xA0u;
- 206   1      
- 207   1          /* Configure INT0 (P3.2) for falling-edge trigger. */
- 208   1          IT0 = 1;
- 209   1          IE0 = 0;
- 210   1          EX0 = 1;
- 211   1      
- 212   1          /* EA is NOT set here; caller must set EA=1 after all inits. */
- 213   1      }
- 214          
- 215          
- 216          /* =========================================================================
- 217             NON-BLOCKING UART TX BUFFER  (unchanged)
- 218             ========================================================================= */
- 219          
- 220          #define TX_BUF_SIZE 16
- 221          static uint8_t xdata tx_buf[TX_BUF_SIZE];
- 222          static uint8_t tx_head = 0;
- 223          static uint8_t tx_tail = 0;
- 224          
- 225          
- 226          void rx_send_uart_byte(uint8_t data_byte)
- 227          {
- 228   1          uint8_t next_head;
- 229   1      
- 230   1          next_head = (tx_head + 1) % TX_BUF_SIZE;
- 231   1          if (next_head == tx_tail)
- 232   1          {
- 233   2              return;
- 234   2          }
- 235   1      
- 236   1          tx_buf[tx_head] = data_byte;
- 237   1          tx_head = next_head;
- 238   1      }
- 239          
- 240          
-C51 COMPILER V9.60.7.0   RX_HW                                                             04/15/2026 19:37:44 PAGE 5   
-
- 241          void rx_uart_pump(void)
- 242          {
- 243   1          if (TI && (tx_tail != tx_head))
- 244   1          {
- 245   2              TI = 0;
- 246   2              SBUF = tx_buf[tx_tail];
- 247   2              tx_tail = (tx_tail + 1) % TX_BUF_SIZE;
- 248   2          }
- 249   1      }
+ 179   1      
+ 180   1             P1 &= ~0x20  clears bit 5 only.  Bits 0-4 and 6-7 are preserved
+ 181   1             so that any ADC channels configured on other P1 pins remain
+ 182   1             undisturbed.  If additional SPI pins (MOSI, MISO, SCLOCK) also
+ 183   1             reside on Port 1, clear those bits here too -- consult the
+ 184   1             datasheet for your specific package variant. */
+ 185   1          P1 &= ~0x20u;   /* P1.5 = 0 -> digital mode for /SS */
+ 186   1      
+ 187   1          /* Pre-load transmit register. */
+ 188   1          SPIDAT = 0x00u;
+ 189   1      
+ 190   1          /* Configure SPI: slave mode, Mode 0, interrupt enabled.
+ 191   1             ISPI=1, SPE=1, SPIM=0, CPOL=0, CPHA=0, SPR=00 => 0xA0. */
+ 192   1          SPICON = 0xA0u;
+ 193   1      
+ 194   1          /* Configure INT0 (P3.2) for falling-edge trigger. */
+ 195   1          IT0 = 1;
+ 196   1          IE0 = 0;
+ 197   1          EX0 = 1;
+ 198   1      
+ 199   1          /* EA is NOT set here; caller must set EA=1 after all inits. */
+ 200   1      }
+ 201          
+ 202          
+ 203          /* 
+ 204             NON-BLOCKING UART TX BUFFER  (unchanged)
+ 205              */
+ 206          
+ 207          #define TX_BUF_SIZE 16
+ 208          static uint8_t xdata tx_buf[TX_BUF_SIZE];
+ 209          static uint8_t tx_head = 0;
+ 210          static uint8_t tx_tail = 0;
+ 211          
+ 212          
+ 213          void rx_send_uart_byte(uint8_t data_byte)
+ 214          {
+ 215   1          uint8_t next_head;
+ 216   1      
+ 217   1          next_head = (tx_head + 1) % TX_BUF_SIZE;
+ 218   1          if (next_head == tx_tail)
+ 219   1          {
+ 220   2              return;
+ 221   2          }
+ 222   1      
+ 223   1          tx_buf[tx_head] = data_byte;
+ 224   1          tx_head = next_head;
+ 225   1      }
+ 226          
+ 227          
+ 228          void rx_uart_pump(void)
+ 229          {
+ 230   1          if (TI && (tx_tail != tx_head))
+ 231   1          {
+ 232   2              TI = 0;
+ 233   2              SBUF = tx_buf[tx_tail];
+ 234   2              tx_tail = (tx_tail + 1) % TX_BUF_SIZE;
+ 235   2          }
+ 236   1      }
 
 
 MODULE INFORMATION:   STATIC OVERLAYABLE
-   CODE SIZE        =    198    ----
+   CODE SIZE        =    200    ----
+C51 COMPILER V9.60.7.0   RX_HW                                                             04/15/2026 20:02:42 PAGE 5   
+
    CONSTANT SIZE    =   ----    ----
    XDATA SIZE       =     16    ----
    PDATA SIZE       =   ----    ----

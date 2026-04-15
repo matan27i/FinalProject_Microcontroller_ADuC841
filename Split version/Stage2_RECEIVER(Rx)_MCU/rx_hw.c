@@ -66,10 +66,11 @@ void INT0_FrameSync_ISR(void) interrupt 0
    redundancy, and 1-bit parity, then sets rx_spi_frame_ready = 1.
    
 */
+sbit DEBUG_LED = P3^4;
 void SPI_Receive_ISR(void) interrupt 6
 {
     uint8_t rx_byte;
-
+    DEBUG_LED = !DEBUG_LED;
     /* Read SPIDAT to get the received byte AND clear the interrupt flag. */
     rx_byte = SPIDAT;
 
@@ -101,6 +102,12 @@ void SPI_Receive_ISR(void) interrupt 6
         rx_spi_parity = (spi_rx_buf[1] >> 7) & 0x01u;
 
         rx_spi_frame_ready = 1;
+
+        /* [F3] Reset byte index so the next frame can be received even
+           if /SS stays asserted (low) continuously.  INT0 still provides
+           resync on SS edges, but normal operation no longer depends on
+           SS toggling between frames. */
+        spi_byte_idx = 0;
     }
 }
 
@@ -171,17 +178,13 @@ void RX_SPI_Slave_Init(void)
     rx_spi_red         = 0;
     rx_spi_parity      = 0;   /* [W4] */
 
-    /* [F2] Force P1.5 (/SS) from analog mode to digital input mode.
-       On ADuC841, writing 0 to a Port 1 bit activates the digital
-       input buffer for that pin.  This MUST happen before SPE is set,
-       otherwise the SPI slave cannot detect /SS transitions.
-
-       P1 &= ~0x20  clears bit 5 only.  Bits 0-4 and 6-7 are preserved
-       so that any ADC channels configured on other P1 pins remain
-       undisturbed.  If additional SPI pins (MOSI, MISO, SCLOCK) also
-       reside on Port 1, clear those bits here too -- consult the
-       datasheet for your specific package variant. */
-    P1 &= ~0x20u;   /* P1.5 = 0 -> digital mode for /SS */
+    /* [F2+] Force P1.7 (SCLK), P1.6 (MISO), P1.5 (/SS), P1.4 (MOSI)
+       from analog mode to digital input mode.  ALL four SPI pins must
+       be switched; clearing only P1.5 leaves SCLK in analog mode and
+       the SPI peripheral never sees clock edges.
+       P1 &= ~0xF0 clears bits 7-4.  Bits 0-3 are preserved so that any
+       ADC channels configured on lower P1 pins remain undisturbed. */
+    P1 &= ~0xF0u;   /* P1.7..P1.4 = 0 -> digital mode for SPI */
 
     /* Pre-load transmit register. */
     SPIDAT = 0x00u;
@@ -203,7 +206,7 @@ void RX_SPI_Slave_Init(void)
    NON-BLOCKING UART TX BUFFER  (unchanged)
     */
 
-#define TX_BUF_SIZE 16
+#define TX_BUF_SIZE 64
 static uint8_t xdata tx_buf[TX_BUF_SIZE];
 static uint8_t tx_head = 0;
 static uint8_t tx_tail = 0;

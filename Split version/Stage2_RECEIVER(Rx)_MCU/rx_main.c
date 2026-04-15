@@ -41,9 +41,8 @@ static void rx_perform_full_reset(void)
 }
 
 
-/* ---------------------------------------------------------------------------
+/* 
    main
-   ---------------------------------------------------------------------------
 */
 void main(void)
 {
@@ -106,8 +105,15 @@ void main(void)
             /* Stage C: [W4] SEC+DED PESEC error correction.
                Now passes the overall parity bit so the decoder can
                distinguish single errors (correctable) from double
-               errors (detectable but uncorrectable). */
-            rx_pesec_correct(&raw_data, &raw_red, raw_parity);
+               errors (detectable but uncorrectable).
+               [F4] Skip the frame if a multi-bit error is detected;
+               feeding known-bad data into the H1 layer would corrupt
+               the differential state and cause cascading errors. */
+            if (rx_pesec_correct(&raw_data, &raw_red, raw_parity)
+                == PESEC_UNCORRECTABLE)
+            {
+                continue;
+            }
 
             /* Stage D: H1 differential validation. */
             corrected_data = rx_correct_bus_state(raw_data);
