@@ -1,6 +1,5 @@
 /* File: main.c
  * Group 1: Main Loop & Hardware Peripherals
- * ==========================================
  * Target: ADuC841 (8052 single-cycle core, 11.0592 MHz crystal)
  *
  * Contains:
@@ -24,9 +23,9 @@
 
 #include "tx_header.h"
 
-/* =========================================================================
+/*
  * STATE VARIABLE DEFINITIONS  (owned by this module)
- * ========================================================================= */
+ */
 
 /* UART / main-loop flags */
 volatile bit    buffer_flag  = 0;
@@ -44,9 +43,9 @@ volatile uint8_t flag_t2_mod  = 0;
 /* PESEC block configuration (passed to ECC init at startup) */
 static uint8_t pesec_config[] = {3, 2};
 
-/* =========================================================================
+/* 
  * HARDWARE INITIALISATION
- * ========================================================================= */
+ */
 
 void Port_Init(void)
 {
@@ -89,9 +88,9 @@ void GlobalINT(void)
     EA = 1;
 }
 
-/* =========================================================================
- * INTERRUPT SERVICE ROUTINES
- * ========================================================================= */
+/* 
+ * INTERRUPT ROUTINES
+ */
 
 void UART_ISR(void) interrupt 4
 {
@@ -163,9 +162,8 @@ void Timer2_ISR(void) interrupt 5
     }
 }
 
-/* =========================================================================
+/* 
  * SHIFT-REGISTER OUTPUT DRIVER
- * =========================================================================
  * [W4] Serialises the full 26-bit word (1 parity + 10 ECC + 15 data,
  * MSB-first) into daisy-chained 74HC595 shift registers, then pulses
  * the latch.
@@ -179,7 +177,7 @@ void Timer2_ISR(void) interrupt 5
  * The parity bit is shifted first so it arrives at the output pin
  * connected to the Arduino Mega's PC7 (pin 30).  The ECC and data
  * bits retain their original mapping.
- * ========================================================================= */
+ */
 void output_to_shift_registers(void)
 {
     uint16_t state_copy;
@@ -242,9 +240,9 @@ void output_to_shift_registers(void)
     while (TR2 == 1);
 }
 
-/* =========================================================================
+/* 
  * MAIN ENTRY POINT
- * ========================================================================= */
+ */
 void main(void)
 {
     /* [FIX] ADuC841: CD=0 for full-speed core (11.0592 MHz).
