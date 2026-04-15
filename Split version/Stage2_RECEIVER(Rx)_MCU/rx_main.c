@@ -1,4 +1,4 @@
-/* =============================================================================
+/* 
    File: rx_main.c
    Module: Group 1 -- Main entry point and pipeline loop (SPI Slave version)
 
@@ -14,21 +14,20 @@
      Stage C: rx_pesec_correct()       (ecc -- 26-bit SEC+DED)
      Stage D: rx_correct_bus_state()   (ecc -- H1 differential)
      Stage E: rx_process_bus_state()   (decoder -- nibble FSM)
-   =============================================================================
 */
 
 #include "rx_system.h"
 
-/* ---------------------------------------------------------------------------
+/* 
    PESEC block configuration -- MUST MATCH THE TX ENCODER.
-   ---------------------------------------------------------------------------
+   
 */
 static uint8_t pesec_config[] = {3, 2};
 
 
-/* ---------------------------------------------------------------------------
+/* 
    rx_perform_full_reset
-   ---------------------------------------------------------------------------
+   
 */
 static void rx_perform_full_reset(void)
 {
@@ -42,9 +41,8 @@ static void rx_perform_full_reset(void)
 }
 
 
-/* ---------------------------------------------------------------------------
+/* 
    main
-   ---------------------------------------------------------------------------
 */
 void main(void)
 {
@@ -107,8 +105,15 @@ void main(void)
             /* Stage C: [W4] SEC+DED PESEC error correction.
                Now passes the overall parity bit so the decoder can
                distinguish single errors (correctable) from double
-               errors (detectable but uncorrectable). */
-            rx_pesec_correct(&raw_data, &raw_red, raw_parity);
+               errors (detectable but uncorrectable).
+               [F4] Skip the frame if a multi-bit error is detected;
+               feeding known-bad data into the H1 layer would corrupt
+               the differential state and cause cascading errors. */
+            if (rx_pesec_correct(&raw_data, &raw_red, raw_parity)
+                == PESEC_UNCORRECTABLE)
+            {
+                continue;
+            }
 
             /* Stage D: H1 differential validation. */
             corrected_data = rx_correct_bus_state(raw_data);

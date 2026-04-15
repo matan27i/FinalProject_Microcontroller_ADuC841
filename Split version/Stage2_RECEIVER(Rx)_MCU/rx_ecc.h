@@ -1,4 +1,4 @@
-/* =============================================================================
+/* 
    File: rx_ecc.h
    Module: Group 3 -- Error Correction (PESEC + H1 + SEC+DED)
    Public interface and extern declarations.
@@ -15,7 +15,7 @@
 
      Layer 2 -- H1 differential (15-bit data):
        Stateful transition-weight validation after PESEC correction.
-   =============================================================================
+   
 */
 
 #ifndef RX_ECC_H
@@ -23,9 +23,9 @@
 
 #include "rx_types.h"
 
-/* =========================================================================
+/* 
    PESEC MATRIX STORAGE AND METADATA
-   ========================================================================= */
+    */
 extern uint8_t xdata PESEC_MAT_D[20];
 extern uint8_t xdata PESEC_MAT_A[40];
 
@@ -37,24 +37,23 @@ extern uint8_t xdata pesec_chunk_masks[MAX_PESEC_BLOCKS];
 extern uint8_t xdata pesec_num_d_cols;
 extern uint8_t xdata pesec_num_a_cols;
 
-/* =========================================================================
+/* 
    H1 DIFFERENTIAL STATE
-   ========================================================================= */
+    */
 extern uint16_t xdata rx_previous_bus_state;
 extern uint16_t xdata rx_errors_corrected;
 extern uint16_t xdata rx_errors_detected;
 extern uint16_t xdata rx_pesec_corrections;
 
-/* =========================================================================
+/* 
    PESEC INITIALISATION
-   ========================================================================= */
+    */
 void rx_init_pesec_matrices(uint8_t *m_sizes, uint8_t num_blocks);
 
-/* =========================================================================
+/* 
    PESEC ERROR CORRECTION  (SEC+DED UPGRADED)
-   =========================================================================
    rx_pesec_correct
-   ---------------------------------------------------------------------------
+   
    [W4] UPGRADED PROTOTYPE: now accepts the received overall parity bit.
 
    Performs SEC+DED error handling on the 26-bit received word using
@@ -78,15 +77,15 @@ void rx_init_pesec_matrices(uint8_t *m_sizes, uint8_t num_blocks);
      PESEC_CORRECTED_RED    (2)
      PESEC_UNCORRECTABLE    (3)
      PESEC_CORRECTED_PARITY (4)
-   ---------------------------------------------------------------------------
+   
 */
 uint8_t rx_pesec_correct(uint16_t *data_bits, uint16_t *red_bits,
                          uint8_t overall_parity);
 
-/* =========================================================================
+/* 
    H1 DIFFERENTIAL ERROR CORRECTION
-   ========================================================================= */
+    */
 uint16_t find_minimal_w(uint8_t s_target);
 uint16_t rx_correct_bus_state(uint16_t corrected_data);
 
-#endif /* RX_ECC_H */
+#endif

@@ -1,4 +1,4 @@
-/* =============================================================================
+/* 
    File: rx_decoder.c
    Module: Group 2 -- Decoding Logic
 
@@ -8,16 +8,15 @@
    Portability:
      rx_compute_syndrome(), rx_reset_state_machine(), and rx_is_bus_reset()
      contain no hardware calls and can run on any host.
-   =============================================================================
 */
 
 #include "rx_system.h"
 
-/* ---------------------------------------------------------------------------
+/* 
    Module-private state variables
    [N1] volatile removed: no ISRs access these variables.
    [MEM] Placed in XDATA to free DATA space (7 bytes saved).
-   ---------------------------------------------------------------------------
+   
 */
 
 rx_state_t xdata rx_current_state    = RX_STATE_WAIT_HIGH;
@@ -27,9 +26,8 @@ uint16_t   xdata rx_bytes_decoded    = 0;
 uint16_t   xdata rx_states_processed = 0;
 
 
-/* ---------------------------------------------------------------------------
+/* 
    rx_compute_syndrome
-   ---------------------------------------------------------------------------
 */
 uint8_t rx_compute_syndrome(uint16_t bus_state)
 {
@@ -52,9 +50,9 @@ uint8_t rx_compute_syndrome(uint16_t bus_state)
 }
 
 
-/* ---------------------------------------------------------------------------
+/* 
    rx_process_bus_state
-   ---------------------------------------------------------------------------
+   
 */
 void rx_process_bus_state(uint16_t bus_state)
 {
@@ -89,9 +87,9 @@ void rx_process_bus_state(uint16_t bus_state)
 }
 
 
-/* ---------------------------------------------------------------------------
+/* 
    rx_reset_state_machine
-   ---------------------------------------------------------------------------
+   
 */
 void rx_reset_state_machine(void)
 {
@@ -101,9 +99,9 @@ void rx_reset_state_machine(void)
 }
 
 
-/* ---------------------------------------------------------------------------
+/* 
    rx_is_bus_reset
-   ---------------------------------------------------------------------------
+   
 */
 uint8_t rx_is_bus_reset(uint16_t data_bits, uint16_t red_bits)
 {
