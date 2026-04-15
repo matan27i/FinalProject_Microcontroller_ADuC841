@@ -51,7 +51,7 @@ void INT0_FrameSync_ISR(void) interrupt 0
 
 
 /* 
-   SPI/I2C ISR (vector 6, address 0x0033) -- Byte Received
+   SPI/I2C ISR (vector 7, address 0x003B) -- Byte Received
    
    Fires after each complete 8-bit SPI transfer.
 
@@ -67,7 +67,7 @@ void INT0_FrameSync_ISR(void) interrupt 0
    
 */
 sbit DEBUG_LED = P3^4;
-void SPI_Receive_ISR(void) interrupt 6
+void SPI_Receive_ISR(void) interrupt 7
 {
     uint8_t rx_byte;
     DEBUG_LED = !DEBUG_LED;
@@ -164,9 +164,11 @@ void RX_UART_Init(void)
 
    [W4] rx_spi_parity is reset to 0 alongside the other staging registers.
 
-   SPICON = 0xA0:
-     ISPI=1 (SPI interrupt enable), SPE=1 (SPI enable),
-     SPIM=0 (slave), CPOL=0, CPHA=0 (Mode 0), SPR=00 (ignored).
+   SPICON = 0x20:
+     SPE=1 (SPI enable), SPIM=0 (slave), CPOL=0, CPHA=0 (Mode 0).
+     [FIX] Was 0xA0; bit 7 (ISPI) is a status flag, not an enable.
+   IEIP2 |= 0x01:
+     [FIX] Enable ESI (SPI/I2C interrupt source) -- was never set.
    
 */
 void RX_SPI_Slave_Init(void)
@@ -178,20 +180,27 @@ void RX_SPI_Slave_Init(void)
     rx_spi_red         = 0;
     rx_spi_parity      = 0;   /* [W4] */
 
-    /* [F2+] Force P1.7 (SCLK), P1.6 (MISO), P1.5 (/SS), P1.4 (MOSI)
-       from analog mode to digital input mode.  ALL four SPI pins must
-       be switched; clearing only P1.5 leaves SCLK in analog mode and
-       the SPI peripheral never sees clock edges.
-       P1 &= ~0xF0 clears bits 7-4.  Bits 0-3 are preserved so that any
-       ADC channels configured on lower P1 pins remain undisturbed. */
-    P1 &= ~0xF0u;   /* P1.7..P1.4 = 0 -> digital mode for SPI */
+    /* [F2] Force P1.5 (/SS) from analog mode to digital input mode.
+       On the ADuC841, SCLOCK and SDATA/MOSI are dedicated pins (not on
+       P1), and MISO is on P3.3.  Only /SS (P1.5) is a Port 1 pin that
+       needs the analog-to-digital switch.  We also clear P1.7-P1.4 to
+       be safe, since the receiver does not use ADC channels 4-7. */
+    P1 &= ~0xF0u;   /* P1.7..P1.4 = 0 -> digital mode */
 
     /* Pre-load transmit register. */
     SPIDAT = 0x00u;
 
-    /* Configure SPI: slave mode, Mode 0, interrupt enabled.
-       ISPI=1, SPE=1, SPIM=0, CPOL=0, CPHA=0, SPR=00 => 0xA0. */
-    SPICON = 0xA0u;
+    /* Configure SPI: slave mode, Mode 0.
+       SPE=1, SPIM=0, CPOL=0, CPHA=0, SPR=00 => 0x20.
+       [FIX] Was 0xA0: bit 7 (ISPI) is a hardware status flag, not an
+       enable.  Pre-setting it caused a spurious interrupt at startup. */
+    SPICON = 0x20u;
+
+    /* [FIX] Enable the SPI/I2C interrupt source (ESI, bit 0 of IEIP2).
+       Without this, the SPI ISR at vector 003BH never fires regardless
+       of the ISPI flag state.  IEIP2 power-on default is A0H (ESI=0).
+       Use ORL to preserve other bits (priority settings). */
+    IEIP2 |= 0x01u;
 
     /* Configure INT0 (P3.2) for falling-edge trigger. */
     IT0 = 1;
