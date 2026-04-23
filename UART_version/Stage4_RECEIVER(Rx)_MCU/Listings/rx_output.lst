@@ -1,0 +1,62 @@
+C51 COMPILER V9.60.7.0   RX_OUTPUT                                                         01/14/2026 22:42:56 PAGE 1   
+
+
+C51 COMPILER V9.60.7.0, COMPILATION OF MODULE RX_OUTPUT
+OBJECT MODULE PLACED IN .\Objects\rx_output.obj
+COMPILER INVOKED BY: C:\Keil_v5\C51\BIN\C51.EXE rx_output.c OPTIMIZE(8,SPEED) BROWSE DEBUG OBJECTEXTEND PRINT(.\Listings
+                    -\rx_output.lst) TABS(2) OBJECT(.\Objects\rx_output.obj)
+
+line level    source
+
+   1          /* File: Rx_output.c
+   2           * Transmits value as HEX character (0-9, A-F) via UART
+   3           */
+   4          #include <aduc841.h>
+   5          #include "header.h"
+   6          
+   7          void transmit_hex_uart(uint8_t value)
+   8          {
+   9   1          // Limit processing to 4-bit nibble (0-15)
+  10   1          // If you expect larger numbers, this logic needs adjustment.
+  11   1          value = value & 0x0F; 
+  12   1      
+  13   1          // Wait for previous transmission to complete
+  14   1          while (!TI);
+  15   1          TI = 0;
+  16   1      
+  17   1          // Convert to ASCII
+  18   1          if (value <= 9)
+  19   1          {
+  20   2              // '0' (48) + value -> '0' to '9'
+  21   2              SBUF = '0' + value;
+  22   2          }
+  23   1          else
+  24   1          {
+  25   2              // 'A' (65) + (value - 10) -> 'A' to 'F'
+  26   2              SBUF = 'A' + (value - 10);
+  27   2          }
+  28   1          
+  29   1          // --- Send Newline (\r\n) for PuTTY ---
+  30   1          
+  31   1          while (!TI);
+  32   1          TI = 0;
+  33   1          SBUF = '\r';
+  34   1          
+  35   1          while (!TI);
+  36   1          TI = 0;
+  37   1          SBUF = '\n';
+  38   1      }
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =     42    ----
+   CONSTANT SIZE    =   ----    ----
+   XDATA SIZE       =   ----    ----
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =   ----    ----
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)

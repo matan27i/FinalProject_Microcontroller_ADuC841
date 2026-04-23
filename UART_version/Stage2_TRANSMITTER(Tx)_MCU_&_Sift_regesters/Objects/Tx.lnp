@@ -1,0 +1,5 @@
+".\Objects\tx_ecc.obj",
+".\Objects\tx_encoder.obj",
+".\Objects\tx_main.obj" 
+TO ".\Objects\Tx" 
+PRINT(".\Listings\Tx.m51") RAMSIZE(256) 
