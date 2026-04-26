@@ -272,10 +272,11 @@ void main(void)
 
         if (buffer_flag)
         {
-            ES = 0;
+            /* No ES guard needed: UART_ISR does not touch buffer_flag or
+             * buffer_count, so single-byte writes are atomic on the 8052
+             * and cannot race with the ISR. */
             buffer_flag  = 0;
             buffer_count = 0;
-            ES = 1;
         }
     }
 }

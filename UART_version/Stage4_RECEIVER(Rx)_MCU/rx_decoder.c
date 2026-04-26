@@ -16,7 +16,6 @@
    Module-private state variables
    [N1] volatile removed: no ISRs access these variables.
    [MEM] Placed in XDATA to free DATA space (7 bytes saved).
-   
 */
 
 rx_state_t xdata rx_current_state    = RX_STATE_WAIT_HIGH;
@@ -35,7 +34,7 @@ uint8_t rx_compute_syndrome(uint16_t bus_state)
     uint8_t  col_idx;
     uint16_t temp;
 
-    temp = bus_state & BUS_STATE_MASK;
+    temp = bus_state & BUS_STATE_MASK; // filter to 15 bits
 
     for (col_idx = 1; col_idx <= HAMMING_N; col_idx++)
     {
@@ -46,7 +45,7 @@ uint8_t rx_compute_syndrome(uint16_t bus_state)
         temp >>= 1;
     }
 
-    return (syndrome & 0x0Fu);
+    return (syndrome & 0x0Fu); // filter to 4 bits
 }
 
 
@@ -61,16 +60,16 @@ void rx_process_bus_state(uint16_t bus_state)
 
     data_nibble = rx_compute_syndrome(bus_state);
 
-    switch (rx_current_state)
+    switch (rx_current_state) // FSM
     {
         case RX_STATE_WAIT_HIGH:
-            rx_stored_high_nibble = data_nibble & 0x0Fu;
+            rx_stored_high_nibble = data_nibble & 0x0Fu; 
             rx_current_state      = RX_STATE_WAIT_LOW;
             break;
 
         case RX_STATE_WAIT_LOW:
             complete_byte = (uint8_t)((rx_stored_high_nibble << 4)
-                             | (data_nibble & 0x0Fu));
+                             | (data_nibble & 0x0Fu)); // create full Byte
 
             rx_send_uart_byte(complete_byte);
 

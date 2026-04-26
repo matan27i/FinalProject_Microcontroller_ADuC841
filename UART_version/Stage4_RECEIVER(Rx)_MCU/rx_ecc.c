@@ -82,13 +82,13 @@ void rx_init_pesec_matrices(uint8_t *m_sizes, uint8_t num_blocks)
     pesec_num_d_cols = 0;
     pesec_num_a_cols = 0;
 
-    for (b = 0; b < num_blocks; b++)
+    for (b = 0; b < num_blocks; b++) //
     {
         pesec_bit_offsets[b] = total_m;
         pesec_col_offsets[b] = current_col_offset;
         pesec_chunk_masks[b] = ((1 << m_sizes[b]) - 1) << total_m;
 
-        for (i = 1; i < (1 << m_sizes[b]); i++)
+        for (i = 1; i < (1 << m_sizes[b]); i++) // D matrix build
         {
             PESEC_MAT_D[pesec_num_d_cols++] = (i << total_m);
         }
@@ -97,9 +97,9 @@ void rx_init_pesec_matrices(uint8_t *m_sizes, uint8_t num_blocks)
         current_col_offset += ((1 << m_sizes[b]) - 1);
     }
 
-    max_syndrome = (1 << total_m) - 1;
+    max_syndrome = (1 << total_m) - 1; // max value for syndrome 
 
-    for (val = 1; val <= max_syndrome; val++)
+    for (val = 1; val <= max_syndrome; val++) // A matrix build
     {
         is_in_d = 0;
 
@@ -124,14 +124,12 @@ void rx_init_pesec_matrices(uint8_t *m_sizes, uint8_t num_blocks)
    PESEC SYNDROME COMPUTATION (INTERNAL HELPERS)
     */
 
-static uint8_t calc_pesec_syndrome_generic(uint16_t reg_val,
-                                           uint8_t *mat_ptr,
-                                           uint8_t  num_cols)
+static uint8_t calc_pesec_syndrome_generic(uint16_t reg_val,uint8_t *mat_ptr,uint8_t  num_cols) // vector * matrix 
 {
     uint8_t syndrome = 0;
     uint8_t idx;
 
-    for (idx = 0; idx < num_cols; idx++)
+    for (idx = 0; idx < num_cols; idx++) // 
     {
         if ((reg_val >> idx) & 1u)
         {
@@ -143,14 +141,14 @@ static uint8_t calc_pesec_syndrome_generic(uint16_t reg_val,
 }
 
 
-static uint8_t get_data_syndrome(uint16_t data_val)
+static uint8_t get_data_syndrome(uint16_t data_val) //data * A
 {
     return calc_pesec_syndrome_generic(data_val, PESEC_MAT_A,
                                        pesec_num_a_cols);
 }
 
 
-static uint8_t get_red_syndrome(uint16_t red_val)
+static uint8_t get_red_syndrome(uint16_t red_val) // Redundancy * D
 {
     return calc_pesec_syndrome_generic(red_val, PESEC_MAT_D,
                                        pesec_num_d_cols);
@@ -165,7 +163,7 @@ static uint8_t get_red_syndrome(uint16_t red_val)
 
    Returns: 0 if even number of set bits, 1 if odd.
     */
-static uint8_t parity16(uint16_t v)
+static uint8_t parity16(uint16_t v) // Xor folding
 {
     uint8_t x;
 
@@ -174,7 +172,7 @@ static uint8_t parity16(uint16_t v)
     x ^= x >> 2;
     x ^= x >> 1;
 
-    return (x & 1u);
+    return (x & 1u); // and masking to find LSB 
 }
 
 

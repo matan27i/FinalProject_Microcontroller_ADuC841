@@ -37,7 +37,7 @@
    get only decoded payload on TxD.
 */
 #ifndef RX_DEBUG
-#define RX_DEBUG 1
+#define RX_DEBUG 0
 #endif
 
 /*
@@ -64,7 +64,7 @@ typedef unsigned int   uint16_t;
 */
 #define PESEC_RED_BITS      10
 #define PESEC_RED_MASK      ((uint16_t)0x03FFu)
-#define PESEC_TOTAL_BITS    (HAMMING_N + PESEC_RED_BITS + 1)   /* 26: +1 parity */
+#define PESEC_TOTAL_BITS    (HAMMING_N + PESEC_RED_BITS + 1)   /* 26*/
 #define MAX_PESEC_BLOCKS    5
 
 /* 
@@ -77,6 +77,6 @@ typedef unsigned int   uint16_t;
 #define PESEC_CORRECTED_DATA    1   /* Single-bit error corrected in data       */
 #define PESEC_CORRECTED_RED     2   /* Single-bit error corrected in redundancy */
 #define PESEC_UNCORRECTABLE     3   /* Multi-bit error, correction failed       */
-#define PESEC_CORRECTED_PARITY  4   /* [W4] The parity bit itself was flipped   */
+#define PESEC_CORRECTED_PARITY  4   /* The parity bit itself was flipped        */
 
 #endif 

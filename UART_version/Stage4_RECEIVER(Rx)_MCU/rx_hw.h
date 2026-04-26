@@ -64,9 +64,4 @@ void RX_UART_Init(void);
    If the ring is full the byte is dropped silently. */
 void rx_send_uart_byte(uint8_t data_byte);
 
-/* Backwards-compatibility no-op.  TX is now fully interrupt-driven, so
-   nothing needs to be done in the main loop, but keeping this symbol
-   avoids touching every call site. */
-void rx_uart_pump(void);
-
 #endif

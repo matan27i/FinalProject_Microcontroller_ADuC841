@@ -32,8 +32,8 @@
 /*
    UART FRAME PROTOCOL CONSTANTS -- must match the Mega bridge
 */
-#define UART_SOF            0xAAu
-#define UART_PAYLOAD_LEN    4u
+#define UART_SOF            0xAAu // Start Of Frame
+#define UART_PAYLOAD_LEN    4u    // 
 #define UART_CRC_POLY       0x07u
 
 
@@ -89,14 +89,17 @@ static volatile uint8_t tx_busy = 0;
    inner iteration, so 32 iterations per frame = ~23 us at 11.0592 MHz
    core -- well under the 87 us UART byte time.
 */
-static uint8_t uart_crc8(uint8_t *data, uint8_t len)
+/* NOTE: parameter is named `buf` rather than `data` because `data` is a
+   Keil C51 reserved memory-space keyword (alongside xdata/idata/code/
+   pdata/bdata) -- using it as an identifier yields C141 syntax errors. */
+static uint8_t uart_crc8(uint8_t *buf, uint8_t len)
 {
     uint8_t crc = 0u;
     uint8_t i, j;
 
     for (i = 0u; i < len; i++)
     {
-        crc ^= data[i];
+        crc ^= buf[i];
         for (j = 0u; j < 8u; j++)
         {
             if (crc & 0x80u)
@@ -299,14 +302,4 @@ void rx_send_uart_byte(uint8_t data_byte)
     /* else: ring full, byte dropped */
 
     ES = 1;
-}
-
-
-/*
-   rx_uart_pump -- no-op kept for API compatibility.
-   The TX path is now fully interrupt-driven.
-*/
-void rx_uart_pump(void)
-{
-    /* nothing to do */
 }

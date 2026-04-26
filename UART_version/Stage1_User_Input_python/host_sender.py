@@ -70,8 +70,12 @@ def send_string_to_mcu(text, port=PORT, baudrate=BAUDRATE):
             # Small delay between characters for MCU processing
             time.sleep(0.01)
         
-        # Send terminator
-        ser.write(b'\\n')
+        # Send terminator (real newline byte 0x0A, NOT the two-character
+        # sequence '\\n').  The MCU's tx_handler matches '\r'/'\n' to clear
+        # buffer_flag/buffer_count; sending the literal '\\n' as two bytes
+        # would instead encode them as data nibbles and never trigger the
+        # terminator branch.
+        ser.write(b'\n')
         print("Sent terminator (newline)")
         
         ser.close()
@@ -88,7 +92,7 @@ def interactive_mode():
     print("H1-Type Bus Encoder Host Script")
     print("="*60)
     print(f"Port: {PORT}, Baudrate: {BAUDRATE}")
-    print("Enter text to send. Press Ctrl+C to exit.\\n")
+    print("Enter text to send. Press Ctrl+C to exit.\n")
     
     try:
         while True:
@@ -97,7 +101,7 @@ def interactive_mode():
                 send_string_to_mcu(user_input)
                 print()
     except KeyboardInterrupt:
-        print("\\nExiting.")
+        print("\nExiting.")
 
 
 
@@ -105,11 +109,11 @@ def demonstrate_nibble_split():
     """
     Demonstration of nibble splitting for common test characters.
     """
-    print("\\n" + "="*60)
+    print("\n" + "="*60)
     print("Nibble Split Demonstration")
     print("="*60)
-    
-    test_chars = "ABCD01239!\\n"
+
+    test_chars = "ABCD01239!\n"
     
     print(f"{'Char':<6} {'ASCII':<8} {'Binary':<12} {'High':<6} {'Low':<6}")
     print("-"*40)
@@ -119,7 +123,7 @@ def demonstrate_nibble_split():
         high = (byte_val >> 4) & 0x0F
         low = byte_val & 0x0F
         
-        display_char = repr(char) if char in '\\n\\r\\t' else f"'{char}'"
+        display_char = repr(char) if char in '\n\r\t' else f"'{char}'"
         print(f"{display_char:<6} 0x{byte_val:02X}    {byte_val:08b}    "
               f"0x{high:X}    0x{low:X}")
     
