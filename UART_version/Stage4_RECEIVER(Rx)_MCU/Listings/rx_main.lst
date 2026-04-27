@@ -1,0 +1,175 @@
+C51 COMPILER V9.60.7.0   RX_MAIN                                                           04/25/2026 20:51:51 PAGE 1   
+
+
+C51 COMPILER V9.60.7.0, COMPILATION OF MODULE RX_MAIN
+OBJECT MODULE PLACED IN .\Objects\rx_main.obj
+COMPILER INVOKED BY: C:\Keil_v5\C51\BIN\C51.EXE rx_main.c OPTIMIZE(8,SPEED) BROWSE DEBUG OBJECTEXTEND PRINT(.\Listings\r
+                    -x_main.lst) TABS(2) OBJECT(.\Objects\rx_main.obj)
+
+line level    source
+
+   1          /*
+   2             File: rx_main.c
+   3             Module: Group 1 Main entry point and pipeline loop (UART Frame version)
+   4          
+   5             INGRESS PATH REFACTOR:
+   6               The ingress path was changed from SPI slave to framed UART.  The
+   7               main pipeline is otherwise identical: the UART ISR now populates
+   8               rx_frame_data / rx_frame_red / rx_frame_parity exactly as the SPI
+   9               ISR did, and pulses rx_frame_ready when a CRC-valid packet has
+  10               arrived.  rx_is_bus_reset() still detects the TX '=' reset by the
+  11               all-zero 26-bit bus condition.
+  12          
+  13             Pipeline stages:
+  14               (Stage A: handled by UART ISR -- see rx_hw.c)
+  15               Stage B: rx_is_bus_reset()        (decoder -- reset detect)
+  16               Stage C: rx_pesec_correct()       (ecc -- 26-bit SEC+DED)
+  17               Stage D: rx_correct_bus_state()   (ecc -- H1 differential)
+  18               Stage E: rx_process_bus_state()   (decoder -- nibble FSM)
+  19          */
+  20          
+  21          #include "rx_system.h"
+  22          
+  23          /*
+  24             PESEC block configuration -- MUST MATCH THE TX ENCODER.
+  25          */
+  26          static uint8_t pesec_config[] = {3, 2};
+  27          
+  28          
+  29          /*
+  30             rx_perform_full_reset
+  31          */
+  32          static void rx_perform_full_reset(void)
+  33          {
+  34   1          rx_previous_bus_state = 0;
+  35   1      
+  36   1          rx_errors_corrected  = 0;
+  37   1          rx_errors_detected   = 0;
+  38   1          rx_pesec_corrections = 0;
+  39   1      
+  40   1          rx_reset_state_machine();
+  41   1      }
+  42          
+  43          
+  44          /*
+  45             main
+  46          */
+  47          void main(void)
+  48          {
+  49   1          uint16_t raw_data;
+  50   1          uint16_t raw_red;
+  51   1          uint8_t  raw_parity;
+  52   1          uint16_t corrected_data;
+  53   1      
+  54   1          /* Set core clock to full crystal speed. */
+C51 COMPILER V9.60.7.0   RX_MAIN                                                           04/25/2026 20:51:51 PAGE 2   
+
+  55   1          PLLCON = 0x00;
+  56   1      
+  57   1          /* Enable internal 2 KB XRAM. */
+  58   1          CFG841 |= 0x01;
+  59   1      
+  60   1          /* Hardware initialisation. */
+  61   1          RX_Timer3_Init();
+  62   1          RX_UART_Init();
+  63   1      
+  64   1          /* PESEC matrix initialisation. */
+  65   1          rx_init_pesec_matrices(pesec_config, 2);
+  66   1      
+  67   1          /* Decoder and error-correction module reset. */
+  68   1          rx_reset_state_machine();
+  69   1          rx_previous_bus_state = 0;
+  70   1          rx_errors_corrected   = 0;
+  71   1          rx_errors_detected    = 0;
+  72   1          rx_pesec_corrections  = 0;
+  73   1      
+  74   1          /* Enable global interrupts LAST. */
+  75   1          EA = 1;
+  76   1      
+  77   1          /* Boot-message handshake.  Seeing "RX-READY\r\n" on PuTTY confirms
+  78   1             the UART TX path (SCON mode + Timer 3 baud + TxD pin) is working,
+  79   1             independently of any bridge input or PESEC/H1 logic. */
+  80   1          rx_send_uart_byte('R');
+  81   1          rx_send_uart_byte('X');
+  82   1          rx_send_uart_byte('-');
+  83   1          rx_send_uart_byte('R');
+  84   1          rx_send_uart_byte('E');
+  85   1          rx_send_uart_byte('A');
+  86   1          rx_send_uart_byte('D');
+  87   1          rx_send_uart_byte('Y');
+  88   1          rx_send_uart_byte('\r');
+  89   1          rx_send_uart_byte('\n');
+  90   1      
+  91   1          /* Main pipeline loop. */
+  92   1          while (1)
+  93   1          {
+  94   2              if (rx_frame_ready)
+  95   2              {
+  96   3                  uint8_t pesec_result;
+  97   3      
+  98   3                  /* Atomically snapshot the frame staging registers. */
+  99   3                  EA = 0;
+ 100   3                  raw_data       = rx_frame_data;
+ 101   3                  raw_red        = rx_frame_red;
+ 102   3                  raw_parity     = rx_frame_parity;
+ 103   3                  rx_frame_ready = 0;
+ 104   3                  EA = 1;
+ 105   3      
+ 106   3      #if RX_DEBUG
+                          /* 'F' = a CRC-valid 4-byte payload was handed to the main
+                             loop.  Seeing 'F' but no decoded byte means the frame is
+                             arriving cleanly but PESEC or H1 is rejecting it. */
+                          rx_send_uart_byte('F');
+              #endif
+ 112   3      
+ 113   3                  /* Stage B: TX reset detection. */
+ 114   3                  if (rx_is_bus_reset(raw_data, raw_red))
+ 115   3                  {
+ 116   4      #if RX_DEBUG
+C51 COMPILER V9.60.7.0   RX_MAIN                                                           04/25/2026 20:51:51 PAGE 3   
+
+                              rx_send_uart_byte('R');
+              #endif
+ 119   4                      rx_perform_full_reset();
+ 120   4                      continue;
+ 121   4                  }
+ 122   3      
+ 123   3                  /* Stage C: SEC+DED PESEC error correction. */
+ 124   3                  pesec_result = rx_pesec_correct(&raw_data, &raw_red, raw_parity);
+ 125   3                  if (pesec_result == PESEC_UNCORRECTABLE)
+ 126   3                  {
+ 127   4      #if RX_DEBUG
+                              rx_send_uart_byte('U');
+              #endif
+ 130   4                      continue;
+ 131   4                  }
+ 132   3      #if RX_DEBUG
+                          if (pesec_result == PESEC_CORRECTED_DATA)   rx_send_uart_byte('d');
+                          if (pesec_result == PESEC_CORRECTED_RED)    rx_send_uart_byte('r');
+                          if (pesec_result == PESEC_CORRECTED_PARITY) rx_send_uart_byte('p');
+              #endif
+ 137   3      
+ 138   3                  /* Stage D: H1 differential validation. */
+ 139   3                  corrected_data = rx_correct_bus_state(raw_data);
+ 140   3      
+ 141   3                  /* Stage E: Nibble extraction and byte reassembly. */
+ 142   3                  rx_process_bus_state(corrected_data);
+ 143   3      
+ 144   3                  rx_states_processed++;
+ 145   3              }
+ 146   2          }
+ 147   1      }
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =    235    ----
+   CONSTANT SIZE    =   ----    ----
+   XDATA SIZE       =   ----    ----
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =      2       8
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)
