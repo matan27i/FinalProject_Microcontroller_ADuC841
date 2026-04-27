@@ -16,9 +16,12 @@
  *   [M4] Replaced single-byte UART capture with ring buffer.
  *   [N1] Removed redundant EA=1 from Init_Timer2().
  *   [N3] Replaced hardcoded reload values with T2_RELOAD_H/L constants.
- *   [W4] output_to_shift_registers() now shifts 26 bits: the overall
- *        parity bit (from tx_ecc.c) is shifted out first, followed by
- *        the 10 ECC redundancy bits and 15 data bits.
+ *   [W4] output_to_shift_registers() now shifts 26 bits.
+ *   [W5] Reordered the 26-bit shift to red -> parity -> data so each
+ *        field lands at the documented Mega bridge pin (PC7 = parity,
+ *        PK = red[0..7], PF[1:0] = red[8..9]).  The previous "parity
+ *        first" order placed parity in chip-4 QB and shifted every
+ *        red bit one position off.
  */
 
 #include "tx_header.h"
@@ -162,21 +165,31 @@ void Timer2_ISR(void) interrupt 5
     }
 }
 
-/* 
+/*
  * SHIFT-REGISTER OUTPUT DRIVER
- * [W4] Serialises the full 26-bit word (1 parity + 10 ECC + 15 data,
- * MSB-first) into daisy-chained 74HC595 shift registers, then pulses
- * the latch.
+ * [W4] Serialises the full 26-bit word (10 ECC + 1 parity + 15 data) into
+ * 4 daisy-chained 74HC595 shift registers, then pulses the latch.
  *
- * SHIFT ORDER (first bit shifted -> farthest chain position):
- *   Phase 0:  1 overall parity bit  (pesec_overall_parity)
- *   Phase 1: 10 ECC redundancy bits (pesec_redundancy_reg, MSB-first)
+ * SHIFT ORDER (first bit shifted -> farthest from SER input -> deepest chip):
+ *   Phase 0: 10 ECC redundancy bits (pesec_redundancy_reg, MSB-first)
+ *   Phase 1:  1 overall parity bit  (pesec_overall_parity)
  *   Phase 2: 15 data bits           (current_bus_state, MSB-first)
  *   Phase 3:  Latch pulse
  *
- * The parity bit is shifted first so it arrives at the output pin
- * connected to the Arduino Mega's PC7 (pin 30).  The ECC and data
- * bits retain their original mapping.
+ * After 26 shifts + latch, the chain holds:
+ *   Chip 1 (closest to SER):  QA..QH = data[0..7]   -> PA0..PA7
+ *   Chip 2:                   QA..QG = data[8..14]  -> PC0..PC6
+ *                             QH     = parity       -> PC7
+ *   Chip 3:                   QA..QH = red[0..7]    -> PK0..PK7
+ *   Chip 4 (deepest):         QA     = red[8]       -> PF0
+ *                             QB     = red[9]       -> PF1
+ *                             QC..QH = stale (unused by bridge)
+ *
+ * [BUG FIX] An earlier revision shifted parity in Phase 0 (FIRST), which
+ * placed it at the deepest chip-4 QB position rather than chip-2 QH.  The
+ * Mega bridge then read red[0] as parity, parity as red[9], and the rest
+ * of the redundancy bits one position off.  See the inline comment in the
+ * function body for the full position mapping.
  */
 void output_to_shift_registers(void)
 {
@@ -196,16 +209,29 @@ void output_to_shift_registers(void)
      * entered from an unexpected context. */
     flag_t2_mod = 0;
 
-    /* --- Phase 0: [W4] Shift out 1 overall parity bit --- */
-    SR_DATA = parity_copy;
-
-    counter_t2 = 0;
-    TH2 = T2_RELOAD_H;
-    TL2 = T2_RELOAD_L;
-    TR2 = 1;
-    while (TR2 == 1);
-
-    /* --- Phase 1: Shift out 10 ECC redundancy bits (MSB-first) --- */
+    /* --- Phase 0: Shift out 10 ECC redundancy bits (MSB-first) ---
+     *
+     * [BUG FIX] The previous revision shifted the overall parity bit FIRST
+     * (Phase 0), assuming "parity shifted first arrives at PC7 / chip-2 QH."
+     * That assumption is wrong for a 4-chip 26-bit daisy chain: the FIRST
+     * bit shifted ends up in the DEEPEST chip (chip 4), not in chip 2.
+     *
+     * With the old order the physical pin assignments came out misaligned:
+     *     PC7  (chip 2 QH) = red[0]    <- bridge thinks this is parity
+     *     PK0..PK7         = red[1..8] <- bridge thinks red[0..7]
+     *     PF0  (chip 4 QA) = red[9]    <- bridge thinks red[8]
+     *     PF1  (chip 4 QB) = parity    <- bridge thinks red[9]
+     *
+     * The correct order to land each field at the documented Mega pin --
+     *     PA0..PA7  = data[0..7]    (chip 1, positions 1..8 from input)
+     *     PC0..PC6  = data[8..14]   (chip 2, positions 9..15)
+     *     PC7       = parity        (chip 2 QH, position 16)
+     *     PK0..PK7  = red[0..7]     (chip 3, positions 17..24)
+     *     PF0       = red[8]        (chip 4 QA, position 25)
+     *     PF1       = red[9]        (chip 4 QB, position 26)
+     * is to shift in the order: red[9..0] FIRST (oldest, lands deepest),
+     * THEN parity (the 11th bit, lands at chip-2 QH = PC7),
+     * THEN data[14..0] LAST (newest, lands at chip 1 + chip 2 QA..QG). */
     for (bit_pos = 9; bit_pos >= 0; bit_pos--)
     {
         bit_value = (uint8_t)((ecc_copy >> bit_pos) & 0x0001);
@@ -217,6 +243,16 @@ void output_to_shift_registers(void)
         TR2 = 1;
         while (TR2 == 1);
     }
+
+    /* --- Phase 1: Shift out the 1 overall parity bit ---
+     * Position 16 from input = chip 2 QH = PC7 (Mega pin 30). */
+    SR_DATA = parity_copy;
+
+    counter_t2 = 0;
+    TH2 = T2_RELOAD_H;
+    TL2 = T2_RELOAD_L;
+    TR2 = 1;
+    while (TR2 == 1);
 
     /* --- Phase 2: Shift out 15 data bits (MSB-first) --- */
     for (bit_pos = (HAMMING_N - 1); bit_pos >= 0; bit_pos--)
@@ -251,6 +287,13 @@ void main(void)
      * read-modify-write (PLLCON & 0xF8) left reserved bits 6
      * and 4 set from the power-on default of 0x53. */
     PLLCON = 0x00;
+
+    /* [W5] Enable on-chip 2 KB XRAM.  The PESEC matrices in tx_ecc.c
+     * live in XDATA, so MOVX must be able to address the internal RAM
+     * window.  CFG841 bit 0 (XRAMEN) routes 0x0000..0x07FF to the
+     * on-chip XRAM rather than off-chip; without this, MOVX silently
+     * misses and the matrices read as 0xFF. */
+    CFG841 |= 0x01;
 
     Port_Init();
     BaudRate_Init();
