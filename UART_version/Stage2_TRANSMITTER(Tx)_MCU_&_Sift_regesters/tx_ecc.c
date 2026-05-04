@@ -37,19 +37,24 @@ uint16_t pesec_redundancy_reg = 0;
  * Value: 0 = even number of 1s in the 25-bit word, 1 = odd. */
 uint8_t pesec_overall_parity = 0;
 
-/* Dynamic matrix storage */
-uint8_t PESEC_MAT_D[20];   /* Redundancy-bit columns */
-uint8_t PESEC_MAT_A[40];   /* Data-bit columns       */
+/* Dynamic matrix storage
+ * [MEM] Placed in XDATA so the 60-byte matrix payload does not eat into
+ * the 128-byte direct DATA RAM, matching the layout used in rx_ecc.c.
+ * Requires CFG841 |= 0x01 in main() to enable the on-chip 2 KB XRAM. */
+uint8_t xdata PESEC_MAT_D[20];   /* Redundancy-bit columns */
+uint8_t xdata PESEC_MAT_A[40];   /* Data-bit columns       */
 
-/* Block solver metadata */
-uint8_t pesec_num_blocks;
-uint8_t pesec_bit_offsets[MAX_PESEC_BLOCKS];
-uint8_t pesec_col_offsets[MAX_PESEC_BLOCKS];
-uint8_t pesec_chunk_masks[MAX_PESEC_BLOCKS];
+/* Block solver metadata
+ * [MEM] XDATA (~17 bytes total). */
+uint8_t xdata pesec_num_blocks;
+uint8_t xdata pesec_bit_offsets[MAX_PESEC_BLOCKS];
+uint8_t xdata pesec_col_offsets[MAX_PESEC_BLOCKS];
+uint8_t xdata pesec_chunk_masks[MAX_PESEC_BLOCKS];
 
-/* Column counts */
-uint8_t pesec_num_d_cols;
-uint8_t pesec_num_a_cols;
+/* Column counts
+ * [MEM] XDATA. */
+uint8_t xdata pesec_num_d_cols;
+uint8_t xdata pesec_num_a_cols;
 
 /* 
  * MATRIX INITIALISATION

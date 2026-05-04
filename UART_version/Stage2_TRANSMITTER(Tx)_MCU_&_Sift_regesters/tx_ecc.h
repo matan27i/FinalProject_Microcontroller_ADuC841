@@ -25,19 +25,20 @@ extern uint16_t pesec_redundancy_reg;
  * 0 = even popcount, 1 = odd popcount. */
 extern uint8_t pesec_overall_parity;
 
-/* ---- Dynamic PESEC Matrices ---- */
-extern uint8_t PESEC_MAT_D[20];
-extern uint8_t PESEC_MAT_A[40];
+/* ---- Dynamic PESEC Matrices ----
+ * [MEM] Defined in XDATA in tx_ecc.c. */
+extern uint8_t xdata PESEC_MAT_D[20];
+extern uint8_t xdata PESEC_MAT_A[40];
 
 /* ---- Block Solver Metadata ---- */
-extern uint8_t pesec_num_blocks;
-extern uint8_t pesec_bit_offsets[MAX_PESEC_BLOCKS];
-extern uint8_t pesec_col_offsets[MAX_PESEC_BLOCKS];
-extern uint8_t pesec_chunk_masks[MAX_PESEC_BLOCKS];
+extern uint8_t xdata pesec_num_blocks;
+extern uint8_t xdata pesec_bit_offsets[MAX_PESEC_BLOCKS];
+extern uint8_t xdata pesec_col_offsets[MAX_PESEC_BLOCKS];
+extern uint8_t xdata pesec_chunk_masks[MAX_PESEC_BLOCKS];
 
 /* ---- Column Counts ---- */
-extern uint8_t pesec_num_d_cols;
-extern uint8_t pesec_num_a_cols;
+extern uint8_t xdata pesec_num_d_cols;
+extern uint8_t xdata pesec_num_a_cols;
 
 /* ---- Prototypes ---- */
 void Init_PESEC_Matrices(uint8_t* m_sizes, uint8_t num_blocks);

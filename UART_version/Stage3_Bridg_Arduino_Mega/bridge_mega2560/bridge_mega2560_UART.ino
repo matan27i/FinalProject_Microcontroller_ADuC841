@@ -269,7 +269,14 @@ static void configure_rclk_interrupt(void)
     DDRE  &= ~(1u << DDE4);
     PORTE &= ~(1u << PE4);
 
+    /* Per ATmega2560 datasheet: changing ISCn1/ISCn0 can latch INTFn.
+       Recommended order is disable -> set sense -> clear flag -> enable,
+       otherwise the first sei() in setup() may fire a phantom INT4 and
+       capture undefined PINA/PINC/PINK/PINF before the TX has shifted
+       the first real frame. */
+    EIMSK &= ~(1u << INT4);
     EICRB = (EICRB & ~0x03u) | 0x03u;   /* INT4: rising edge */
+    EIFR  =  (1u << INTF4);             /* w1c: clear any latched flag */
     EIMSK |= (1u << INT4);
 }
 

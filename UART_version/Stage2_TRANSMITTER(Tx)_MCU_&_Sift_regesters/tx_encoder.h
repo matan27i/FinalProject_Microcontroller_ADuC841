@@ -28,4 +28,4 @@ void     process_nibble(uint8_t s_new);
 /* ---- UART Character Handler ---- */
 void tx_handler(uint8_t rx_char);
 
-#endif /* TX_DECODER_H */
+#endif /* TX_ENCODER_H */
