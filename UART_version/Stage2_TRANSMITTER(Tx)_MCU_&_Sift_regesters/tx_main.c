@@ -78,12 +78,11 @@ void BaudRate_Init(void)
 
 void UART_Init(void)
 {
-    SM0 = 0;
-    SM1 = 1;
-    REN = 1;
-    RI  = 0;
-    TI  = 0;
-    ES  = 1;
+    /* Single byte write: SM0=0, SM1=1 (Mode 1), SM2=0, REN=1, TB8=RB8=TI=RI=0.
+       Atomic, smaller code, and immune to whatever previous code may have
+       left in SCON (matches the RX-side rx_hw.c style). */
+    SCON = 0x50u;
+    ES   = 1;
 }
 
 void GlobalINT(void)
