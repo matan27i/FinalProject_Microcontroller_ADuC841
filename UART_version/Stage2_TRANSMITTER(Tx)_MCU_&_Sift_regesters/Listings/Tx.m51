@@ -1,4 +1,4 @@
-BL51 BANKED LINKER/LOCATER V6.22.4.0                                                    05/04/2026  12:33:31  PAGE 1
+BL51 BANKED LINKER/LOCATER V6.22.4.0                                                    05/04/2026  16:19:13  PAGE 1
 
 
 BL51 BANKED LINKER/LOCATER V6.22.4.0, INVOKED BY:
@@ -59,7 +59,7 @@ LINK MAP OF MODULE:  .\Objects\Tx (TX_ECC)
             CODE    0CA4H     0021H     UNIT         ?C_INITSEG
             CODE    0CC5H     001EH     UNIT         ?PR?_FIND_MINIMAL_W?TX_ENCODER
             CODE    0CE3H     001EH     UNIT         ?PR?_PROCESS_NIBBLE?TX_ENCODER
-BL51 BANKED LINKER/LOCATER V6.22.4.0                                                  05/04/2026  12:33:31  PAGE 2
+BL51 BANKED LINKER/LOCATER V6.22.4.0                                                  05/04/2026  16:19:13  PAGE 2
 
 
             CODE    0D01H     001DH     UNIT         ?PR?_PARITY16?TX_ECC
@@ -119,7 +119,7 @@ SEGMENT                                            DATA_GROUP
 
 ?PR?_CALC_PESEC_SYND?TX_ECC                      0025H    0006H
 
-BL51 BANKED LINKER/LOCATER V6.22.4.0                                                  05/04/2026  12:33:31  PAGE 3
+BL51 BANKED LINKER/LOCATER V6.22.4.0                                                  05/04/2026  16:19:13  PAGE 3
 
 
 ?PR?_GET_RED_PESEC_SYND?TX_ECC                   -----    -----
@@ -179,7 +179,7 @@ SYMBOL TABLE OF MODULE:  .\Objects\Tx (TX_ECC)
   C:0836H         LINE#         77
   C:0844H         LINE#         78
   C:0886H         LINE#         80
-BL51 BANKED LINKER/LOCATER V6.22.4.0                                                  05/04/2026  12:33:31  PAGE 4
+BL51 BANKED LINKER/LOCATER V6.22.4.0                                                  05/04/2026  16:19:13  PAGE 4
 
 
   C:08B7H         LINE#         81
@@ -239,7 +239,7 @@ SYMBOL TABLE OF MODULE:  .\Objects\Tx (TX_ECC)
   C:0D4AH         LINE#         135
   C:0D4AH         LINE#         136
   C:0D4AH         LINE#         137
-BL51 BANKED LINKER/LOCATER V6.22.4.0                                                  05/04/2026  12:33:31  PAGE 5
+BL51 BANKED LINKER/LOCATER V6.22.4.0                                                  05/04/2026  16:19:13  PAGE 5
 
 
   -------         ENDPROC       _GET_RED_PESEC_SYND
@@ -299,7 +299,7 @@ SYMBOL TABLE OF MODULE:  .\Objects\Tx (TX_ECC)
   -------         ENDPROC       ECC
   -------         ENDMOD        TX_ECC
 
-BL51 BANKED LINKER/LOCATER V6.22.4.0                                                  05/04/2026  12:33:31  PAGE 6
+BL51 BANKED LINKER/LOCATER V6.22.4.0                                                  05/04/2026  16:19:13  PAGE 6
 
 
   -------         MODULE        TX_ENCODER
@@ -359,7 +359,7 @@ SYMBOL TABLE OF MODULE:  .\Objects\Tx (TX_ECC)
   C:0CE5H         LINE#         74
   C:0CE8H         LINE#         76
   C:0CEFH         LINE#         78
-BL51 BANKED LINKER/LOCATER V6.22.4.0                                                  05/04/2026  12:33:31  PAGE 7
+BL51 BANKED LINKER/LOCATER V6.22.4.0                                                  05/04/2026  16:19:13  PAGE 7
 
 
   C:0CF2H         LINE#         80
@@ -419,7 +419,7 @@ SYMBOL TABLE OF MODULE:  .\Objects\Tx (TX_ECC)
   B:0098H.1       PUBLIC        TI
   C:0D76H         PUBLIC        Port_Init
   B:00A0H.1       PUBLIC        SR_DATA
-BL51 BANKED LINKER/LOCATER V6.22.4.0                                                  05/04/2026  12:33:31  PAGE 8
+BL51 BANKED LINKER/LOCATER V6.22.4.0                                                  05/04/2026  16:19:13  PAGE 8
 
 
   D:00CBH         PUBLIC        RCAP2H
@@ -479,7 +479,7 @@ SYMBOL TABLE OF MODULE:  .\Objects\Tx (TX_ECC)
   C:0D65H         LINE#         76
   C:0D67H         LINE#         77
   -------         ENDPROC       BAUDRATE_INIT
-BL51 BANKED LINKER/LOCATER V6.22.4.0                                                  05/04/2026  12:33:31  PAGE 9
+BL51 BANKED LINKER/LOCATER V6.22.4.0                                                  05/04/2026  16:19:13  PAGE 9
 
 
   -------         PROC          UART_INIT
@@ -539,7 +539,7 @@ SYMBOL TABLE OF MODULE:  .\Objects\Tx (TX_ECC)
   C:0B0EH         LINE#         139
   C:0B10H         LINE#         140
   C:0B12H         LINE#         141
-BL51 BANKED LINKER/LOCATER V6.22.4.0                                                  05/04/2026  12:33:31  PAGE 10
+BL51 BANKED LINKER/LOCATER V6.22.4.0                                                  05/04/2026  16:19:13  PAGE 10
 
 
   C:0B14H         LINE#         142
@@ -599,7 +599,7 @@ SYMBOL TABLE OF MODULE:  .\Objects\Tx (TX_ECC)
   C:09BAH         LINE#         258
   C:09BAH         LINE#         259
   C:09CDH         LINE#         260
-BL51 BANKED LINKER/LOCATER V6.22.4.0                                                  05/04/2026  12:33:31  PAGE 11
+BL51 BANKED LINKER/LOCATER V6.22.4.0                                                  05/04/2026  16:19:13  PAGE 11
 
 
   C:09D1H         LINE#         262
