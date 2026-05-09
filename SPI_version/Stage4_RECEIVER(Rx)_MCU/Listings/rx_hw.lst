@@ -1,0 +1,375 @@
+C51 COMPILER V9.60.7.0   RX_HW                                                             04/21/2026 15:24:35 PAGE 1   
+
+
+C51 COMPILER V9.60.7.0, COMPILATION OF MODULE RX_HW
+OBJECT MODULE PLACED IN .\Objects\rx_hw.obj
+COMPILER INVOKED BY: C:\Keil_v5\C51\BIN\C51.EXE rx_hw.c OPTIMIZE(8,SPEED) BROWSE DEBUG OBJECTEXTEND PRINT(.\Listings\rx_
+                    -hw.lst) TABS(2) OBJECT(.\Objects\rx_hw.obj)
+
+line level    source
+
+   1          /* 
+   2             File: rx_hw.c
+   3          
+   4             ADuC841 PORT 1 ANALOG-MODE ANOMALY:
+   5             On the ADuC841, all Port 1 pins power up in ANALOG INPUT mode.  In
+   6             this mode the digital input buffer is disabled and the pin reads as
+   7             indeterminate.  Writing a 0 to a P1 bit switches that pin to DIGITAL
+   8             mode.  This must be done BEFORE enabling any peripheral (like SPI)
+   9             that relies on reading the pin.
+  10          
+  11             The SPI /SS pin is P1.5.  If SPE is set while P1.5 is still in
+  12             analog mode, the SPI slave cannot detect /SS transitions and will
+  13             either ignore frames entirely or sample data at random phases.
+  14             
+  15          */
+  16          
+  17          #include "rx_system.h"
+  18          
+  19          /* Set RX_DEBUG_LED to 1 to enable in-ISR LED toggle on P3.4 for scope
+  20             debugging of SPI byte reception.
+  21             [FIX] Default is now 0 (OFF).  With the Arduino SPI clock dropped
+  22             to 50 kHz the ISR has plenty of deadline margin, but the P3.4
+  23             toggle added ~8 instruction cycles per byte plus EMI on a port pin
+  24             adjacent to INT0 (P3.2) -- a plausible contributor to spurious
+  25             INT0 falling edges that zero spi_byte_idx mid-frame.  Compile with
+  26             -DRX_DEBUG_LED=1 to re-enable for scope work. */
+  27          #ifndef RX_DEBUG_LED
+  28          #define RX_DEBUG_LED 0
+  29          #endif
+  30          
+  31          #if RX_DEBUG_LED
+              sbit DEBUG_LED = P3^4;
+              #endif
+  34          
+  35          /*
+  36             SPI RECEIVE STATE VARIABLES
+  37              */
+  38          
+  39          /* Staging registers: assembled 26-bit word from the last complete frame.
+  40             Written atomically by the SPI ISR; read by the main loop when
+  41             rx_spi_frame_ready == 1. */
+  42          volatile uint16_t rx_spi_data        = 0;
+  43          volatile uint16_t rx_spi_red         = 0;
+  44          volatile uint8_t  rx_spi_parity      = 0;   /* [W4] Overall parity bit */
+  45          volatile uint8_t  rx_spi_frame_ready = 0;
+  46          
+  47          /* ISR-private byte accumulation buffer and counter.
+  48             [W6] volatile because spi_byte_idx is written from two ISRs
+  49             (INT0 vector 0 and SPI vector 7).  They cannot preempt each other at
+  50             equal priority, but volatile prevents compiler reordering/caching. */
+  51          static uint8_t spi_rx_buf[4];
+  52          static volatile uint8_t spi_byte_idx = 0;
+  53          
+  54          
+C51 COMPILER V9.60.7.0   RX_HW                                                             04/21/2026 15:24:35 PAGE 2   
+
+  55          /* 
+  56             INTERRUPT SERVICE ROUTINES
+  57              */
+  58          
+  59          /* 
+  60             INT0 ISR (vector 0, address 0x0003) -- /SS Frame-Sync
+  61             
+  62             Fires on the falling edge of /SS (Mega asserts slave select).
+  63             Resets the byte counter to 0 so the next SPI byte is byte 0.
+  64             
+  65          */
+  66          void INT0_FrameSync_ISR(void) interrupt 0
+  67          {
+  68   1          spi_byte_idx = 0;
+  69   1      }
+  70          
+  71          
+  72          /* 
+  73             SPI/I2C ISR (vector 7, address 0x003B) -- Byte Received
+  74             
+  75             Fires after each complete 8-bit SPI transfer.
+  76          
+  77             FRAME PROTOCOL (4 bytes per frame):
+  78               Index 0: H1 data bits  [7:0]
+  79               Index 1: bit 7 = overall parity (W4)
+  80                        bits [6:0] = H1 data bits [14:8]
+  81               Index 2: ECC red bits  [7:0]
+  82               Index 3: ECC red bits  [9:8] (bits 7-2 = 0)
+  83          
+  84             After storing byte 3, the ISR assembles the 15-bit data, 10-bit
+  85             redundancy, and 1-bit parity, then sets rx_spi_frame_ready = 1.
+  86             
+  87          */
+  88          void SPI_Receive_ISR(void) interrupt 7
+  89          {
+  90   1          uint8_t rx_byte;
+  91   1          uint8_t idx;
+  92   1      
+  93   1      #if RX_DEBUG_LED
+                  DEBUG_LED = !DEBUG_LED;
+              #endif
+  96   1      
+  97   1          /* Reading SPIDAT returns the just-clocked byte AND clears ISPI. */
+  98   1          rx_byte = SPIDAT;
+  99   1      
+ 100   1          /* Snapshot the index once so we don't re-read the volatile
+ 101   1             inside the hot path. */
+ 102   1          idx = spi_byte_idx;
+ 103   1          if (idx >= 4)
+ 104   1          {
+ 105   2              /* Stale byte after the frame was assembled but before the main
+ 106   2                 loop consumed rx_spi_frame_ready.  Drop it. */
+ 107   2              return;
+ 108   2          }
+ 109   1      
+ 110   1          spi_rx_buf[idx] = rx_byte;
+ 111   1          idx++;
+ 112   1          spi_byte_idx = idx;
+ 113   1      
+ 114   1          if (idx == 4)
+ 115   1          {
+ 116   2              /* 15-bit data word from bytes 0 (low) and 1[6:0] (high).
+C51 COMPILER V9.60.7.0   RX_HW                                                             04/21/2026 15:24:35 PAGE 3   
+
+ 117   2                 Byte 1 bit 7 carries the overall parity. */
+ 118   2              rx_spi_data = (uint16_t)spi_rx_buf[0]
+ 119   2                          | (((uint16_t)(spi_rx_buf[1] & 0x7Fu)) << 8);
+ 120   2      
+ 121   2              /* 10-bit redundancy from bytes 2 (low) and 3[1:0] (high). */
+ 122   2              rx_spi_red  = (uint16_t)spi_rx_buf[2]
+ 123   2                          | (((uint16_t)(spi_rx_buf[3] & 0x03u)) << 8);
+ 124   2      
+ 125   2              rx_spi_parity = (spi_rx_buf[1] >> 7) & 0x01u;
+ 126   2      
+ 127   2              rx_spi_frame_ready = 1;
+ 128   2      
+ 129   2              /* Allow the next frame to arrive without requiring INT0 resync.
+ 130   2                 INT0 is still enabled as a belt-and-braces realignment; it
+ 131   2                 fires on the /SS falling edge at the START of the next frame
+ 132   2                 and zeros spi_byte_idx again, which is a no-op after this
+ 133   2                 self-reset. */
+ 134   2              spi_byte_idx = 0;
+ 135   2          }
+ 136   1      }
+ 137          
+ 138          
+ 139          /* 
+ 140             PERIPHERAL INITIALISATION
+ 141              */
+ 142          
+ 143          /*
+ 144             RX_Timer3_Init
+ 145          
+ 146             Configures Timer 3 (ADuC841 dedicated UART baud rate generator) for
+ 147             115200 baud at a core clock of 11.0592 MHz (CD=0 in PLLCON).
+ 148          
+ 149            
+ 150          */
+ 151          void RX_Timer3_Init(void)
+ 152          {
+ 153   1          T3FD  = 0x20u;   /* Fractional divider = 32 */
+ 154   1          T3CON = 0x82u;   /* Enable Timer 3 as UART baud source, DIV = 2 */
+ 155   1      }
+ 156          
+ 157          
+ 158          /*
+ 159             RX_UART_Init
+ 160          
+ 161             [FIX] Write SCON as a full byte instead of individual sbit writes.
+ 162             The ADuC841 Keil header aliases SCON bit 7 as SM0/FE; depending on
+ 163             SMOD0 in PCON, sbit writes to SM0/SM1 can silently target the wrong
+ 164             bit and leave SCON = 0x00 (Mode 0, synchronous shift-register at
+ 165             f_core/12).  In that mode, SBUF bytes are clocked out on TxD as raw
+ 166             8-bit shift-register pulses at ~921 kHz with no start/stop framing,
+ 167             so PuTTY at 115200 baud (or any async baud) sees nothing decodable.
+ 168             This is the same trap fixed on the TX side in tx_main.c [C4].
+ 169          
+ 170             SCON = 0x40 -> SM0=0, SM1=1 (Mode 1, 8-bit async UART, Timer-3 baud)
+ 171                            SM2=0, REN=0 (TX-only, receive disabled)
+ 172                            TB8=RB8=TI=RI=0
+ 173             ES remains 0: the TX path is polled via rx_uart_pump(), not ISR-driven.
+ 174          */
+ 175          void RX_UART_Init(void)
+ 176          {
+ 177   1          SCON = 0x40;
+ 178   1          ES   = 0;
+C51 COMPILER V9.60.7.0   RX_HW                                                             04/21/2026 15:24:35 PAGE 4   
+
+ 179   1          TI   = 1;   /* Seed TI so the first rx_uart_pump() can write SBUF */
+ 180   1      }
+ 181          
+ 182          
+ 183          /* 
+ 184             RX_SPI_Slave_Init
+ 185             
+ 186             [F2] FIX: P1.5 ANALOG-MODE BUG
+ 187          
+ 188             The ADuC841 Port 1 defaults to ANALOG INPUT mode on power-up.
+ 189             In analog mode, the digital input buffer is disconnected, so the
+ 190             pin cannot reliably read logic levels.  P1.5 is the SPI /SS pin.
+ 191             If SPE is enabled while P1.5 is still analog, the SPI slave
+ 192             peripheral cannot detect the master's slave-select assertion.
+ 193          
+ 194             After the digital-mode switch, SPI is enabled as before.
+ 195          
+ 196             rx_spi_parity is reset to 0 alongside the other staging registers.
+ 197          
+ 198             SPICON = 0x24  (Mode 1, CPHA=1):
+ 199               SPE=1 (SPI enable), SPIM=0 (slave), CPOL=0, CPHA=1.
+ 200          
+ 201               *** ADuC841 DATASHEET CPHA=0 QUIRK ***
+ 202               Per the ADuC841 datasheet (SPI slave section, p.54):
+ 203                 "If CPHA = 1, the SS input may be permanently pulled low.
+ 204                  If CPHA = 0, the SS input must be driven LOW before the
+ 205                  first bit in a byte-wide transmission or reception and
+ 206                  return HIGH again after the last bit in that byte-wide
+ 207                  transmission or reception."
+ 208                 "The end of transmission occurs after the eighth clock
+ 209                  has been received if CPHA = 1, or when SS returns high
+ 210                  if CPHA = 0."
+ 211               In other words, Mode 0 (CPHA=0) requires /SS to toggle
+ 212               HIGH-LOW *per byte*.  The Arduino's sendFrame() holds /SS
+ 213               LOW for all 4 bytes of a frame, which violates the CPHA=0
+ 214               protocol -- SPIDAT is not latched at proper byte boundaries,
+ 215               so received bytes are shifted/duplicated, PESEC fires on
+ 216               every frame, rx_is_bus_reset() never sees {0,0,0,0}, and
+ 217               the FSM emits the scrambled 'FdFdrFrFdFdFr!' pattern.
+ 218               Switching to Mode 1 (CPHA=1) allows /SS to remain LOW
+ 219               across the entire 4-byte frame with per-byte latching on
+ 220               the 8th SCLK edge -- which is exactly what the Arduino
+ 221               master is doing.  testspii.ino must match with SPI_MODE1.
+ 222          
+ 223             IEIP2 |= 0x01:
+ 224               Enable ESI (SPI/I2C interrupt source) -- was never set.
+ 225          
+ 226          */
+ 227          void RX_SPI_Slave_Init(void)
+ 228          {
+ 229   1          /* Reset SPI receive state. */
+ 230   1          spi_byte_idx       = 0;
+ 231   1          rx_spi_frame_ready = 0;
+ 232   1          rx_spi_data        = 0;
+ 233   1          rx_spi_red         = 0;
+ 234   1          rx_spi_parity      = 0;   
+ 235   1      
+ 236   1          /* Force P1.5 (/SS) from analog mode to digital input mode.
+ 237   1             On the ADuC841, SCLOCK and SDATA/MOSI are dedicated pins (not on
+ 238   1             P1), and MISO is on P3.3.  Only /SS (P1.5) is a Port 1 pin that
+ 239   1             needs the analog-to-digital switch.  We also clear P1.7-P1.4 to
+ 240   1             be safe, since the receiver does not use ADC channels 4-7. */
+C51 COMPILER V9.60.7.0   RX_HW                                                             04/21/2026 15:24:35 PAGE 5   
+
+ 241   1          P1 &= ~0xF0u;   /* P1.7..P1.4 = 0 -> digital mode */
+ 242   1      
+ 243   1          /* Pre-load transmit register. */
+ 244   1          SPIDAT = 0x00u;
+ 245   1      
+ 246   1          /* Configure SPI: slave mode, Mode 1 (CPHA=1).
+ 247   1             SPE=1, SPIM=0, CPOL=0, CPHA=1, SPR=00 => 0x24.
+ 248   1             [FIX] Was 0x20 (Mode 0): the ADuC841 slave requires /SS to
+ 249   1             toggle per-byte in CPHA=0 mode (see datasheet p.54 and the
+ 250   1             block comment above).  Arduino's sendFrame() holds /SS low
+ 251   1             across all 4 bytes, so we must use CPHA=1 (Mode 1) instead
+ 252   1             so that each byte is latched on the 8th SCLK rather than
+ 253   1             on the /SS rising edge.  testspii.ino uses SPI_MODE1 to
+ 254   1             match. */
+ 255   1          SPICON = 0x24u;
+ 256   1      
+ 257   1          /* [FIX] Enable the SPI/I2C interrupt source (ESI, bit 0 of IEIP2).
+ 258   1             Without this, the SPI ISR at vector 003BH never fires regardless
+ 259   1             of the ISPI flag state.  IEIP2 power-on default is A0H (ESI=0).
+ 260   1             Use ORL to preserve other bits (priority settings). */
+ 261   1          IEIP2 |= 0x01u;
+ 262   1      
+ 263   1          /* Configure INT0 (P3.2) for falling-edge trigger on /SS assertion.
+ 264   1           *
+ 265   1           * Arduino pin 10 drives BOTH P1.5 (SPI /SS) and P3.2 (INT0) per the
+ 266   1           * testspii.ino wiring note.  Each Arduino sendFrame() lowers pin 10,
+ 267   1           * which fires INT0_FrameSync_ISR and zeros spi_byte_idx -- giving a
+ 268   1           * hard resync at every frame start, independent of how many SPI
+ 269   1           * bytes the previous frame delivered.
+ 270   1           *
+ 271   1           * History: this was briefly disabled (EX0 = 0) during bring-up when
+ 272   1           * we were not sure whether P3.2 was wired.  The [F3] self-reset at
+ 273   1           * idx == 4 let frames assemble, but a single lost byte left
+ 274   1           * spi_byte_idx stuck mid-frame -- producing the symptom where reset
+ 275   1           * frames ({0,0,0,0}) never triggered rx_is_bus_reset() because the
+ 276   1           * received bytes were shifted by one slot against the previous
+ 277   1           * frame's tail.  INT0 is the correct mechanism for frame alignment
+ 278   1           * now that the SPI path itself is confirmed working. */
+ 279   1          IT0 = 1;
+ 280   1          IE0 = 0;
+ 281   1          EX0 = 1;   /* [FIX] RE-ENABLED.  Frame-alignment hardware resync.
+ 282   1                        The current testspiiGuCci.ino drives pin 10 as an
+ 283   1                        OUTPUT: HIGH between frames, LOW during a frame
+ 284   1                        (see sendFrame() in that sketch).  That gives P3.2
+ 285   1                        a clean, non-floating signal with exactly one falling
+ 286   1                        edge per 4-byte frame.  INT0_FrameSync_ISR zeros
+ 287   1                        spi_byte_idx on that edge BEFORE the first SCLK byte
+ 288   1                        is latched, so the SPI ISR always sees byte0 in slot 0.
+ 289   1                        Without this, a single dropped SPI byte (very likely
+ 290   1                        during ADuC boot / first-frame race) permanently
+ 291   1                        shifts every subsequent frame by N bytes -- which is
+ 292   1                        exactly the "12 consecutive FU" symptom we saw:
+ 293   1                        PESEC syndrome != 0 but parity OK = even-bit-flip
+ 294   1                        signature caused by byte-boundary misalignment, not
+ 295   1                        by PESEC or line noise.  The old reason to keep this
+ 296   1                        disabled (floating pin 10 on the legacy testspii.ino)
+ 297   1                        no longer applies. */
+ 298   1      
+ 299   1          /* EA is NOT set here; caller must set EA=1 after all inits. */
+ 300   1      }
+ 301          
+ 302          
+C51 COMPILER V9.60.7.0   RX_HW                                                             04/21/2026 15:24:35 PAGE 6   
+
+ 303          /* 
+ 304             NON-BLOCKING UART TX BUFFER 
+ 305              */
+ 306          
+ 307          /* [FIX] Bumped 64 -> 128.  rx_send_uart_byte() drops on full, and
+ 308             under PuTTY flow-control pauses or back-to-back frames the early
+ 309             debug markers (F, R) were getting dropped while later FSM bytes
+ 310             (decoded chars) survived -- producing the "many A's, no F/R"
+ 311             pattern in the trace.  Bigger ring absorbs the bursts. */
+ 312          #define TX_BUF_SIZE 128
+ 313          static uint8_t xdata tx_buf[TX_BUF_SIZE];
+ 314          static uint8_t tx_head = 0;
+ 315          static uint8_t tx_tail = 0;
+ 316          
+ 317          
+ 318          void rx_send_uart_byte(uint8_t data_byte)
+ 319          {
+ 320   1          uint8_t next_head;
+ 321   1      
+ 322   1          next_head = (tx_head + 1) % TX_BUF_SIZE;
+ 323   1          if (next_head == tx_tail)
+ 324   1          {
+ 325   2              return;
+ 326   2          }
+ 327   1      
+ 328   1          tx_buf[tx_head] = data_byte;
+ 329   1          tx_head = next_head;
+ 330   1      }
+ 331          
+ 332          
+ 333          void rx_uart_pump(void)
+ 334          {
+ 335   1          if (TI && (tx_tail != tx_head))
+ 336   1          {
+ 337   2              TI = 0;
+ 338   2              SBUF = tx_buf[tx_tail];
+ 339   2              tx_tail = (tx_tail + 1) % TX_BUF_SIZE;
+ 340   2          }
+ 341   1      }
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =    201    ----
+   CONSTANT SIZE    =   ----    ----
+   XDATA SIZE       =    128    ----
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =     13    ----
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)

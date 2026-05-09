@@ -1,0 +1,272 @@
+C51 COMPILER V9.60.7.0   RX_HWG                                                            04/17/2026 01:17:50 PAGE 1   
+
+
+C51 COMPILER V9.60.7.0, COMPILATION OF MODULE RX_HWG
+OBJECT MODULE PLACED IN .\Objects\rx_hwg.obj
+COMPILER INVOKED BY: C:\Keil_v5\C51\BIN\C51.EXE rx_hwg.c OPTIMIZE(8,SPEED) BROWSE DEBUG OBJECTEXTEND PRINT(.\Listings\rx
+                    -_hwg.lst) TABS(2) OBJECT(.\Objects\rx_hwg.obj)
+
+line level    source
+
+   1          /* 
+   2             File: rx_hw.c
+   3          
+   4             ADuC841 PORT 1 ANALOG-MODE ANOMALY:
+   5             On the ADuC841, all Port 1 pins power up in ANALOG INPUT mode.  In
+   6             this mode the digital input buffer is disabled and the pin reads as
+   7             indeterminate.  Writing a 0 to a P1 bit switches that pin to DIGITAL
+   8             mode.  This must be done BEFORE enabling any peripheral (like SPI)
+   9             that relies on reading the pin.
+  10          
+  11             The SPI /SS pin is P1.5.  If SPE is set while P1.5 is still in
+  12             analog mode, the SPI slave cannot detect /SS transitions and will
+  13             either ignore frames entirely or sample data at random phases.
+  14             
+  15          */
+  16          
+  17          #include "rx_system.h"
+  18          
+  19          /* 
+  20             SPI RECEIVE STATE VARIABLES
+  21              */
+  22          
+  23          /* Staging registers: assembled 26-bit word from the last complete frame.
+  24             Written atomically by the SPI ISR; read by the main loop when
+  25             rx_spi_frame_ready == 1. */
+  26          volatile uint16_t rx_spi_data        = 0;
+  27          volatile uint16_t rx_spi_red         = 0;
+  28          volatile uint8_t  rx_spi_parity      = 0;   /* [W4] Overall parity bit */
+  29          volatile uint8_t  rx_spi_frame_ready = 0;
+  30          
+  31          /* ISR-private byte accumulation buffer and counter. */
+  32          static uint8_t spi_rx_buf[4];
+  33          static uint8_t spi_byte_idx = 0;
+  34          
+  35          
+  36          /* 
+  37             INTERRUPT SERVICE ROUTINES
+  38              */
+  39          
+  40          /* 
+  41             INT0 ISR (vector 0, address 0x0003) -- /SS Frame-Sync
+  42             
+  43             Fires on the falling edge of /SS (Mega asserts slave select).
+  44             Resets the byte counter to 0 so the next SPI byte is byte 0.
+  45             
+  46          */
+  47          void INT0_FrameSync_ISR(void) interrupt 0
+  48          {
+  49   1          spi_byte_idx = 0;
+  50   1      }
+  51          
+  52          
+  53          /* 
+  54             SPI/I2C ISR (vector 7, address 0x003B) -- Byte Received
+C51 COMPILER V9.60.7.0   RX_HWG                                                            04/17/2026 01:17:50 PAGE 2   
+
+  55             
+  56             Fires after each complete 8-bit SPI transfer.
+  57          
+  58             FRAME PROTOCOL (4 bytes per frame):
+  59               Index 0: H1 data bits  [7:0]
+  60               Index 1: bit 7 = overall parity (W4)
+  61                        bits [6:0] = H1 data bits [14:8]
+  62               Index 2: ECC red bits  [7:0]
+  63               Index 3: ECC red bits  [9:8] (bits 7-2 = 0)
+  64          
+  65             After storing byte 3, the ISR assembles the 15-bit data, 10-bit
+  66             redundancy, and 1-bit parity, then sets rx_spi_frame_ready = 1.
+  67             
+  68          */
+  69          sbit DEBUG_LED = P3^4;
+  70          void SPI_Receive_ISR(void) interrupt 7
+  71          {
+  72   1          uint8_t dummy_status;
+  73   1          uint8_t rx_byte;
+  74   1      
+  75   1          /* [תיקון קריטי לחומרה]: קריאת SPICON ואז SPIDAT מאפסת את דגל הפס
+             -יקה */
+  76   1          dummy_status = SPICON;
+  77   1          rx_byte = SPIDAT;
+  78   1          SPICON &= 0x7Fu; /* איפוס ידני של ביט ISPI ליתר ביטחון */
+  79   1      
+  80   1          DEBUG_LED = !DEBUG_LED;
+  81   1      
+  82   1          if (spi_byte_idx >= 4)
+  83   1          {
+  84   2              return;
+  85   2          }
+  86   1      
+  87   1          spi_rx_buf[spi_byte_idx] = rx_byte;
+  88   1          spi_byte_idx++;
+  89   1      
+  90   1          if (spi_byte_idx == 4)
+  91   1          {
+  92   2              rx_spi_data = (uint16_t)spi_rx_buf[0]
+  93   2                  | (((uint16_t)(spi_rx_buf[1] & 0x7Fu)) << 8);
+  94   2      
+  95   2              rx_spi_red = (uint16_t)spi_rx_buf[2]
+  96   2                  | (((uint16_t)(spi_rx_buf[3] & 0x03u)) << 8);
+  97   2      
+  98   2              rx_spi_parity = (spi_rx_buf[1] >> 7) & 0x01u;
+  99   2      
+ 100   2              rx_spi_frame_ready = 1;
+ 101   2              spi_byte_idx = 0;
+ 102   2          }
+ 103   1      }
+ 104          
+ 105          /* 
+ 106             PERIPHERAL INITIALISATION
+ 107              */
+ 108          
+ 109          /*
+ 110             RX_Timer3_Init
+ 111          
+ 112             Configures Timer 3 (ADuC841 dedicated UART baud rate generator) for
+ 113             115200 baud at a core clock of 11.0592 MHz (CD=0 in PLLCON).
+ 114          
+ 115             ADuC841 Timer 3 baud rate formula (datasheet):
+C51 COMPILER V9.60.7.0   RX_HWG                                                            04/17/2026 01:17:50 PAGE 3   
+
+ 116                 Baud = (2^CD * fCORE) / (16 * 2^DIV * (1 + T3FD/64))
+ 117                 where DIV = T3CON[2:0] and T3FD is a 6-bit fractional divider.
+ 118          
+ 119             For 115200 baud at 11.0592 MHz:
+ 120                 16 * 2^DIV * (1 + T3FD/64) = 96
+ 121                 => DIV = 2, T3FD = 32  =>  11,059,200 / 96 = 115,200 exactly
+ 122          
+ 123             T3CON = 0x82 : bit 7 = Timer 3 baud enable, DIV = 0b010.
+ 124             T3FD  = 0x20 : fractional divider = 32.
+ 125          
+ 126             Previous setting (T3CON = 0x86, T3FD = 0x08) produced 9600 baud.
+ 127          */
+ 128          void RX_Timer3_Init(void)
+ 129          {
+ 130   1          T3FD  = 0x20u;   /* Fractional divider = 32 */
+ 131   1          T3CON = 0x82u;   /* Enable Timer 3 as UART baud source, DIV = 2 */
+ 132   1      }
+ 133          
+ 134          
+ 135          /* 
+ 136             RX_UART_Init  (unchanged)
+ 137             
+ 138          */
+ 139          void RX_UART_Init(void)
+ 140          {
+ 141   1          SM0 = 0;
+ 142   1          SM1 = 1;
+ 143   1          REN = 0;
+ 144   1          RI  = 0;
+ 145   1          TI  = 0;
+ 146   1          ES  = 0;
+ 147   1      
+ 148   1          TI  = 1;
+ 149   1      }
+ 150          
+ 151          
+ 152          /* 
+ 153             RX_SPI_Slave_Init
+ 154             
+ 155             [F2] FIX: P1.5 ANALOG-MODE BUG
+ 156          
+ 157             The ADuC841 Port 1 defaults to ANALOG INPUT mode on power-up.
+ 158             In analog mode, the digital input buffer is disconnected, so the
+ 159             pin cannot reliably read logic levels.  P1.5 is the SPI /SS pin.
+ 160             If SPE is enabled while P1.5 is still analog, the SPI slave
+ 161             peripheral cannot detect the master's slave-select assertion.
+ 162          
+ 163             FIX: Write 0 to P1.5 BEFORE enabling SPE.  On the ADuC841, writing
+ 164             a 0 to any Port 1 bit switches that pin from analog to digital mode.
+ 165             We use a bitwise AND to clear only P1.5 without disturbing other P1
+ 166             bits that may be intentionally left in analog mode for ADC use.
+ 167          
+ 168             After the digital-mode switch, SPI is enabled as before.
+ 169          
+ 170             [W4] rx_spi_parity is reset to 0 alongside the other staging registers.
+ 171          
+ 172             SPICON = 0x20:
+ 173               SPE=1 (SPI enable), SPIM=0 (slave), CPOL=0, CPHA=0 (Mode 0).
+ 174               [FIX] Was 0xA0; bit 7 (ISPI) is a status flag, not an enable.
+ 175             IEIP2 |= 0x01:
+ 176               [FIX] Enable ESI (SPI/I2C interrupt source) -- was never set.
+ 177             
+C51 COMPILER V9.60.7.0   RX_HWG                                                            04/17/2026 01:17:50 PAGE 4   
+
+ 178          */
+ 179          void RX_SPI_Slave_Init(void)
+ 180          {
+ 181   1          spi_byte_idx = 0;
+ 182   1          rx_spi_frame_ready = 0;
+ 183   1          rx_spi_data = 0;
+ 184   1          rx_spi_red = 0;
+ 185   1          rx_spi_parity = 0;
+ 186   1      
+ 187   1          /* [תיקון קריטי]: מעביר את P1.5 למצב דיגיטלי כדי שיוכל לקרוא 
+             -את ה-/SS */
+ 188   1          P1 &= ~0xF0u;
+ 189   1      
+ 190   1          SPIDAT = 0x00u;
+ 191   1      
+ 192   1          /* אתחול SPI: Slave Mode 0 */
+ 193   1          SPICON = 0x20u;
+ 194   1      
+ 195   1          /* אפשור פסיקות SPI */
+ 196   1          IEIP2 |= 0x01u;
+ 197   1      
+ 198   1          /* הגדרת INT0 */
+ 199   1          IT0 = 1;
+ 200   1          IE0 = 0;
+ 201   1          EX0 = 1;
+ 202   1      }
+ 203          
+ 204          
+ 205          /* 
+ 206             NON-BLOCKING UART TX BUFFER  (unchanged)
+ 207              */
+ 208          
+ 209          #define TX_BUF_SIZE 64
+ 210          static uint8_t xdata tx_buf[TX_BUF_SIZE];
+ 211          static uint8_t tx_head = 0;
+ 212          static uint8_t tx_tail = 0;
+ 213          
+ 214          
+ 215          void rx_send_uart_byte(uint8_t data_byte)
+ 216          {
+ 217   1          uint8_t next_head;
+ 218   1      
+ 219   1          next_head = (tx_head + 1) % TX_BUF_SIZE;
+ 220   1          if (next_head == tx_tail)
+ 221   1          {
+ 222   2              return;
+ 223   2          }
+ 224   1      
+ 225   1          tx_buf[tx_head] = data_byte;
+ 226   1          tx_head = next_head;
+ 227   1      }
+ 228          
+ 229          
+ 230          void rx_uart_pump(void)
+ 231          {
+ 232   1          if (TI && (tx_tail != tx_head))
+ 233   1          {
+ 234   2              TI = 0;
+ 235   2              SBUF = tx_buf[tx_tail];
+ 236   2              tx_tail = (tx_tail + 1) % TX_BUF_SIZE;
+ 237   2          }
+ 238   1      }
+C51 COMPILER V9.60.7.0   RX_HWG                                                            04/17/2026 01:17:50 PAGE 5   
+
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =    212    ----
+   CONSTANT SIZE    =   ----    ----
+   XDATA SIZE       =     64    ----
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =     13       1
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)
