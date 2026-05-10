@@ -1,0 +1,181 @@
+\documentclass[12pt,a4paper]{article}
+
+% --- Language and Font Support (for XeLaTeX) ---
+\usepackage{fontspec}
+\usepackage{polyglossia}
+\setdefaultlanguage{hebrew}
+\setotherlanguage{english}
+
+% Use fonts available on Overleaf. Arial is standard for academic reports.
+\newfontfamily\hebrewfont[Script=Hebrew]{Arial}
+\newfontfamily\hebrewfontsf[Script=Hebrew]{Arial}
+\newfontfamily\hebrewfonttt[Script=Hebrew]{Miriam Fixed}
+
+% --- Technical Packages ---
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{graphicx}
+\usepackage{hyperref}
+\usepackage{geometry}
+\usepackage{setspace}
+\usepackage{titlesec}
+\usepackage{fancyhdr}
+\usepackage{tocloft}
+
+% --- Page Layout Configuration ---
+\geometry{
+ a4paper,
+ total={165mm,245mm},
+ left=20mm,
+ top=25mm,
+}
+
+% Set academic line spacing (1.5) to meet page count requirements naturally
+\setstretch{1.5}
+
+% --- Document Metadata ---
+\title{קידוד אפיק יעיל-הספק מוגן שגיאות}
+\author{מתן בן נחמיה}
+\date{אייר תשפ"ן}
+
+\begin{document}
+
+% ==========================================================
+% SECTION א: דף שער ותוכן עניינים (Cover & TOC)
+% ==========================================================
+\begin{titlepage}
+    \centering
+    \vspace*{1cm}
+    \includegraphics[width=0.3\textwidth]{logo} % Replace with logo filename if available
+    \\[0.5cm]
+    {\Huge \textbf{המרכז האקדמי לב}}\\[0.5cm]
+    {\Large הפקולטה להנדסה }\\
+    {\Large החוג להנדסת חשמל ואלקטרוניקה}\\[3cm]
+    
+    {\Huge \textbf{פרויקט גמר באלקטרוניקה}}\\[1cm]
+    
+    {\Huge \textbf{קידוד אפיק יעיל-הספק מוגן שגיאות}}\\[0.5cm]
+    {\LARGE \begin{english}Power Efficient Error Correcting Bus Encoder\end{english}}\\[3cm]
+    
+    \begin{flushright}
+        {\Large \textbf{מגיש:} מתן בן נחמיה}\\[0.5cm]
+        {\Large \textbf{מנחה:} פרופסור שלמה אנגלברג}
+    \end{flushright}
+    
+    \vfill
+    {\Large אייר תשפ"ו}\\[0.2cm]
+    {\Large ירושלים}
+\end{titlepage}
+
+\newpage
+\pagenumbering{arabic}
+
+% Table of Contents
+\renewcommand{\contentsname}{תוכן עניינים}
+\tableofcontents
+\newpage
+
+% Lists of figures and tables
+\renewcommand{\listfigurename}{רשימת איורים}
+\listoffigures
+\renewcommand{\listtablename}{רשימת טבלאות}
+\listoftables
+\newpage
+
+% ==========================================================
+% SECTION ב: תקציר (Abstract)
+% ==========================================================
+\section*{תקציר}
+\addcontentsline{toc}{section}{תקציר}
+
+\textbf{רקע, הניעה ומטרה:} צריכת הספק במערכות דיגיטליות מודרניות, ובפרט בזיכרונות חדישים (כדוגמת RRAM) ובאפיקי תקשורת ארוכים, מושפעת ישירות ממספר החלפות המצבים הלוגיים (Bit Transitions - BT) במעבר בין ערכים[cite: 89, 92]. המטרה המרכזית בקידוד אפיק היא למזער החלפות אלו לחלוטין. עם זאת, שילוב קודי תיקון שגיאות (ECC) סטנדרטיים הורס את יעילות ההספק בשל האקראיות של החלפת ביטי היתירות[cite: 227]. פרויקט זה נועד לממש מערכת המשלבת קידוד אפיק יעיל-הספק יחד עם אלגוריתם תיקון שגיאות ייעודי (PESEC) מבלי לפגוע בצריכת ההספק המינימלית של האפיק[cite: 228].
+
+\textbf{גישה ושיטות:} פותחה מערכת הכוללת מקודד (TX) ומפענח (RX) הפועלים על גבי מיקרו-בקר ADuC841[cite: 14, 133]. המערכת עושה שימוש במטריצות קידוד מסוג H1 לקידוד אפיק של 15 ביט בשילוב אלגוריתם PESEC המבטיח תיקון שגיאה בודדת (SEC)[cite: 269]. בנוסף, מומשה שכבת הגנה עליונה לזיהוי שגיאה כפולה (DED) באמצעות שילוב ביט זוגיות (Overall Parity) כולל[cite: 476, 571]. הנתונים מועברים דרך מסגרות תקשורת מסונכרנות בפרוטוקול UART המגובות ב-CRC-8[cite: 6, 41].
+
+\textbf{תוצאות עיקריות:} המערכת קודדה ושידרה בהצלחה מילות קוד ברוחב 26 ביט[cite: 58]. בניסויי המערכת, המקלט זיהה ותיקן שגיאות בודדות (SEC) באופן דיפרנציאלי תוך שמירה על גבולות ה-BT המתוכננים, וזיהה בהצלחה עיוותים המייצגים שגיאות כפולות (DED) כבלתי ניתנות לתיקון.
+
+\textbf{משמעות ותרומה:} הפרויקט מהווה הוכחת היתכנות מעשית ליישום קודי PESEC במערכות משובצות מחשב הפועלות בזמן אמת[cite: 574]. פתרון מודולרי זה מאפשר להשיג אמינות גבוהה (SEC+DED) מבלי להידרש לסיבוכיות מערכתית ולטבלאות חיפוש כבדות המאפיינות פתרונות מתחרים[cite: 573].
+
+\vspace{1cm}
+
+\begin{english}
+\section*{Abstract}
+\textbf{Background, Motivation, and Goal:} Power efficiency in modern digital systems is largely dictated by bit transitions (BT) in memory and communication buses[cite: 92]. Integrating standard ECC typically increases BT, negating the benefits of bus encoding[cite: 227]. This project implements a system integrating power-efficient bus encoding with a Power-Efficient Single Error Correcting (PESEC) algorithm[cite: 228].
+
+\textbf{Approach and Methods:} An integrated TX/RX system was built using the ADuC841 microcontroller[cite: 14]. It utilizes H1-type matrices for 15-bit data and PESEC for Single Error Correction (SEC)[cite: 269]. A Double Error Detection (DED) layer was added using an overall parity bit[cite: 476]. Data transmission is secured via UART framing and CRC-8[cite: 6].
+
+\textbf{Main Results:} Codewords of 26 bits were successfully processed[cite: 58]. The receiver corrected single errors differentially within BT limits and successfully identified double errors as uncorrectable.
+
+\textbf{Significance and Contribution:} This work demonstrates the practical viability of PESEC codes in real-time embedded systems[cite: 574]. It provides modular, high-reliability (SEC+DED) protection without the overhead of complex lookup tables[cite: 573].
+\end{english}
+
+\newpage
+
+% ==========================================================
+% SECTION ג: מבוא (Introduction - ~3 Pages)
+% ==========================================================
+\section{מבוא}
+ההתפתחות המואצת בטכנולוגיות המוליכים למחצה ועיצוב המערכות המשובצות הובילה בעשורים האחרונים לעלייה דרמטית בצפיפות הרכיבים ובתדרי העבודה. מגמה זו מציבה את צריכת ההספק כצוואר בקבוק קריטי בתכנון חומרה מודרנית. במעגלי CMOS מסורתיים, ובייחוד בטכנולוגיות זיכרון מתפתחות (כדוגמת זיכרונות RRAM או MRAM), צריכת ההספק הדינמית נקבעת בעיקרה ממעברי הלוגיקה (Bit Transitions), המכתיבים טעינה ופריקה של קיבולים פרזיטיים על גבי קווי התקשורת והזיכרון[cite: 90]. כל שינוי מצב לוגי של ביט – מאפס לאחד או מאחד לאפס – כרוך בעלות אנרגטית ישירה[cite: 89]. ככל שאפיקי התקשורת רחבים יותר וארוכים יותר, כך ההספק המבוזבז הופך למרכיב דומיננטי הדורש פתרונות ברמת הארכיטקטורה כדי למזער את כמות ההחלפות[cite: 92].
+
+על מנת להתמודד עם אתגר זה, פותחו אלגוריתמים לקידוד אפיק (Bus Encoding). מטרתם היא להבטיח מעבר למילת מידע חדשה תוך ביצוע מספר מינימלי של שינויים במצב הפיזי של הקווים[cite: 99]. גישות מוקדמות, כדוגמת "היפוך אפיק" (Bus Inversion), השכילו לחסוך מעברים על ידי הוספת קו בקרה בודד[cite: 149]. עם זאת, מערכות אלו אינן מציעות הגנה מובנית מפני שגיאות. אפיקי תקשורת בסביבות תעשייתיות או רפואיות חשופים לרעשים אלקטרומגנטיים (EMI), תנודות מתח ושגיאות אקראיות חולפות (Soft Errors) המחייבות שימוש בקודי תיקון שגיאות (ECC)[cite: 225].
+
+כאן נוצר קונפליקט הנדסי משמעותי: קודי ECC קונבנציונליים (כגון קודי המינג) מייצרים ביטי יתירות (Redundancy) המשתנים באופן אקראי משידור לשידור[cite: 227]. שינויים אלו גורמים לעלייה חדה בכמות מעברי הלוגיקה, מה שמבטל את יעילות ההספק שהושגה על ידי קידוד האפיק. בסביבות עתירות-הספק או בטכנולוגיות כדוגמת RRAM, שבהן פעולת הכתיבה יקרה במיוחד, פגיעה זו היא בלתי נסבלת[cite: 91].
+
+פרויקט זה מציע פתרון מודולרי המבוסס על ארכיטקטורת PESEC (Power Efficient Single Error Correcting). בשיטה זו, הוספת היתירות מבוצעת באופן דיפרנציאלי חכם המבטיח כי גם ביטי הבקרה ידרשו מינימום החלפות[cite: 228]. מעבר לכך, הפרויקט מרחיב את מודל ה-SEC התיאורטי לרמת אמינות של SEC+DED (תיקון שגיאה בודדת וגילוי שגיאה כפולה) באמצעות ביט זוגיות כולל[cite: 476, 571].
+
+המערכת שפותחה מורכבת ממיקרו-בקר ADuC841 המשמש כמקודד ומפענח, יחד עם גשר Arduino Mega 2560 המגשר בין העולם המקבילי לעולם הטורי בסביבה רועשת[cite: 1, 23]. העבודה כוללת מימוש תוכנתי של המטריצות, ניהול פרוטוקול תקשורת ממוסגר (Framing) ובדיקת חסינות המערכת לשגיאות. הפרויקט מדגים כי ניתן לשלב אמינות גבוהה עם צריכת הספק נמוכה, ומהווה בסיס לתכנון אפיקים בטוחים במערכות זמן-אמת עתידיות[cite: 574].
+
+\newpage
+
+% ==========================================================
+% SECTION ד: רקע תאורטי (Theoretical Background - ~6 Pages)
+% ==========================================================
+\section{רקע תאורטי וסקירת ספרות}
+
+\subsection{מודל צריכת ההספק הדינמי}
+ההספק הדינמי במעגלים דיגיטליים נובע מטעינה ופריקה של קבלים פרזיטיים. הקשר המתמטי מוגדר על ידי:
+\begin{equation}
+P_{dynamic} = \alpha \cdot C_{load} \cdot V_{DD}^2 \cdot f_{clock}
+\end{equation}
+כאשר $\alpha$ הוא מקדם הפעילות (Activity Factor), המייצג את ההסתברות שביט ישנה את מצבו במחזור שעון[cite: 90]. במערכות יעילות-הספק, אנו שואפים למזער את $\alpha$ על ידי הפחתת מספר ה-BT[cite: 92]. באפיק ברוחב $n$ ביטים, מספר השינויים הממוצע קובע את צריכת ההספק היחסית של הרכיב.
+
+\subsection{קידוד אפיק וריבוי ייצוגים (Multiple Representations)}
+כדי לאפשר מעבר לערך חדש במינימום שינויים, המערכת משתמשת ביותר ביטים פיזיים מביטי המידע. עבור מידע לוגי $s$, המערכת מגדירה מטריצת בדיקה $H$ ומתקיימת המשוואה:
+\begin{equation}
+H x^T = s
+\end{equation}
+כאשר $x$ היא המילה הפיזית[cite: 111, 120]. לכל $s$ ישנה קבוצת פתרונות $C_s$, וביניהם אנו בוחרים את הפתרון $x_{new}$ שמרחקו מהמצב הנוכחי $x_{old}$ הוא מינימלי[cite: 141]. מרחק זה מחושב כמשקל ההמינג של וקטור ההפרש $w$:
+\begin{equation}
+H w^T = s_{new} \oplus s_{old}
+\end{equation}
+הבעיה הכללית של מציאת $w$ בעל משקל מינימלי היא NP-Complete, אך שימוש במטריצות בעלות מבנה מיוחד פותר זאת ביעילות[cite: 137].
+
+\subsection{מטריצות מסוג $H_1$ ו-$H_2$}
+המטריצות המאפשרות פתרון דטרמיניסטי ומהיר ללא צורך בטבלאות חיפוש הן מטריצות מסוג $H_1$ ו-$H_2$[cite: 192]. מטריצת $H_1$ בנויה כך שהיא מכילה את כל הצירופים הלא-אפסיים האפשריים (כמו מטריצת המינג)[cite: 194, 235]. במבנה כזה, לכל סינדרום יעד קיים ביט בודד ששינויו יביא לתוצאה הרצויה, מה שמבטיח $\Delta=1$ לכל עדכון ניבל[cite: 200, 269]. מטריצות $H_2$ משתמשות במבנה היררכי המאפשר יעילות גבוהה יותר עבור אפיקים רחבים יותר[cite: 204, 218].
+
+\subsection{אלגוריתם ה-PESEC (Power Efficient SEC)}
+בקודי ECC קלאסיים, ביטי היתירות נוצרים על ידי הכפלת המידע במטריצה יוצרת, מה שמוביל לשינויים אקראיים בביטים אלו. ב-PESEC, התהליך הוא מודולרי ודיפרנציאלי[cite: 228]. מטריצת הבדיקה מחולקת ל-$A$ (נתונים) ו-$D$ (יתירות)[cite: 318, 321]:
+\begin{equation}
+A u^T \oplus D v^T = 0
+\end{equation}
+כאשר המידע $u$ משתנה ל-$u_{new}$, אנו מחפשים שינוי $w$ בביטי היתירות $v$ כך שיתקיים[cite: 342]:
+\begin{equation}
+D w^T = A u_{new}^T \oplus D v_{old}^T
+\end{equation}
+על ידי בחירת $D$ כמטריצת $H_1$, אנו מבטיחים שגם עדכון היתירות יתבצע במינימום שינויים[cite: 344].
+
+\subsection{שדרוג ל-SEC+DED וביט זוגיות כולל}
+כדי להשיג יכולת זיהוי שגיאה כפולה, מתווסף ביט זוגיות כולל (Overall Parity) המחושב על כל 25 הביטים של ה-PESEC[cite: 476, 571]. הוספה זו מגדילה את מרחק המינג המינימלי של הקוד ל-4[cite: 479]. המקלט מבצע שילוב של בדיקת סינדרום ובדיקת זוגיות:
+\begin{itemize}
+    \item \textbf{Syndrome $S \neq 0$, Parity Fail:} שגיאה בודדת שניתנת לתיקון בטוח[cite: 531].
+    \item \textbf{Syndrome $S \neq 0$, Parity OK:} שגיאה כפולה (Double Error) שאינה ניתנת לתיקון – מזוהה בלבד[cite: 531].
+\end{itemize}
+מנגנון זה קריטי למניעת "תיקון שגוי" שבו המערכת מנסה לתקן שגיאה כפולה ומייצרת שגיאה שלישית[cite: 531].
+
+\subsection{פרוטוקול התקשורת והגנה על המסגרות}
+בשל רגישות המערכת לרעשי קו, המעבר בין הגשר למקלט מתבצע בפרוטוקול UART ממוסגר (Framed UART)[cite: 5]. כל מסגרת כוללת בייט סנכרון (SOF) של $0xAA$, וקטור נתונים, וקטור יתירות ובדיקת CRC-8[cite: 6, 8]. ה-CRC מבטיח כי אם חלה שגיאה בתווך השידור (הגשר), המקלט יזהה זאת ויפסול את המסגרת כולה לפני שתגיע לשלב התיקון של ה-PESEC[cite: 7, 41].
+
+\subsection{סקירת ספרות והשוואת טכנולוגיות}
+בספרות קיימות שיטות כגון "Light-Weight Codes" המגבילות את כמות ה-"1"-ים במילה, אך הן בזבזניות שכן אינן מתחשבות במצב הקודם של האפיק[cite: 556, 558]. שיטת ה-"Nested BCH" משלבת קידוד ו-ECC אך סובלת מסיבוכיות NP-Complete הדורשת טבלאות חיפוש (LUT) יקרות[cite: 561, 563]. מחקריהם של אנגלברג וקרן הוכיחו כי הגישה המבוססת על מטריצות $H_1$/$H_2$ היא המודולרית והיעילה ביותר ליישום בזמן אמת בחומרה דלת משאבים[cite: 574].
+
+\end{document}
