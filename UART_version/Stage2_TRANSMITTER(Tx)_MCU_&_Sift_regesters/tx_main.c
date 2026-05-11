@@ -30,10 +30,6 @@
  * STATE VARIABLE DEFINITIONS  (owned by this module)
  */
 
-/* UART / main-loop flags */
-volatile bit    buffer_flag  = 0;
-volatile uint8_t buffer_count = 0;
-
 /* [M4] UART receive ring buffer */
 volatile uint8_t rx_buf[RX_BUF_SIZE];
 volatile uint8_t rx_head = 0;
@@ -310,15 +306,6 @@ void main(void)
             uint8_t rx_byte = rx_buf[rx_tail];
             rx_tail = (rx_tail + 1) % RX_BUF_SIZE;
             tx_handler(rx_byte);
-        }
-
-        if (buffer_flag)
-        {
-            /* No ES guard needed: UART_ISR does not touch buffer_flag or
-             * buffer_count, so single-byte writes are atomic on the 8052
-             * and cannot race with the ISR. */
-            buffer_flag  = 0;
-            buffer_count = 0;
         }
     }
 }

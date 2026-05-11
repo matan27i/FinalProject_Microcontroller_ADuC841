@@ -71,10 +71,10 @@ def send_string_to_mcu(text, port=PORT, baudrate=BAUDRATE):
             time.sleep(0.01)
         
         # Send terminator (real newline byte 0x0A, NOT the two-character
-        # sequence '\\n').  The MCU's tx_handler matches '\r'/'\n' to clear
-        # buffer_flag/buffer_count; sending the literal '\\n' as two bytes
-        # would instead encode them as data nibbles and never trigger the
-        # terminator branch.
+        # sequence '\\n').  The MCU's tx_handler matches '\r'/'\n' and
+        # silently discards them; sending the literal '\\n' as two bytes
+        # would instead encode them as data nibbles and produce two
+        # spurious frames on the bus.
         ser.write(b'\n')
         print("Sent terminator (newline)")
         

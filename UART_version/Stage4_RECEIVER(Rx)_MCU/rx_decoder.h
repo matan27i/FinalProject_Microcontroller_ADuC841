@@ -26,9 +26,14 @@ typedef enum
 */
 extern rx_state_t xdata rx_current_state;
 extern uint8_t    xdata rx_stored_high_nibble;
-extern uint8_t    xdata rx_byte_ready;
 extern uint16_t   xdata rx_bytes_decoded;
 extern uint16_t   xdata rx_states_processed;
+
+/* Byte-alignment recovery: toggled by rx_main on PESEC_UNCORRECTABLE
+   when the FSM was at WAIT_HIGH (odd-parity drop), consumed by
+   rx_process_bus_state to drop the next clean frame and restore even
+   nibble parity with the TX side.  See rx_decoder.c for full rationale. */
+extern volatile uint8_t xdata rx_skip_next_frame;
 
 /* 
    Prototypes

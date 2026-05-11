@@ -30,9 +30,6 @@ typedef unsigned int   uint16_t;
 #define MAX_PESEC_BLOCKS 5                          /* Max H1-type sub-blocks       */
 #define PESEC_RED_MASK   0x03FF                     /* Mask for 10 redundancy bits  */
 
-/* [W4] Total physical bus width including the overall parity bit. */
-#define PESEC_TOTAL_BITS 26                         /* 15 data + 10 red + 1 parity  */
-
 /* Timer 2 Reload Constants (124 counts = ~11.2 us at 11.0592 MHz) */
 #define T2_RELOAD_H      0xFF
 #define T2_RELOAD_L      0x84

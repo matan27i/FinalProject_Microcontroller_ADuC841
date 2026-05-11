@@ -32,9 +32,30 @@
 /*
    UART FRAME PROTOCOL CONSTANTS -- must match the Mega bridge
 */
-#define UART_SOF            0xAAu // Start Of Frame
-#define UART_PAYLOAD_LEN    4u    // 
+#define UART_SOF            0xAAu
+#define UART_PAYLOAD_LEN    4u
 #define UART_CRC_POLY       0x07u
+
+
+/*
+   ONBOARD ERROR-INDICATOR LED
+   ---
+   Hardware fallback for ECC events when the UART trace is too slow,
+   saturated, or filtered out.  Driven directly from the main loop:
+     ON  on any error event in the current frame (PESEC corrected
+         single-bit error, or PESEC uncorrectable double-bit error)
+     OFF when a frame is processed entirely cleanly
+
+   PIN: P3.4 (T0 alternate, but unused in this project so it works as a
+   plain GPIO).  Active-low by default because most ADuC eval boards wire
+   the LED with the anode to VCC and cathode to the pin via a series
+   resistor.  Flip RX_LED_ACTIVE_LEVEL to 1 if your board is active-high.
+*/
+sbit RX_ERROR_LED_PIN = P3^4;
+
+#ifndef RX_LED_ACTIVE_LEVEL
+#define RX_LED_ACTIVE_LEVEL 0   /* 0 = active-low (LED on when pin = 0) */
+#endif
 
 
 /*
@@ -246,10 +267,14 @@ void RX_Timer3_Init(void)
    ES=1 enables the serial interrupt; the ISR handles both RI and TI.
    TI starts at 0: the first rx_send_uart_byte() will prime SBUF.
 
-   The MOV-as-byte style (rather than individual sbit writes to SM0/SM1)
-   avoids the SMOD0 trap documented on the TX side -- when SMOD0=1 in
-   PCON, SM0 aliases to a framing-error flag and sbit writes silently
-   miss SCON.7.
+   The byte-write style (SCON = 0x50u) is preferred over six individual
+   sbit assignments: it produces a single MOV instruction, is atomic with
+   respect to interrupts, and is portable across 8052 derivatives.  Note
+   that the "SMOD0 / SM0 aliases as framing-error flag" feature seen on
+   some Silicon Labs C8051 parts does NOT exist on the ADuC841/842/843 --
+   PCON.6 on this chip is SERIPD (datasheet Rev.B Table 7, p.29) -- so
+   sbit writes to SM0 would also work here.  The byte-write is still the
+   better style for the reasons above.
 */
 void RX_UART_Init(void)
 {
@@ -264,6 +289,12 @@ void RX_UART_Init(void)
     rx_frame_red        = 0;
     rx_frame_parity     = 0;
     rx_frame_crc_errors = 0;
+
+    /* Drive the error LED to its OFF level at boot.  P3.4 powers up
+       weakly pulled high (= LED off if active-low) but writing it
+       explicitly makes the initial state independent of the reset
+       value of P3 in case any other code touched it. */
+    rx_led_off();
 
     ES = 1;
     /* EA is set by the caller after all peripherals are initialised. */
@@ -302,4 +333,45 @@ void rx_send_uart_byte(uint8_t data_byte)
     /* else: ring full, byte dropped */
 
     ES = 1;
+}
+
+
+/*
+   ERROR-INDICATOR LED HELPERS
+   ---
+   Single-instruction sbit writes; safe to call from anywhere (main loop
+   or ISR).  No ES guard needed because the bit-addressable port pin is
+   not shared with the UART machinery.
+*/
+void rx_led_on(void)
+{
+    RX_ERROR_LED_PIN = RX_LED_ACTIVE_LEVEL;
+}
+
+void rx_led_off(void)
+{
+    RX_ERROR_LED_PIN = (uint8_t)(!RX_LED_ACTIVE_LEVEL);
+}
+
+
+/*
+   UART ERROR MARKER
+   ---
+   Always-on (not RX_DEBUG-gated) compact 2-byte marker for ECC events:
+     '!U'  PESEC double-error / uncorrectable, frame dropped
+     '!d'  PESEC corrected a single data-bit error
+     '!r'  PESEC corrected a single redundancy-bit error
+     '!p'  PESEC corrected the overall parity bit itself
+   The leading '!' makes the marker stand out in a stream that may
+   otherwise contain printable payload bytes.
+
+   This routine itself is non-blocking: rx_send_uart_byte() enqueues the
+   bytes into the existing 128-byte TX ring buffer drained by UART_ISR's
+   TI handler.  If the ring is full the marker is dropped silently --
+   that's exactly the case the LED indicator is designed to cover.
+*/
+void rx_signal_error(uint8_t kind)
+{
+    rx_send_uart_byte('!');
+    rx_send_uart_byte(kind);
 }

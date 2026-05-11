@@ -64,4 +64,26 @@ void RX_UART_Init(void);
    If the ring is full the byte is dropped silently. */
 void rx_send_uart_byte(uint8_t data_byte);
 
+
+/*
+   ERROR-INDICATOR LED -- onboard hardware fallback for ECC events.
+   Default pin: P3.4, active-low.  Tweakable via RX_LED_ACTIVE_LEVEL in
+   rx_hw.c.  See rx_hw.c for full rationale.
+*/
+void rx_led_on(void);
+void rx_led_off(void);
+
+
+/*
+   UART ERROR MARKER -- always-on (not RX_DEBUG-gated).  Emits a 2-byte
+   marker '!' + kind.  Standard kind codes used by rx_main.c:
+     'U'  PESEC uncorrectable (double error, frame dropped)
+     'd'  PESEC corrected single data-bit error
+     'r'  PESEC corrected single redundancy-bit error
+     'p'  PESEC corrected the overall parity bit itself
+   Non-blocking; if the TX ring is saturated the marker is dropped and
+   the LED becomes the only indication of the event.
+*/
+void rx_signal_error(uint8_t kind);
+
 #endif

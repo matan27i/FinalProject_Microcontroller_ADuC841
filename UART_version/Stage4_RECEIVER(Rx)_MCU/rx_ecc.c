@@ -1,19 +1,25 @@
 /*
    File: rx_ecc.c
-   Module: Group 3  Error Correction (PESEC + H1 + SEC+DED)
+   Module: Group 3  Error Correction (PESEC SEC+DED)
 
    Implementation of:
      - PESEC matrix construction (mirroring the TX encoder)
      - PESEC syndrome computation and single-bit error correction
      - SEC+DED overall parity check for double-error detection
-     - H1 differential state tracking (secondary validation layer)
 
-   SEC+DED UPGRADE:
-     rx_pesec_correct() now accepts an overall_parity parameter.  The
-     TX computes P = parity(data[14:0]) XOR parity(red[9:0]) and shifts
-     it out as the 26th bus bit.  The RX recomputes parity locally and
-     compares it with the received P.  Combined with the PESEC syndrome,
-     this yields a 4-case truth table:
+   The earlier H1-type differential validation layer has been removed.
+   Nibble decoding is now performed exclusively by absolute syndrome
+   computation in rx_decoder.c::rx_process_bus_state(), which relies on
+   the TX invariant  syndrome(current_bus_state) == last_input_nibble.
+   PESEC alone guards the 26-bit codeword against single-bit errors
+   (corrected) and double-bit errors (detected and dropped).
+
+   SEC+DED:
+     rx_pesec_correct() accepts an overall_parity parameter.  The TX
+     computes P = parity(data[14:0]) XOR parity(red[9:0]) and shifts it
+     out as the 26th bus bit.  The RX recomputes parity locally and
+     compares it with the received P.  Combined with the PESEC
+     syndrome, this yields a 4-case truth table:
 
        Syndrome | Parity Check | Meaning
        ---------|--------------|------------------------------------------
@@ -22,17 +28,12 @@
          != 0   |     OK       | Double error -> uncorrectable (PESEC_UNCORRECTABLE)
          == 0   |     FAIL     | Parity bit itself flipped (PESEC_CORRECTED_PARITY)
 
-     "Parity check OK" means: received_P XOR parity(received_25) == 0.
-     "Parity check FAIL" means the overall parity is odd, indicating an
-     odd number of bit flips (1 flip = correctable single error).
-
    Dependencies:
-     rx_decoder.h  ->  rx_compute_syndrome()
      rx_types.h    ->  uint8_t, uint16_t, constants
 
    Portability:
      No hardware registers are accessed here.
-   
+
 */
 
 #include "rx_system.h"
@@ -57,13 +58,17 @@ uint8_t xdata pesec_chunk_masks[MAX_PESEC_BLOCKS];
 uint8_t xdata pesec_num_d_cols;
 uint8_t xdata pesec_num_a_cols;
 
-/* --- H1 differential state ---
+/* --- PESEC double-error counter ---
+   Incremented by rx_pesec_correct() when a double-bit error is detected
+   (S!=0 with parity OK) or when the column search fails to locate the
+   syndrome.  Read-only diagnostic; not consumed by the pipeline.
    [MEM] XDATA. */
-uint16_t xdata rx_previous_bus_state = 0;
-uint16_t xdata rx_errors_corrected   = 0;
 uint16_t xdata rx_errors_detected    = 0;
 
-/* --- PESEC correction statistics --- */
+/* --- PESEC single-error correction counter ---
+   Incremented by rx_pesec_correct() for every PESEC_CORRECTED_DATA /
+   PESEC_CORRECTED_RED / PESEC_CORRECTED_PARITY return.  Read-only.
+   [MEM] XDATA. */
 uint16_t xdata rx_pesec_corrections  = 0;
 
 
@@ -82,13 +87,13 @@ void rx_init_pesec_matrices(uint8_t *m_sizes, uint8_t num_blocks)
     pesec_num_d_cols = 0;
     pesec_num_a_cols = 0;
 
-    for (b = 0; b < num_blocks; b++) //
+    for (b = 0; b < num_blocks; b++)
     {
         pesec_bit_offsets[b] = total_m;
         pesec_col_offsets[b] = current_col_offset;
         pesec_chunk_masks[b] = ((1 << m_sizes[b]) - 1) << total_m;
 
-        for (i = 1; i < (1 << m_sizes[b]); i++) // D matrix build
+        for (i = 1; i < (1 << m_sizes[b]); i++)
         {
             PESEC_MAT_D[pesec_num_d_cols++] = (i << total_m);
         }
@@ -97,9 +102,9 @@ void rx_init_pesec_matrices(uint8_t *m_sizes, uint8_t num_blocks)
         current_col_offset += ((1 << m_sizes[b]) - 1);
     }
 
-    max_syndrome = (1 << total_m) - 1; // max value for syndrome 
+    max_syndrome = (1 << total_m) - 1;
 
-    for (val = 1; val <= max_syndrome; val++) // A matrix build
+    for (val = 1; val <= max_syndrome; val++)
     {
         is_in_d = 0;
 
@@ -124,12 +129,14 @@ void rx_init_pesec_matrices(uint8_t *m_sizes, uint8_t num_blocks)
    PESEC SYNDROME COMPUTATION (INTERNAL HELPERS)
     */
 
-static uint8_t calc_pesec_syndrome_generic(uint16_t reg_val,uint8_t *mat_ptr,uint8_t  num_cols) // vector * matrix 
+static uint8_t calc_pesec_syndrome_generic(uint16_t reg_val,
+                                           uint8_t *mat_ptr,
+                                           uint8_t  num_cols)
 {
     uint8_t syndrome = 0;
     uint8_t idx;
 
-    for (idx = 0; idx < num_cols; idx++) // 
+    for (idx = 0; idx < num_cols; idx++)
     {
         if ((reg_val >> idx) & 1u)
         {
@@ -141,14 +148,14 @@ static uint8_t calc_pesec_syndrome_generic(uint16_t reg_val,uint8_t *mat_ptr,uin
 }
 
 
-static uint8_t get_data_syndrome(uint16_t data_val) //data * A
+static uint8_t get_data_syndrome(uint16_t data_val)
 {
     return calc_pesec_syndrome_generic(data_val, PESEC_MAT_A,
                                        pesec_num_a_cols);
 }
 
 
-static uint8_t get_red_syndrome(uint16_t red_val) // Redundancy * D
+static uint8_t get_red_syndrome(uint16_t red_val)
 {
     return calc_pesec_syndrome_generic(red_val, PESEC_MAT_D,
                                        pesec_num_d_cols);
@@ -163,7 +170,7 @@ static uint8_t get_red_syndrome(uint16_t red_val) // Redundancy * D
 
    Returns: 0 if even number of set bits, 1 if odd.
     */
-static uint8_t parity16(uint16_t v) // Xor folding
+static uint8_t parity16(uint16_t v)
 {
     uint8_t x;
 
@@ -172,7 +179,7 @@ static uint8_t parity16(uint16_t v) // Xor folding
     x ^= x >> 2;
     x ^= x >> 1;
 
-    return (x & 1u); // and masking to find LSB 
+    return (x & 1u);
 }
 
 
@@ -321,49 +328,10 @@ uint8_t rx_pesec_correct(uint16_t *data_bits, uint16_t *red_bits,
 }
 
 
-/* 
-   H1 DIFFERENTIAL ERROR CORRECTION  (unchanged from previous version)
-    */
-
-uint16_t find_minimal_w(uint8_t s_target)
-{
-    s_target &= 0x0F;
-
-    if (s_target == 0)
-    {
-        return 0;
-    }
-
-    return ((uint16_t)1u << (s_target - 1));
-}
-
-
-uint16_t rx_correct_bus_state(uint16_t corrected_data)
-{
-    uint16_t delta;
-    uint8_t  syndrome_delta;
-    uint16_t expected_delta;
-    uint16_t result;
-
-    corrected_data &= BUS_STATE_MASK;
-
-    delta = corrected_data ^ rx_previous_bus_state;
-
-    syndrome_delta = rx_compute_syndrome(delta);
-
-    expected_delta = find_minimal_w(syndrome_delta);
-
-    if (delta == expected_delta)
-    {
-        result = corrected_data;
-    }
-    else
-    {
-        result = (rx_previous_bus_state ^ expected_delta) & BUS_STATE_MASK;
-        rx_errors_corrected++;
-    }
-
-    rx_previous_bus_state = result;
-
-    return result;
-}
+/* The H1-type differential error-correction layer (find_minimal_w and
+   rx_correct_bus_state) was removed in this revision.  Per the design
+   directive, the receiver now relies on PESEC SEC+DED alone for bus-
+   level error handling, and on absolute syndrome decoding (in
+   rx_decoder.c::rx_process_bus_state) for nibble extraction.  No
+   stateful "previous bus state" anchor is maintained anywhere in the
+   pipeline. */
