@@ -377,14 +377,14 @@
           <GroupName>Source Group 1</GroupName>
           <Files>
             <File>
-              <FileName>rx_decoder.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>.\rx_decoder.c</FilePath>
-            </File>
-            <File>
               <FileName>rx_decoder.h</FileName>
               <FileType>5</FileType>
               <FilePath>.\rx_decoder.h</FilePath>
+            </File>
+            <File>
+              <FileName>rx_decoder.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\rx_decoder.c</FilePath>
             </File>
             <File>
               <FileName>rx_ecc.c</FileName>

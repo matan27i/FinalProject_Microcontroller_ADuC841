@@ -28,7 +28,7 @@ import time
 
 # CONFIGURATION (User-Editable)
 
-PORT = 'COM5'       # Serial port (Windows: 'COM5', Linux: '/dev/ttyUSB0')
+PORT = 'COM4'       # Serial port (Windows: 'COM5', Linux: '/dev/ttyUSB0')
 BAUDRATE = 9600     # Must match MCU configuration
 
 

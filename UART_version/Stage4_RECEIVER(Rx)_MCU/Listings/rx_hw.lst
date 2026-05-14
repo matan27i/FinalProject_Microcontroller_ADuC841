@@ -1,4 +1,4 @@
-C51 COMPILER V9.60.7.0   RX_HW                                                             04/25/2026 20:51:51 PAGE 1   
+C51 COMPILER V9.60.7.0   RX_HW                                                             05/07/2026 11:54:57 PAGE 1   
 
 
 C51 COMPILER V9.60.7.0, COMPILATION OF MODULE RX_HW
@@ -42,8 +42,8 @@ line level    source
   32          /*
   33             UART FRAME PROTOCOL CONSTANTS -- must match the Mega bridge
   34          */
-  35          #define UART_SOF            0xAAu
-  36          #define UART_PAYLOAD_LEN    4u
+  35          #define UART_SOF            0xAAu // Start Of Frame
+  36          #define UART_PAYLOAD_LEN    4u    // 
   37          #define UART_CRC_POLY       0x07u
   38          
   39          
@@ -62,7 +62,7 @@ line level    source
   52          /* ISR-private state machine and byte accumulation buffer.  volatile
   53             solely to prevent the compiler from hoisting accesses out of the ISR
   54             (they are already single-threaded within the ISR itself). */
-C51 COMPILER V9.60.7.0   RX_HW                                                             04/25/2026 20:51:51 PAGE 2   
+C51 COMPILER V9.60.7.0   RX_HW                                                             05/07/2026 11:54:57 PAGE 2   
 
   55          typedef enum
   56          {
@@ -126,7 +126,7 @@ line level    source
  114   2          }
  115   1          return crc;
  116   1      }
-C51 COMPILER V9.60.7.0   RX_HW                                                             04/25/2026 20:51:51 PAGE 3   
+C51 COMPILER V9.60.7.0   RX_HW                                                             05/07/2026 11:54:57 PAGE 3   
 
  117          
  118          
@@ -190,7 +190,7 @@ line level    source
  176          
  177          
  178          /*
-C51 COMPILER V9.60.7.0   RX_HW                                                             04/25/2026 20:51:51 PAGE 4   
+C51 COMPILER V9.60.7.0   RX_HW                                                             05/07/2026 11:54:57 PAGE 4   
 
  179             UART ISR (vector 4, address 0x23)
  180             ---
@@ -254,7 +254,7 @@ line level    source
  238             RX_UART_Init -- SCON Mode 1, full-duplex, interrupt-driven.
  239          
  240             SCON = 0x50:
-C51 COMPILER V9.60.7.0   RX_HW                                                             04/25/2026 20:51:51 PAGE 5   
+C51 COMPILER V9.60.7.0   RX_HW                                                             05/07/2026 11:54:57 PAGE 5   
 
  241               SM0=0, SM1=1   -> Mode 1 (8-bit async UART, variable baud)
  242               SM2=0          -> No multiprocessor framing
@@ -318,7 +318,7 @@ line level    source
  300   2              tx_head         = next_head;
  301   2          }
  302   1          /* else: ring full, byte dropped */
-C51 COMPILER V9.60.7.0   RX_HW                                                             04/25/2026 20:51:51 PAGE 6   
+C51 COMPILER V9.60.7.0   RX_HW                                                             05/07/2026 11:54:57 PAGE 6   
 
  303   1      
  304   1          ES = 1;

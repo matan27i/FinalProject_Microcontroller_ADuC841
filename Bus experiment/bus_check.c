@@ -1,48 +1,56 @@
 #include <aduc841.h>
 
+/*
+ * Drive P0.0 / P0.1 / P0.2 with one of four patterns selected over the
+ * UART.  Send the ASCII digit '0', '1', '2', or '3' to pick the pattern;
+ * outputs hold until the next selection.  Other characters are ignored.
+ */
 
-sbit TRIGGER = P3^4;  // measring pin command 
-sbit BUTTON  = P3^2;  // switch button
+static const unsigned char patterns[4] = {
+    0x02,  /* P0.0=0  P0.1=1  P0.2=0 */
+    0x05,  /* P0.0=1  P0.1=0  P0.2=1 */
+    0x07,  /* P0.0=1  P0.1=1  P0.2=1 */
+    0x00   /* P0.0=0  P0.1=0  P0.2=0 */
+};
 
-(Delay) 
-void delay(unsigned int ms) {
-    unsigned int i, j;
-    for(i = 0; i < ms; i++) {
-        for(j = 0; j < 60; j++); //delay to catch the signal 
-    }
+void UART_Init(void)
+{
+    /* Timer 1 mode 2 (8-bit auto-reload), 9600 baud @ 11.0592 MHz */
+    TMOD &= 0x0F;
+    TMOD |= 0x20;
+    TH1   = 0xDC;
+    TL1   = 0xDC;
+    TR1   = 1;
+
+    SCON  = 0x50;   /* mode 1 (8-bit async), REN = 1 */
 }
 
-void main(void) {
-    unsigned char mode = 0; // start state
-    P2 = 0x00;
-    TRIGGER = 0;
+unsigned char UART_Read(void)
+{
+    while (!RI);
+    RI = 0;
+    return SBUF;
+}
 
-    while(1) {
-        if (BUTTON == 0) {
-            delay(20); //  (Debounce)
-            
-            if (BUTTON == 0) {
-                mode++; //next stage 
-                if (mode > 2) mode = 1; // 2 checking state
+void main(void)
+{
+    unsigned char ch;
 
-               
-                if (mode == 1) {
-                    // 
-                    TRIGGER = 1; 
-                    P2 = 0x02;   // p2.1 on
-                } 
-                else if (mode == 2) {
-                    // 
-                    TRIGGER = 1; 
-                    P2 = 0x05;   // p2.0 and p2.2 on
-                }
+    /* CD=0 - keep the core at full 11.0592 MHz so the baud rate is correct. */
+    PLLCON = 0x00;
 
-                delay(100);       
-                P2 = 0;           
-                TRIGGER = 0;      
+    UART_Init();
+    
+    /* Initialize Port 0 */
+    P0 = 0x00;
 
-                while(BUTTON == 0); 
-            }
+    while (1)
+    {
+        ch = UART_Read();
+        if (ch >= '0' && ch <= '3')
+        {
+            /* Drive Port 0 based on the selected pattern */
+            P0 = patterns[ch - '0'];
         }
     }
 }

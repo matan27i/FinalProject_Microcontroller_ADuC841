@@ -127,7 +127,7 @@
         <SetRegEntry>
           <Number>0</Number>
           <Key>MONADI</Key>
-          <Name>-S7 -B9600 -O62735</Name>
+          <Name>-S4 -B9600 -O62735</Name>
         </SetRegEntry>
       </TargetDriverDllRegistry>
       <Breakpoint/>

@@ -1,4 +1,4 @@
-C51 COMPILER V9.60.7.0   RX_MAIN                                                           04/25/2026 20:51:51 PAGE 1   
+C51 COMPILER V9.60.7.0   RX_MAIN                                                           05/07/2026 11:54:58 PAGE 1   
 
 
 C51 COMPILER V9.60.7.0, COMPILATION OF MODULE RX_MAIN
@@ -62,7 +62,7 @@ line level    source
   52   1          uint16_t corrected_data;
   53   1      
   54   1          /* Set core clock to full crystal speed. */
-C51 COMPILER V9.60.7.0   RX_MAIN                                                           04/25/2026 20:51:51 PAGE 2   
+C51 COMPILER V9.60.7.0   RX_MAIN                                                           05/07/2026 11:54:58 PAGE 2   
 
   55   1          PLLCON = 0x00;
   56   1      
@@ -126,7 +126,7 @@ line level    source
  114   3                  if (rx_is_bus_reset(raw_data, raw_red))
  115   3                  {
  116   4      #if RX_DEBUG
-C51 COMPILER V9.60.7.0   RX_MAIN                                                           04/25/2026 20:51:51 PAGE 3   
+C51 COMPILER V9.60.7.0   RX_MAIN                                                           05/07/2026 11:54:58 PAGE 3   
 
                               rx_send_uart_byte('R');
               #endif

@@ -26,9 +26,9 @@
     <ToolsetNumber>0x0</ToolsetNumber>
     <ToolsetName>MCS-51</ToolsetName>
     <TargetOption>
-      <CLK51>11059200</CLK51>
+      <CLK51>12000000</CLK51>
       <OPTTT>
-        <gFlags>1</gFlags>
+        <gFlags>0</gFlags>
         <BeepAtEnd>1</BeepAtEnd>
         <RunSim>1</RunSim>
         <RunTarget>0</RunTarget>
@@ -73,7 +73,7 @@
         <LExpSel>0</LExpSel>
       </OPTXL>
       <OPTFL>
-        <tvExp>1</tvExp>
+        <tvExp>0</tvExp>
         <tvExpOptDlg>0</tvExpOptDlg>
         <IsCurrentTarget>1</IsCurrentTarget>
       </OPTFL>
@@ -116,28 +116,6 @@
         <tIfile></tIfile>
         <pMon>BIN\MON51.DLL</pMon>
       </DebugOpt>
-      <TargetDriverDllRegistry>
-        <SetRegEntry>
-          <Number>0</Number>
-          <Key>DLGDP51</Key>
-          <Name>(98=504,167,847,461,0)(82=-1,-1,-1,-1,0)(83=-1,-1,-1,-1,0)(84=-1,-1,-1,-1,0)(85=-1,-1,-1,-1,0)(5089=150,121,361,449,0)(91=-1,-1,-1,-1,0)(92=-1,-1,-1,-1,0)(93=180,137,415,368,0)(5078=-1,-1,-1,-1,0)(5079=-1,-1,-1,-1,0)(5080=225,186,490,456,0)(5087=-1,-1,-1,-1,0)(3004=-1,-1,-1,-1,0)(1002=-1,-1,-1,-1,0)(5082=-1,-1,-1,-1,0)(5084=-1,-1,-1,-1,0)(5081=-1,-1,-1,-1,0)</Name>
-        </SetRegEntry>
-        <SetRegEntry>
-          <Number>0</Number>
-          <Key>DLGTP51</Key>
-          <Name>(98=-1,-1,-1,-1,0)(82=-1,-1,-1,-1,0)(83=-1,-1,-1,-1,0)(84=-1,-1,-1,-1,0)(85=-1,-1,-1,-1,0)(5089=-1,-1,-1,-1,0)(91=-1,-1,-1,-1,0)(92=-1,-1,-1,-1,0)(93=-1,-1,-1,-1,0)(5078=-1,-1,-1,-1,0)(5079=-1,-1,-1,-1,0)(5080=-1,-1,-1,-1,0)(5087=-1,-1,-1,-1,0)(3004=-1,-1,-1,-1,0)(1002=-1,-1,-1,-1,0)(5082=-1,-1,-1,-1,0)(5084=-1,-1,-1,-1,0)(5081=-1,-1,-1,-1,0)</Name>
-        </SetRegEntry>
-        <SetRegEntry>
-          <Number>0</Number>
-          <Key>MON51</Key>
-          <Name></Name>
-        </SetRegEntry>
-        <SetRegEntry>
-          <Number>0</Number>
-          <Key>MONADI</Key>
-          <Name>-S7 -B9600 -O62735</Name>
-        </SetRegEntry>
-      </TargetDriverDllRegistry>
       <Breakpoint/>
       <Tracepoint>
         <THDelay>0</THDelay>
@@ -145,12 +123,12 @@
       <DebugFlag>
         <trace>0</trace>
         <periodic>0</periodic>
-        <aLwin>1</aLwin>
+        <aLwin>0</aLwin>
         <aCover>0</aCover>
         <aSer1>0</aSer1>
         <aSer2>0</aSer2>
         <aPa>0</aPa>
-        <viewmode>1</viewmode>
+        <viewmode>0</viewmode>
         <vrSel>0</vrSel>
         <aSym>0</aSym>
         <aTbox>0</aTbox>
@@ -186,31 +164,31 @@
 
   <Group>
     <GroupName>Source Group 1</GroupName>
-    <tvExp>1</tvExp>
+    <tvExp>0</tvExp>
     <tvExpOptDlg>0</tvExpOptDlg>
     <cbSel>0</cbSel>
     <RteFlg>0</RteFlg>
     <File>
       <GroupNumber>1</GroupNumber>
       <FileNumber>1</FileNumber>
-      <FileType>1</FileType>
-      <tvExp>0</tvExp>
-      <tvExpOptDlg>0</tvExpOptDlg>
-      <bDave2>0</bDave2>
-      <PathWithFileName>.\rx_decoder.c</PathWithFileName>
-      <FilenameWithoutPath>rx_decoder.c</FilenameWithoutPath>
-      <RteFlg>0</RteFlg>
-      <bShared>0</bShared>
-    </File>
-    <File>
-      <GroupNumber>1</GroupNumber>
-      <FileNumber>2</FileNumber>
       <FileType>5</FileType>
       <tvExp>0</tvExp>
       <tvExpOptDlg>0</tvExpOptDlg>
       <bDave2>0</bDave2>
       <PathWithFileName>.\rx_decoder.h</PathWithFileName>
       <FilenameWithoutPath>rx_decoder.h</FilenameWithoutPath>
+      <RteFlg>0</RteFlg>
+      <bShared>0</bShared>
+    </File>
+    <File>
+      <GroupNumber>1</GroupNumber>
+      <FileNumber>2</FileNumber>
+      <FileType>1</FileType>
+      <tvExp>0</tvExp>
+      <tvExpOptDlg>0</tvExpOptDlg>
+      <bDave2>0</bDave2>
+      <PathWithFileName>.\rx_decoder.c</PathWithFileName>
+      <FilenameWithoutPath>rx_decoder.c</FilenameWithoutPath>
       <RteFlg>0</RteFlg>
       <bShared>0</bShared>
     </File>

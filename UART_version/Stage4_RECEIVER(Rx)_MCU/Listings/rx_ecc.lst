@@ -1,4 +1,4 @@
-C51 COMPILER V9.60.7.0   RX_ECC                                                            04/25/2026 20:51:51 PAGE 1   
+C51 COMPILER V9.60.7.0   RX_ECC                                                            05/07/2026 11:54:57 PAGE 1   
 
 
 C51 COMPILER V9.60.7.0, COMPILATION OF MODULE RX_ECC
@@ -62,7 +62,7 @@ line level    source
   52          uint8_t xdata pesec_bit_offsets[MAX_PESEC_BLOCKS];
   53          uint8_t xdata pesec_col_offsets[MAX_PESEC_BLOCKS];
   54          uint8_t xdata pesec_chunk_masks[MAX_PESEC_BLOCKS];
-C51 COMPILER V9.60.7.0   RX_ECC                                                            04/25/2026 20:51:51 PAGE 2   
+C51 COMPILER V9.60.7.0   RX_ECC                                                            05/07/2026 11:54:57 PAGE 2   
 
   55          
   56          /* --- Column counts --- */
@@ -94,13 +94,13 @@ line level    source
   82   1          pesec_num_d_cols = 0;
   83   1          pesec_num_a_cols = 0;
   84   1      
-  85   1          for (b = 0; b < num_blocks; b++)
+  85   1          for (b = 0; b < num_blocks; b++) //
   86   1          {
   87   2              pesec_bit_offsets[b] = total_m;
   88   2              pesec_col_offsets[b] = current_col_offset;
   89   2              pesec_chunk_masks[b] = ((1 << m_sizes[b]) - 1) << total_m;
   90   2      
-  91   2              for (i = 1; i < (1 << m_sizes[b]); i++)
+  91   2              for (i = 1; i < (1 << m_sizes[b]); i++) // D matrix build
   92   2              {
   93   3                  PESEC_MAT_D[pesec_num_d_cols++] = (i << total_m);
   94   3              }
@@ -109,9 +109,9 @@ line level    source
   97   2              current_col_offset += ((1 << m_sizes[b]) - 1);
   98   2          }
   99   1      
- 100   1          max_syndrome = (1 << total_m) - 1;
+ 100   1          max_syndrome = (1 << total_m) - 1; // max value for syndrome 
  101   1      
- 102   1          for (val = 1; val <= max_syndrome; val++)
+ 102   1          for (val = 1; val <= max_syndrome; val++) // A matrix build
  103   1          {
  104   2              is_in_d = 0;
  105   2      
@@ -126,7 +126,7 @@ line level    source
  114   2      
  115   2              if (is_in_d == 0)
  116   2              {
-C51 COMPILER V9.60.7.0   RX_ECC                                                            04/25/2026 20:51:51 PAGE 3   
+C51 COMPILER V9.60.7.0   RX_ECC                                                            05/07/2026 11:54:57 PAGE 3   
 
  117   3                  PESEC_MAT_A[pesec_num_a_cols++] = val;
  118   3              }
@@ -138,259 +138,258 @@ line level    source
  124             PESEC SYNDROME COMPUTATION (INTERNAL HELPERS)
  125              */
  126          
- 127          static uint8_t calc_pesec_syndrome_generic(uint16_t reg_val,
- 128                                                     uint8_t *mat_ptr,
- 129                                                     uint8_t  num_cols)
- 130          {
- 131   1          uint8_t syndrome = 0;
- 132   1          uint8_t idx;
- 133   1      
- 134   1          for (idx = 0; idx < num_cols; idx++)
- 135   1          {
- 136   2              if ((reg_val >> idx) & 1u)
- 137   2              {
- 138   3                  syndrome ^= mat_ptr[idx];
- 139   3              }
- 140   2          }
- 141   1      
- 142   1          return syndrome;
- 143   1      }
- 144          
- 145          
- 146          static uint8_t get_data_syndrome(uint16_t data_val)
- 147          {
- 148   1          return calc_pesec_syndrome_generic(data_val, PESEC_MAT_A,
- 149   1                                             pesec_num_a_cols);
- 150   1      }
- 151          
- 152          
- 153          static uint8_t get_red_syndrome(uint16_t red_val)
- 154          {
- 155   1          return calc_pesec_syndrome_generic(red_val, PESEC_MAT_D,
- 156   1                                             pesec_num_d_cols);
- 157   1      }
- 158          
- 159          
- 160          /* 
- 161             PARITY COMPUTATION HELPER
- 162             
- 163             Computes the population parity (popcount mod 2) of a 16-bit value
- 164             using XOR folding.  Identical to the TX encoder's implementation.
- 165          
- 166             Returns: 0 if even number of set bits, 1 if odd.
- 167              */
- 168          static uint8_t parity16(uint16_t v)
- 169          {
- 170   1          uint8_t x;
- 171   1      
- 172   1          x = (uint8_t)(v >> 8) ^ (uint8_t)(v);
- 173   1          x ^= x >> 4;
- 174   1          x ^= x >> 2;
- 175   1          x ^= x >> 1;
- 176   1      
- 177   1          return (x & 1u);
- 178   1      }
-C51 COMPILER V9.60.7.0   RX_ECC                                                            04/25/2026 20:51:51 PAGE 4   
+ 127          static uint8_t calc_pesec_syndrome_generic(uint16_t reg_val,uint8_t *mat_ptr,uint8_t  num_cols) // vector 
+             -* matrix 
+ 128          {
+ 129   1          uint8_t syndrome = 0;
+ 130   1          uint8_t idx;
+ 131   1      
+ 132   1          for (idx = 0; idx < num_cols; idx++) // 
+ 133   1          {
+ 134   2              if ((reg_val >> idx) & 1u)
+ 135   2              {
+ 136   3                  syndrome ^= mat_ptr[idx];
+ 137   3              }
+ 138   2          }
+ 139   1      
+ 140   1          return syndrome;
+ 141   1      }
+ 142          
+ 143          
+ 144          static uint8_t get_data_syndrome(uint16_t data_val) //data * A
+ 145          {
+ 146   1          return calc_pesec_syndrome_generic(data_val, PESEC_MAT_A,
+ 147   1                                             pesec_num_a_cols);
+ 148   1      }
+ 149          
+ 150          
+ 151          static uint8_t get_red_syndrome(uint16_t red_val) // Redundancy * D
+ 152          {
+ 153   1          return calc_pesec_syndrome_generic(red_val, PESEC_MAT_D,
+ 154   1                                             pesec_num_d_cols);
+ 155   1      }
+ 156          
+ 157          
+ 158          /* 
+ 159             PARITY COMPUTATION HELPER
+ 160             
+ 161             Computes the population parity (popcount mod 2) of a 16-bit value
+ 162             using XOR folding.  Identical to the TX encoder's implementation.
+ 163          
+ 164             Returns: 0 if even number of set bits, 1 if odd.
+ 165              */
+ 166          static uint8_t parity16(uint16_t v) // Xor folding
+ 167          {
+ 168   1          uint8_t x;
+ 169   1      
+ 170   1          x = (uint8_t)(v >> 8) ^ (uint8_t)(v);
+ 171   1          x ^= x >> 4;
+ 172   1          x ^= x >> 2;
+ 173   1          x ^= x >> 1;
+ 174   1      
+ 175   1          return (x & 1u); // and masking to find LSB 
+ 176   1      }
+ 177          
+C51 COMPILER V9.60.7.0   RX_ECC                                                            05/07/2026 11:54:57 PAGE 4   
 
- 179          
- 180          
- 181          /* 
- 182             PESEC ERROR CORRECTION  (SEC+DED UPGRADED)
- 183             
+ 178          
+ 179          /* 
+ 180             PESEC ERROR CORRECTION  (SEC+DED UPGRADED)
+ 181             
+ 182          
+ 183             [W4] UPGRADED FROM SEC TO SEC+DED
  184          
- 185             [W4] UPGRADED FROM SEC TO SEC+DED
- 186          
- 187             The original SEC-only algorithm:
- 188               1. Compute syndrome S.
- 189               2. If S == 0: no error.
- 190               3. If S != 0: search for matching column, correct if found.
- 191          
- 192             The SEC+DED algorithm adds an overall parity check to distinguish
- 193             single errors (correctable) from double errors (detectable only):
- 194          
- 195               1. Compute PESEC syndrome S.
- 196               2. Recompute the overall parity of the received 25 data+red bits.
- 197               3. Compare recomputed parity with the received overall parity bit.
- 198               4. Apply the 4-case truth table:
- 199          
- 200                  CASE 1: S == 0, parity OK
- 201                    The codeword is valid.  No error occurred.
- 202                    Return: PESEC_NO_ERROR.
- 203          
- 204                  CASE 2: S != 0, parity FAIL (odd total parity)
- 205                    An odd number of bits flipped.  For practical channel error
- 206                    rates, this is overwhelmingly a SINGLE-bit error.  The PESEC
- 207                    syndrome S identifies the errored bit position.  Proceed with
- 208                    standard column-matching correction.
- 209                    Return: PESEC_CORRECTED_DATA or PESEC_CORRECTED_RED.
- 210          
- 211                  CASE 3: S != 0, parity OK (even total parity)
- 212                    An even number of bits flipped (2, 4, ...).  The PESEC syndrome
- 213                    is non-zero because the two (or more) errors do not cancel in
- 214                    syndrome space, but the overall parity IS even because two flips
- 215                    preserve parity.  This is a DOUBLE (or higher even) error that
- 216                    PESEC cannot correct -- applying the syndrome would "correct"
- 217                    to the wrong codeword.
- 218                    Return: PESEC_UNCORRECTABLE.
- 219          
- 220                  CASE 4: S == 0, parity FAIL (odd total parity)
- 221                    The syndrome is zero, meaning all 25 data+red bits form a valid
- 222                    PESEC codeword.  But the parity is wrong, so exactly one bit
- 223                    flipped -- and that bit is the overall parity bit itself.
- 224                    The data and redundancy are clean; no correction needed.
- 225                    Return: PESEC_CORRECTED_PARITY.
- 226          
- 227             Parameters:
- 228               data_bits       Pointer to 15-bit data; corrected in place if needed.
- 229               red_bits        Pointer to 10-bit redundancy; corrected in place.
- 230               overall_parity  The received overall parity bit (0 or 1) from the
- 231                               26th bus bit, as extracted by the UART framing ISR.
- 232             */
- 233          uint8_t rx_pesec_correct(uint16_t *data_bits, uint16_t *red_bits,
- 234                                   uint8_t overall_parity)
- 235          {
- 236   1          uint8_t syndrome;
- 237   1          uint8_t parity_check;
- 238   1          uint8_t i;
- 239   1          uint8_t search_limit;
- 240   1      
-C51 COMPILER V9.60.7.0   RX_ECC                                                            04/25/2026 20:51:51 PAGE 5   
+ 185             The original SEC-only algorithm:
+ 186               1. Compute syndrome S.
+ 187               2. If S == 0: no error.
+ 188               3. If S != 0: search for matching column, correct if found.
+ 189          
+ 190             The SEC+DED algorithm adds an overall parity check to distinguish
+ 191             single errors (correctable) from double errors (detectable only):
+ 192          
+ 193               1. Compute PESEC syndrome S.
+ 194               2. Recompute the overall parity of the received 25 data+red bits.
+ 195               3. Compare recomputed parity with the received overall parity bit.
+ 196               4. Apply the 4-case truth table:
+ 197          
+ 198                  CASE 1: S == 0, parity OK
+ 199                    The codeword is valid.  No error occurred.
+ 200                    Return: PESEC_NO_ERROR.
+ 201          
+ 202                  CASE 2: S != 0, parity FAIL (odd total parity)
+ 203                    An odd number of bits flipped.  For practical channel error
+ 204                    rates, this is overwhelmingly a SINGLE-bit error.  The PESEC
+ 205                    syndrome S identifies the errored bit position.  Proceed with
+ 206                    standard column-matching correction.
+ 207                    Return: PESEC_CORRECTED_DATA or PESEC_CORRECTED_RED.
+ 208          
+ 209                  CASE 3: S != 0, parity OK (even total parity)
+ 210                    An even number of bits flipped (2, 4, ...).  The PESEC syndrome
+ 211                    is non-zero because the two (or more) errors do not cancel in
+ 212                    syndrome space, but the overall parity IS even because two flips
+ 213                    preserve parity.  This is a DOUBLE (or higher even) error that
+ 214                    PESEC cannot correct -- applying the syndrome would "correct"
+ 215                    to the wrong codeword.
+ 216                    Return: PESEC_UNCORRECTABLE.
+ 217          
+ 218                  CASE 4: S == 0, parity FAIL (odd total parity)
+ 219                    The syndrome is zero, meaning all 25 data+red bits form a valid
+ 220                    PESEC codeword.  But the parity is wrong, so exactly one bit
+ 221                    flipped -- and that bit is the overall parity bit itself.
+ 222                    The data and redundancy are clean; no correction needed.
+ 223                    Return: PESEC_CORRECTED_PARITY.
+ 224          
+ 225             Parameters:
+ 226               data_bits       Pointer to 15-bit data; corrected in place if needed.
+ 227               red_bits        Pointer to 10-bit redundancy; corrected in place.
+ 228               overall_parity  The received overall parity bit (0 or 1) from the
+ 229                               26th bus bit, as extracted by the UART framing ISR.
+ 230             */
+ 231          uint8_t rx_pesec_correct(uint16_t *data_bits, uint16_t *red_bits,
+ 232                                   uint8_t overall_parity)
+ 233          {
+ 234   1          uint8_t syndrome;
+ 235   1          uint8_t parity_check;
+ 236   1          uint8_t i;
+ 237   1          uint8_t search_limit;
+ 238   1      
+ 239   1          /* Step 1: Compute full PESEC syndrome over the received 25 bits. */
+C51 COMPILER V9.60.7.0   RX_ECC                                                            05/07/2026 11:54:57 PAGE 5   
 
- 241   1          /* Step 1: Compute full PESEC syndrome over the received 25 bits. */
- 242   1          syndrome = get_data_syndrome(*data_bits) ^ get_red_syndrome(*red_bits);
- 243   1      
- 244   1          /* Step 2: Recompute parity of the received 25 data+redundancy bits
- 245   1             and compare with the received overall parity bit.
- 246   1             parity_check = 0 means parity is consistent (even total).
- 247   1             parity_check = 1 means parity mismatch (odd total = error). */
- 248   1          parity_check = parity16(*data_bits & BUS_STATE_MASK)
- 249   1                       ^ parity16(*red_bits & PESEC_RED_MASK)
- 250   1                       ^ (overall_parity & 0x01u);
+ 240   1          syndrome = get_data_syndrome(*data_bits) ^ get_red_syndrome(*red_bits);
+ 241   1      
+ 242   1          /* Step 2: Recompute parity of the received 25 data+redundancy bits
+ 243   1             and compare with the received overall parity bit.
+ 244   1             parity_check = 0 means parity is consistent (even total).
+ 245   1             parity_check = 1 means parity mismatch (odd total = error). */
+ 246   1          parity_check = parity16(*data_bits & BUS_STATE_MASK)
+ 247   1                       ^ parity16(*red_bits & PESEC_RED_MASK)
+ 248   1                       ^ (overall_parity & 0x01u);
+ 249   1      
+ 250   1          /* Step 3: Apply the SEC+DED truth table. */
  251   1      
- 252   1          /* Step 3: Apply the SEC+DED truth table. */
- 253   1      
- 254   1          if (syndrome == 0)
- 255   1          {
- 256   2              if (parity_check == 0)
- 257   2              {
- 258   3                  /* CASE 1: S==0, parity OK -> no error. */
- 259   3                  return PESEC_NO_ERROR;
- 260   3              }
- 261   2              else
- 262   2              {
- 263   3                  /* CASE 4: S==0, parity FAIL -> only the parity bit flipped.
- 264   3                     Data and redundancy are intact.  Increment the correction
- 265   3                     counter since a bit error was detected and accounted for. */
- 266   3                  rx_pesec_corrections++;
- 267   3                  return PESEC_CORRECTED_PARITY;
- 268   3              }
- 269   2          }
- 270   1          else
- 271   1          {
- 272   2              if (parity_check == 0)
- 273   2              {
- 274   3                  /* CASE 3: S!=0, parity OK -> double (or even-count) error.
- 275   3                     The syndrome points to a wrong position; correcting would
- 276   3                     make things worse.  Flag as uncorrectable. */
- 277   3                  rx_errors_detected++;
- 278   3                  return PESEC_UNCORRECTABLE;
- 279   3              }
- 280   2      
- 281   2              /* CASE 2: S!=0, parity FAIL -> single error.  Proceed with
- 282   2                 standard PESEC column-matching correction. */
- 283   2          }
+ 252   1          if (syndrome == 0)
+ 253   1          {
+ 254   2              if (parity_check == 0)
+ 255   2              {
+ 256   3                  /* CASE 1: S==0, parity OK -> no error. */
+ 257   3                  return PESEC_NO_ERROR;
+ 258   3              }
+ 259   2              else
+ 260   2              {
+ 261   3                  /* CASE 4: S==0, parity FAIL -> only the parity bit flipped.
+ 262   3                     Data and redundancy are intact.  Increment the correction
+ 263   3                     counter since a bit error was detected and accounted for. */
+ 264   3                  rx_pesec_corrections++;
+ 265   3                  return PESEC_CORRECTED_PARITY;
+ 266   3              }
+ 267   2          }
+ 268   1          else
+ 269   1          {
+ 270   2              if (parity_check == 0)
+ 271   2              {
+ 272   3                  /* CASE 3: S!=0, parity OK -> double (or even-count) error.
+ 273   3                     The syndrome points to a wrong position; correcting would
+ 274   3                     make things worse.  Flag as uncorrectable. */
+ 275   3                  rx_errors_detected++;
+ 276   3                  return PESEC_UNCORRECTABLE;
+ 277   3              }
+ 278   2      
+ 279   2              /* CASE 2: S!=0, parity FAIL -> single error.  Proceed with
+ 280   2                 standard PESEC column-matching correction. */
+ 281   2          }
+ 282   1      
+ 283   1          /* --- Single-error correction (Case 2 only reaches here) --- */
  284   1      
- 285   1          /* --- Single-error correction (Case 2 only reaches here) --- */
- 286   1      
- 287   1          /* Search data-bit columns (Matrix A).
- 288   1             Only check the first HAMMING_N columns (physical data bits). */
- 289   1          search_limit = pesec_num_a_cols;
- 290   1          if (search_limit > HAMMING_N)
- 291   1          {
- 292   2              search_limit = HAMMING_N;
- 293   2          }
- 294   1      
- 295   1          for (i = 0; i < search_limit; i++)
- 296   1          {
- 297   2              if (PESEC_MAT_A[i] == syndrome)
- 298   2              {
- 299   3                  *data_bits ^= ((uint16_t)1u << i);
- 300   3                  *data_bits &= BUS_STATE_MASK;
- 301   3                  rx_pesec_corrections++;
- 302   3                  return PESEC_CORRECTED_DATA;
-C51 COMPILER V9.60.7.0   RX_ECC                                                            04/25/2026 20:51:51 PAGE 6   
+ 285   1          /* Search data-bit columns (Matrix A).
+ 286   1             Only check the first HAMMING_N columns (physical data bits). */
+ 287   1          search_limit = pesec_num_a_cols;
+ 288   1          if (search_limit > HAMMING_N)
+ 289   1          {
+ 290   2              search_limit = HAMMING_N;
+ 291   2          }
+ 292   1      
+ 293   1          for (i = 0; i < search_limit; i++)
+ 294   1          {
+ 295   2              if (PESEC_MAT_A[i] == syndrome)
+ 296   2              {
+ 297   3                  *data_bits ^= ((uint16_t)1u << i);
+ 298   3                  *data_bits &= BUS_STATE_MASK;
+ 299   3                  rx_pesec_corrections++;
+ 300   3                  return PESEC_CORRECTED_DATA;
+ 301   3              }
+C51 COMPILER V9.60.7.0   RX_ECC                                                            05/07/2026 11:54:57 PAGE 6   
 
- 303   3              }
- 304   2          }
- 305   1      
- 306   1          /* Search redundancy-bit columns (Matrix D). */
- 307   1          for (i = 0; i < pesec_num_d_cols; i++)
- 308   1          {
- 309   2              if (PESEC_MAT_D[i] == syndrome)
- 310   2              {
- 311   3                  *red_bits ^= ((uint16_t)1u << i);
- 312   3                  *red_bits &= PESEC_RED_MASK;
- 313   3                  rx_pesec_corrections++;
- 314   3                  return PESEC_CORRECTED_RED;
- 315   3              }
- 316   2          }
- 317   1      
- 318   1          /* Syndrome is non-zero, parity says single error, but no column
- 319   1             matches.  This should not happen with the H1-type construction
- 320   1             (every non-zero 5-bit value is a column), but guard against it. */
- 321   1          rx_errors_detected++;
- 322   1          return PESEC_UNCORRECTABLE;
- 323   1      }
- 324          
- 325          
- 326          /* 
- 327             H1 DIFFERENTIAL ERROR CORRECTION  (unchanged from previous version)
- 328              */
- 329          
- 330          uint16_t find_minimal_w(uint8_t s_target)
- 331          {
- 332   1          s_target &= 0x0F;
- 333   1      
- 334   1          if (s_target == 0)
- 335   1          {
- 336   2              return 0;
- 337   2          }
- 338   1      
- 339   1          return ((uint16_t)1u << (s_target - 1));
- 340   1      }
- 341          
- 342          
- 343          uint16_t rx_correct_bus_state(uint16_t corrected_data)
- 344          {
- 345   1          uint16_t delta;
- 346   1          uint8_t  syndrome_delta;
- 347   1          uint16_t expected_delta;
- 348   1          uint16_t result;
+ 302   2          }
+ 303   1      
+ 304   1          /* Search redundancy-bit columns (Matrix D). */
+ 305   1          for (i = 0; i < pesec_num_d_cols; i++)
+ 306   1          {
+ 307   2              if (PESEC_MAT_D[i] == syndrome)
+ 308   2              {
+ 309   3                  *red_bits ^= ((uint16_t)1u << i);
+ 310   3                  *red_bits &= PESEC_RED_MASK;
+ 311   3                  rx_pesec_corrections++;
+ 312   3                  return PESEC_CORRECTED_RED;
+ 313   3              }
+ 314   2          }
+ 315   1      
+ 316   1          /* Syndrome is non-zero, parity says single error, but no column
+ 317   1             matches.  This should not happen with the H1-type construction
+ 318   1             (every non-zero 5-bit value is a column), but guard against it. */
+ 319   1          rx_errors_detected++;
+ 320   1          return PESEC_UNCORRECTABLE;
+ 321   1      }
+ 322          
+ 323          
+ 324          /* 
+ 325             H1 DIFFERENTIAL ERROR CORRECTION  (unchanged from previous version)
+ 326              */
+ 327          
+ 328          uint16_t find_minimal_w(uint8_t s_target)
+ 329          {
+ 330   1          s_target &= 0x0F;
+ 331   1      
+ 332   1          if (s_target == 0)
+ 333   1          {
+ 334   2              return 0;
+ 335   2          }
+ 336   1      
+ 337   1          return ((uint16_t)1u << (s_target - 1));
+ 338   1      }
+ 339          
+ 340          
+ 341          uint16_t rx_correct_bus_state(uint16_t corrected_data)
+ 342          {
+ 343   1          uint16_t delta;
+ 344   1          uint8_t  syndrome_delta;
+ 345   1          uint16_t expected_delta;
+ 346   1          uint16_t result;
+ 347   1      
+ 348   1          corrected_data &= BUS_STATE_MASK;
  349   1      
- 350   1          corrected_data &= BUS_STATE_MASK;
+ 350   1          delta = corrected_data ^ rx_previous_bus_state;
  351   1      
- 352   1          delta = corrected_data ^ rx_previous_bus_state;
+ 352   1          syndrome_delta = rx_compute_syndrome(delta);
  353   1      
- 354   1          syndrome_delta = rx_compute_syndrome(delta);
+ 354   1          expected_delta = find_minimal_w(syndrome_delta);
  355   1      
- 356   1          expected_delta = find_minimal_w(syndrome_delta);
- 357   1      
- 358   1          if (delta == expected_delta)
- 359   1          {
- 360   2              result = corrected_data;
- 361   2          }
- 362   1          else
- 363   1          {
- 364   2              result = (rx_previous_bus_state ^ expected_delta) & BUS_STATE_MASK;
-C51 COMPILER V9.60.7.0   RX_ECC                                                            04/25/2026 20:51:51 PAGE 7   
+ 356   1          if (delta == expected_delta)
+ 357   1          {
+ 358   2              result = corrected_data;
+ 359   2          }
+ 360   1          else
+ 361   1          {
+ 362   2              result = (rx_previous_bus_state ^ expected_delta) & BUS_STATE_MASK;
+ 363   2              rx_errors_corrected++;
+C51 COMPILER V9.60.7.0   RX_ECC                                                            05/07/2026 11:54:57 PAGE 7   
 
- 365   2              rx_errors_corrected++;
- 366   2          }
+ 364   2          }
+ 365   1      
+ 366   1          rx_previous_bus_state = result;
  367   1      
- 368   1          rx_previous_bus_state = result;
- 369   1      
- 370   1          return result;
- 371   1      }
+ 368   1          return result;
+ 369   1      }
 
 
 MODULE INFORMATION:   STATIC OVERLAYABLE
