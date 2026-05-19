@@ -23,7 +23,7 @@
  *        first" order placed parity in chip-4 QB and shifted every
  *        red bit one position off.
  */
-
+0
 #include "tx_header.h"
 
 /*

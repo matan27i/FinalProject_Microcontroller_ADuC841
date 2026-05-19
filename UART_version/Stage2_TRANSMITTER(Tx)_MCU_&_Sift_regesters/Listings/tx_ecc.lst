@@ -1,4 +1,4 @@
-C51 COMPILER V9.60.7.0   TX_ECC                                                            05/04/2026 16:21:32 PAGE 1   
+C51 COMPILER V9.60.7.0   TX_ECC                                                            05/19/2026 12:02:44 PAGE 1   
 
 
 C51 COMPILER V9.60.7.0, COMPILATION OF MODULE TX_ECC
@@ -62,7 +62,7 @@ line level    source
   52          uint8_t xdata pesec_chunk_masks[MAX_PESEC_BLOCKS];
   53          
   54          /* Column counts
-C51 COMPILER V9.60.7.0   TX_ECC                                                            05/04/2026 16:21:32 PAGE 2   
+C51 COMPILER V9.60.7.0   TX_ECC                                                            05/19/2026 12:02:44 PAGE 2   
 
   55           * [MEM] XDATA. */
   56          uint8_t xdata pesec_num_d_cols;
@@ -126,7 +126,7 @@ line level    source
  114          
  115          static uint8_t calc_pesec_synd(uint16_t reg_val, uint8_t* mat_ptr, uint8_t cols)
  116          {
-C51 COMPILER V9.60.7.0   TX_ECC                                                            05/04/2026 16:21:32 PAGE 3   
+C51 COMPILER V9.60.7.0   TX_ECC                                                            05/19/2026 12:02:44 PAGE 3   
 
  117   1          uint8_t synd_res = 0;
  118   1          uint8_t idx;
@@ -190,7 +190,7 @@ line level    source
  176   2              {
  177   3                  val = chunk >> pesec_bit_offsets[b];
  178   3                  delta_vec |= (1 << (pesec_col_offsets[b] + val - 1));
-C51 COMPILER V9.60.7.0   TX_ECC                                                            05/04/2026 16:21:32 PAGE 4   
+C51 COMPILER V9.60.7.0   TX_ECC                                                            05/19/2026 12:02:44 PAGE 4   
 
  179   3              }
  180   2          }
@@ -254,7 +254,7 @@ line level    source
 MODULE INFORMATION:   STATIC OVERLAYABLE
    CODE SIZE        =    620    ----
    CONSTANT SIZE    =   ----    ----
-C51 COMPILER V9.60.7.0   TX_ECC                                                            05/04/2026 16:21:32 PAGE 5   
+C51 COMPILER V9.60.7.0   TX_ECC                                                            05/19/2026 12:02:44 PAGE 5   
 
    XDATA SIZE       =     78    ----
    PDATA SIZE       =   ----    ----

@@ -1,4 +1,4 @@
-C51 COMPILER V9.60.7.0   TX_MAIN                                                           05/04/2026 16:21:32 PAGE 1   
+C51 COMPILER V9.60.7.0   TX_MAIN                                                           05/19/2026 12:02:45 PAGE 1   
 
 
 C51 COMPILER V9.60.7.0, COMPILATION OF MODULE TX_MAIN
@@ -62,7 +62,7 @@ line level    source
   52          
   53          void Port_Init(void)
   54          {
-C51 COMPILER V9.60.7.0   TX_MAIN                                                           05/04/2026 16:21:32 PAGE 2   
+C51 COMPILER V9.60.7.0   TX_MAIN                                                           05/19/2026 12:02:45 PAGE 2   
 
   55   1          SR_CLK   = 0;
   56   1          SR_LATCH = 1;
@@ -126,7 +126,7 @@ line level    source
  114   2          }
  115   1      }
  116          
-C51 COMPILER V9.60.7.0   TX_MAIN                                                           05/04/2026 16:21:32 PAGE 3   
+C51 COMPILER V9.60.7.0   TX_MAIN                                                           05/19/2026 12:02:45 PAGE 3   
 
  117          void Timer2_ISR(void) interrupt 5
  118          {
@@ -190,7 +190,7 @@ line level    source
  176           *   Phase 3:  Latch pulse
  177           *
  178           * After 26 shifts + latch, the chain holds:
-C51 COMPILER V9.60.7.0   TX_MAIN                                                           05/04/2026 16:21:32 PAGE 4   
+C51 COMPILER V9.60.7.0   TX_MAIN                                                           05/19/2026 12:02:45 PAGE 4   
 
  179           *   Chip 1 (closest to SER):  QA..QH = data[0..7]   -> PA0..PA7
  180           *   Chip 2:                   QA..QG = data[8..14]  -> PC0..PC6
@@ -254,7 +254,7 @@ line level    source
  238   2      
  239   2              counter_t2 = 0;
  240   2              TH2 = T2_RELOAD_H;
-C51 COMPILER V9.60.7.0   TX_MAIN                                                           05/04/2026 16:21:32 PAGE 5   
+C51 COMPILER V9.60.7.0   TX_MAIN                                                           05/19/2026 12:02:45 PAGE 5   
 
  241   2              TL2 = T2_RELOAD_L;
  242   2              TR2 = 1;
@@ -318,7 +318,7 @@ line level    source
  300   1          Init_Timer2();
  301   1      
  302   1          Init_PESEC_Matrices(pesec_config, 2);
-C51 COMPILER V9.60.7.0   TX_MAIN                                                           05/04/2026 16:21:32 PAGE 6   
+C51 COMPILER V9.60.7.0   TX_MAIN                                                           05/19/2026 12:02:45 PAGE 6   
 
  303   1      
  304   1          GlobalINT();
