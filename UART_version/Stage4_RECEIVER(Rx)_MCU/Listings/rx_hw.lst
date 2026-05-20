@@ -1,4 +1,4 @@
-C51 COMPILER V9.60.7.0   RX_HW                                                             05/19/2026 11:54:59 PAGE 1   
+C51 COMPILER V9.60.7.0   RX_HW                                                             05/19/2026 13:14:32 PAGE 1   
 
 
 C51 COMPILER V9.60.7.0, COMPILATION OF MODULE RX_HW
@@ -62,7 +62,7 @@ line level    source
   52             resistor.  Flip RX_LED_ACTIVE_LEVEL to 1 if your board is active-high.
   53          */
   54          sbit RX_ERROR_LED_PIN = P3^4;
-C51 COMPILER V9.60.7.0   RX_HW                                                             05/19/2026 11:54:59 PAGE 2   
+C51 COMPILER V9.60.7.0   RX_HW                                                             05/19/2026 13:14:32 PAGE 2   
 
   55          
   56          #ifndef RX_LED_ACTIVE_LEVEL
@@ -126,7 +126,7 @@ line level    source
  114             Keil C51 reserved memory-space keyword (alongside xdata/idata/code/
  115             pdata/bdata) -- using it as an identifier yields C141 syntax errors. */
  116          static uint8_t uart_crc8(uint8_t *buf, uint8_t len)
-C51 COMPILER V9.60.7.0   RX_HW                                                             05/19/2026 11:54:59 PAGE 3   
+C51 COMPILER V9.60.7.0   RX_HW                                                             05/19/2026 13:14:32 PAGE 3   
 
  117          {
  118   1          uint8_t crc = 0u;
@@ -190,7 +190,7 @@ line level    source
  176   3                      rx_frame_red    = (uint16_t)uart_rx_buf[2]
  177   3                                      | (((uint16_t)(uart_rx_buf[3] & 0x03u)) << 8);
  178   3                      rx_frame_parity = (uart_rx_buf[1] >> 7) & 0x01u;
-C51 COMPILER V9.60.7.0   RX_HW                                                             05/19/2026 11:54:59 PAGE 4   
+C51 COMPILER V9.60.7.0   RX_HW                                                             05/19/2026 13:14:32 PAGE 4   
 
  179   3                      rx_frame_ready  = 1u;
  180   3                  }
@@ -198,13 +198,13 @@ line level    source
  182   2                  {
  183   3                      rx_frame_crc_errors++;
  184   3      #if RX_DEBUG
- 185   3                      /* 'C' = bridge-link CRC mismatch.  Nested call into
- 186   3                         rx_send_uart_byte() from the UART ISR is safe: the
- 187   3                         ES=0/ES=1 guards are idempotent while already inside
- 188   3                         the vector-4 handler, and SBUF's RX and TX halves are
- 189   3                         independent hardware. */
- 190   3                      rx_send_uart_byte('C');
- 191   3      #endif
+                              /* 'C' = bridge-link CRC mismatch.  Nested call into
+                                 rx_send_uart_byte() from the UART ISR is safe: the
+                                 ES=0/ES=1 guards are idempotent while already inside
+                                 the vector-4 handler, and SBUF's RX and TX halves are
+                                 independent hardware. */
+                              rx_send_uart_byte('C');
+              #endif
  192   3                  }
  193   2                  uart_rx_state = UART_RX_WAIT_SOF;
  194   2                  break;
@@ -254,7 +254,7 @@ line level    source
  238          /*
  239             PERIPHERAL INITIALISATION
  240          */
-C51 COMPILER V9.60.7.0   RX_HW                                                             05/19/2026 11:54:59 PAGE 5   
+C51 COMPILER V9.60.7.0   RX_HW                                                             05/19/2026 13:14:32 PAGE 5   
 
  241          
  242          /*
@@ -318,7 +318,7 @@ line level    source
  300   1          /* EA is set by the caller after all peripherals are initialised. */
  301   1      }
  302          
-C51 COMPILER V9.60.7.0   RX_HW                                                             05/19/2026 11:54:59 PAGE 6   
+C51 COMPILER V9.60.7.0   RX_HW                                                             05/19/2026 13:14:32 PAGE 6   
 
  303          
  304          /*
@@ -382,7 +382,7 @@ line level    source
  362               '!d'  PESEC corrected a single data-bit error
  363               '!r'  PESEC corrected a single redundancy-bit error
  364               '!p'  PESEC corrected the overall parity bit itself
-C51 COMPILER V9.60.7.0   RX_HW                                                             05/19/2026 11:54:59 PAGE 7   
+C51 COMPILER V9.60.7.0   RX_HW                                                             05/19/2026 13:14:32 PAGE 7   
 
  365             The leading '!' makes the marker stand out in a stream that may
  366             otherwise contain printable payload bytes.
@@ -394,13 +394,15 @@ line level    source
  372          */
  373          void rx_signal_error(uint8_t kind)
  374          {
- 375   1          rx_send_uart_byte('!');
- 376   1          rx_send_uart_byte(kind);
- 377   1      }
+ 375   1      #ifdef debug  
+                  rx_send_uart_byte('!');
+              #endif
+ 378   1          rx_send_uart_byte(kind);
+ 379   1      }
 
 
 MODULE INFORMATION:   STATIC OVERLAYABLE
-   CODE SIZE        =    377    ----
+   CODE SIZE        =    359    ----
    CONSTANT SIZE    =   ----    ----
    XDATA SIZE       =    128    ----
    PDATA SIZE       =   ----    ----

@@ -1,4 +1,4 @@
-C51 COMPILER V9.60.7.0   TX_ENCODER                                                        05/04/2026 16:19:13 PAGE 1   
+C51 COMPILER V9.60.7.0   TX_ENCODER                                                        05/19/2026 12:44:07 PAGE 1   
 
 
 C51 COMPILER V9.60.7.0, COMPILATION OF MODULE TX_ENCODER
@@ -62,7 +62,7 @@ line level    source
   52           */
   53          uint16_t find_minimal_w(uint8_t s_target)
   54          {
-C51 COMPILER V9.60.7.0   TX_ENCODER                                                        05/04/2026 16:19:13 PAGE 2   
+C51 COMPILER V9.60.7.0   TX_ENCODER                                                        05/19/2026 12:44:07 PAGE 2   
 
   55   1          s_target &= 0x0F;
   56   1      
@@ -105,10 +105,10 @@ line level    source
   93   1          uint8_t high_nibble;
   94   1          uint8_t low_nibble;
   95   1      
-  96   1          /* --- Batch terminators --- */
-  97   1          if (rx_char == '\r' || rx_char == '\n')
-  98   1          {
-  99   2              buffer_flag = 1;
+  96   1          /* --- Batch terminators -- silently discard '\r' and '\n' so the
+  97   1             host can use either line ending without encoding it as data. */
+  98   1          if (rx_char == '\r' || rx_char == '\n')
+  99   1          {
  100   2              return;
  101   2          }
  102   1      
@@ -126,7 +126,7 @@ line level    source
  114   2               * which the RX detects as a bus-reset condition. */
  115   2              pesec_overall_parity = 0;
  116   2      
-C51 COMPILER V9.60.7.0   TX_ENCODER                                                        05/04/2026 16:19:13 PAGE 3   
+C51 COMPILER V9.60.7.0   TX_ENCODER                                                        05/19/2026 12:44:07 PAGE 3   
 
  117   2              /* Hardware clear of shift registers (Mode 1) */
  118   2              flag_t2_mod = 1;
@@ -137,27 +137,21 @@ line level    source
  123   2      
  124   2              while (TR2 == 1);
  125   2      
- 126   2              buffer_flag = 1;
- 127   2              return;
- 128   2          }
- 129   1      
- 130   1          /* --- Normal data character: split into two nibbles --- */
- 131   1          high_nibble = (rx_char >> 4) & 0x0F;
- 132   1          low_nibble  = rx_char & 0x0F;
- 133   1      
- 134   1          process_nibble(high_nibble);
- 135   1      
- 136   1          process_nibble(low_nibble);
- 137   1      
- 138   1          if (buffer_count <= 253)
- 139   1          {
- 140   2              buffer_count += 2;
- 141   2          }
- 142   1      }
+ 126   2              return;
+ 127   2          }
+ 128   1      
+ 129   1          /* --- Normal data character: split into two nibbles --- */
+ 130   1          high_nibble = (rx_char >> 4) & 0x0F;
+ 131   1          low_nibble  = rx_char & 0x0F;
+ 132   1      
+ 133   1          process_nibble(high_nibble);
+ 134   1      
+ 135   1          process_nibble(low_nibble);
+ 136   1      }
 
 
 MODULE INFORMATION:   STATIC OVERLAYABLE
-   CODE SIZE        =    165    ----
+   CODE SIZE        =    152    ----
    CONSTANT SIZE    =   ----    ----
    XDATA SIZE       =   ----    ----
    PDATA SIZE       =   ----    ----

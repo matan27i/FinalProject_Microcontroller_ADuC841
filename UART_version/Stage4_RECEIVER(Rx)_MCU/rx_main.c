@@ -109,6 +109,7 @@ void main(void)
         {
             uint8_t pesec_result;
             uint8_t frame_had_error;
+            uint8_t debug_on;
 
             /* Atomically snapshot the frame staging registers.  EA=0 is
                the smallest critical section that protects the multi-byte
@@ -122,21 +123,34 @@ void main(void)
 
             frame_had_error = 0;
 
-#if RX_DEBUG
+            /* Read the LATCHED debug-mode flag.  This is just a byte
+               load from xdata -- no strap pin sample, no function call.
+               The flag is refreshed only when the host sends '~' (the
+               decoder samples P3.5 at that moment and writes the result
+               into rx_debug_mode_active).  Saves a per-frame pin read +
+               function call.  Latency to a strap change is now bounded
+               by the round-trip from the host: send '~', wait for the
+               byte to encode, transmit, decode, then the next frame's
+               markers reflect the new mode. */
+            debug_on = rx_debug_mode_active;
+
             /* 'F' = a CRC-valid 4-byte payload was handed to the main
                loop.  Seeing 'F' but no decoded byte means the frame is
                arriving cleanly but PESEC is rejecting it. */
-            rx_send_uart_byte('F');
-#endif
+            if (debug_on)
+            {
+                rx_send_uart_byte('F');
+            }
 
             /* ============================================================
                Stage B: TX reset detection
                ============================================================ */
             if (rx_is_bus_reset(raw_data, raw_red))
             {
-#if RX_DEBUG
-                rx_send_uart_byte('R');
-#endif
+                if (debug_on)
+                {
+                    rx_send_uart_byte('R');
+                }
                 rx_perform_full_reset();
                 /* rx_perform_full_reset() turns the LED off explicitly --
                    a clean reset handshake means the link is healthy. */
@@ -173,8 +187,11 @@ void main(void)
                        could not have been completed cleanly anyway.
 
                    (3) USER-VISIBLE INDICATION
-                       '!U' UART marker (always-on, may drop on ring
-                       overflow) plus the LED (sticky, survives bursts).
+                       The LED (sticky, survives bursts) is always lit
+                       for error events.  The '!U' UART marker is gated
+                       by the debug strap so normal-mode output stays
+                       clean -- the LED is the single non-negotiable
+                       indication that something went wrong.
 
                    NOTE: Because the receiver no longer maintains a
                    "previous bus state" anchor (H1 differential layer
@@ -182,7 +199,10 @@ void main(void)
                    after a dropped frame -- each subsequent clean frame
                    carries its own absolute bus state from which the
                    nibble is decoded directly. */
-                rx_signal_error('U');
+                if (debug_on)
+                {
+                    rx_signal_error('U');
+                }
                 rx_led_on();
 
                 if (rx_current_state == RX_STATE_WAIT_HIGH)
@@ -195,20 +215,22 @@ void main(void)
             }
 
             /* PESEC fixed a single error somewhere -- frame is still
-               usable, but record the event for the LED + UART trace. */
+               usable.  Always flag frame_had_error so the LED reflects
+               the event regardless of debug strap; emit the '!x' UART
+               marker only when the strap is low (debug on). */
             if (pesec_result == PESEC_CORRECTED_DATA)
             {
-                rx_signal_error('d');
+                if (debug_on) rx_signal_error('d');
                 frame_had_error = 1;
             }
             else if (pesec_result == PESEC_CORRECTED_RED)
             {
-                rx_signal_error('r');
+                if (debug_on) rx_signal_error('r');
                 frame_had_error = 1;
             }
             else if (pesec_result == PESEC_CORRECTED_PARITY)
             {
-                rx_signal_error('p');
+                if (debug_on) rx_signal_error('p');
                 frame_had_error = 1;
             }
             /* else PESEC_NO_ERROR -- nothing to log */

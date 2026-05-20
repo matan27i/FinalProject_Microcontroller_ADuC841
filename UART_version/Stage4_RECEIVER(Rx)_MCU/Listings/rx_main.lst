@@ -1,4 +1,4 @@
-C51 COMPILER V9.60.7.0   RX_MAIN                                                           05/19/2026 11:54:59 PAGE 1   
+C51 COMPILER V9.60.7.0   RX_MAIN                                                           05/19/2026 13:14:32 PAGE 1   
 
 
 C51 COMPILER V9.60.7.0, COMPILATION OF MODULE RX_MAIN
@@ -62,7 +62,7 @@ line level    source
   52   1      
   53   1          rx_skip_next_frame   = 0;   /* explicit '=' reset overrides any pending realignment */
   54   1      
-C51 COMPILER V9.60.7.0   RX_MAIN                                                           05/19/2026 11:54:59 PAGE 2   
+C51 COMPILER V9.60.7.0   RX_MAIN                                                           05/19/2026 13:14:32 PAGE 2   
 
   55   1          rx_reset_state_machine();
   56   1      
@@ -126,7 +126,7 @@ line level    source
  114   3                     the smallest critical section that protects the multi-byte
  115   3                     read against a concurrent UART_ISR write of the next frame. */
  116   3                  EA = 0;
-C51 COMPILER V9.60.7.0   RX_MAIN                                                           05/19/2026 11:54:59 PAGE 3   
+C51 COMPILER V9.60.7.0   RX_MAIN                                                           05/19/2026 13:14:32 PAGE 3   
 
  117   3                  raw_data       = rx_frame_data;
  118   3                  raw_red        = rx_frame_red;
@@ -137,11 +137,11 @@ line level    source
  123   3                  frame_had_error = 0;
  124   3      
  125   3      #if RX_DEBUG
- 126   3                  /* 'F' = a CRC-valid 4-byte payload was handed to the main
- 127   3                     loop.  Seeing 'F' but no decoded byte means the frame is
- 128   3                     arriving cleanly but PESEC is rejecting it. */
- 129   3                  rx_send_uart_byte('F');
- 130   3      #endif
+                          /* 'F' = a CRC-valid 4-byte payload was handed to the main
+                             loop.  Seeing 'F' but no decoded byte means the frame is
+                             arriving cleanly but PESEC is rejecting it. */
+                          rx_send_uart_byte('F');
+              #endif
  131   3      
  132   3                  /* ============================================================
  133   3                     Stage B: TX reset detection
@@ -149,8 +149,8 @@ line level    source
  135   3                  if (rx_is_bus_reset(raw_data, raw_red))
  136   3                  {
  137   4      #if RX_DEBUG
- 138   4                      rx_send_uart_byte('R');
- 139   4      #endif
+                              rx_send_uart_byte('R');
+              #endif
  140   4                      rx_perform_full_reset();
  141   4                      /* rx_perform_full_reset() turns the LED off explicitly --
  142   4                         a clean reset handshake means the link is healthy. */
@@ -190,7 +190,7 @@ line level    source
  176   4                             '!U' UART marker (always-on, may drop on ring
  177   4                             overflow) plus the LED (sticky, survives bursts).
  178   4      
-C51 COMPILER V9.60.7.0   RX_MAIN                                                           05/19/2026 11:54:59 PAGE 4   
+C51 COMPILER V9.60.7.0   RX_MAIN                                                           05/19/2026 13:14:32 PAGE 4   
 
  179   4                         NOTE: Because the receiver no longer maintains a
  180   4                         "previous bus state" anchor (H1 differential layer
@@ -229,48 +229,47 @@ line level    source
  213   4                  }
  214   3                  /* else PESEC_NO_ERROR -- nothing to log */
  215   3      
- 216   3                  /* ============================================================
+ 216   3                  /* 
  217   3                     Stage D: Nibble extraction and byte reassembly
- 218   3                     ============================================================
- 219   3                     After PESEC, raw_data is the 15-bit data field that the
- 220   3                     TX shifted out for this frame.  The TX maintains
- 221   3                        syndrome(current_bus_state) == last_input_nibble
- 222   3                     as an invariant, so passing raw_data directly to
- 223   3                     rx_process_bus_state lets the syndrome of the absolute
- 224   3                     bus state recover the nibble without any reference to
- 225   3                     previous frames. */
- 226   3                  rx_process_bus_state(raw_data);
- 227   3      
- 228   3                  rx_states_processed++;
- 229   3      
- 230   3                  /* ============================================================
- 231   3                     LED follows latest frame quality
- 232   3                     ============================================================
- 233   3                     ON  if PESEC corrected anything this frame
- 234   3                     OFF if the frame was processed entirely cleanly
- 235   3      
- 236   3                     The UART '!x' markers are real-time but can be dropped
- 237   3                     if the TX ring saturates; the LED is sticky and survives
- 238   3                     bursts.  It clears only when a whole frame passes through
- 239   3                     without any correction -- exactly the contract specified
- 240   3                     in the requirements. */
-C51 COMPILER V9.60.7.0   RX_MAIN                                                           05/19/2026 11:54:59 PAGE 5   
+ 218   3                     After PESEC, raw_data is the 15-bit data field that the
+ 219   3                     TX shifted out for this frame.  The TX maintains
+ 220   3                        syndrome(current_bus_state) == last_input_nibble
+ 221   3                     as an invariant, so passing raw_data directly to
+ 222   3                     rx_process_bus_state lets the syndrome of the absolute
+ 223   3                     bus state recover the nibble without any reference to
+ 224   3                     previous frames. */
+ 225   3                  rx_process_bus_state(raw_data);
+ 226   3      
+ 227   3                  rx_states_processed++;
+ 228   3      
+ 229   3                  /* ============================================================
+ 230   3                     LED follows latest frame quality
+ 231   3                     ============================================================
+ 232   3                     ON  if PESEC corrected anything this frame
+ 233   3                     OFF if the frame was processed entirely cleanly
+ 234   3      
+ 235   3                     The UART '!x' markers are real-time but can be dropped
+ 236   3                     if the TX ring saturates; the LED is sticky and survives
+ 237   3                     bursts.  It clears only when a whole frame passes through
+ 238   3                     without any correction -- exactly the contract specified
+ 239   3                     in the requirements. */
+ 240   3                  if (frame_had_error)
+C51 COMPILER V9.60.7.0   RX_MAIN                                                           05/19/2026 13:14:32 PAGE 5   
 
- 241   3                  if (frame_had_error)
- 242   3                  {
- 243   4                      rx_led_on();
- 244   4                  }
- 245   3                  else
- 246   3                  {
- 247   4                      rx_led_off();
- 248   4                  }
- 249   3              }
- 250   2          }
- 251   1      }
+ 241   3                  {
+ 242   4                      rx_led_on();
+ 243   4                  }
+ 244   3                  else
+ 245   3                  {
+ 246   4                      rx_led_off();
+ 247   4                  }
+ 248   3              }
+ 249   2          }
+ 250   1      }
 
 
 MODULE INFORMATION:   STATIC OVERLAYABLE
-   CODE SIZE        =    293    ----
+   CODE SIZE        =    283    ----
    CONSTANT SIZE    =   ----    ----
    XDATA SIZE       =   ----    ----
    PDATA SIZE       =   ----    ----

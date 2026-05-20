@@ -101,6 +101,17 @@ void rx_process_bus_state(uint16_t bus_state)
 
             rx_send_uart_byte(complete_byte);
 
+            /* Debug-mode latch command: when the host sends '~', sample
+               the strap pin once and freeze the result in the cached
+               flag.  '~' is still echoed normally (rx_send_uart_byte
+               above) so the operator sees the command acknowledged on
+               PuTTY.  Cost: one rx_debug_active() call per '~' byte
+               instead of one per frame -- see savings analysis. */
+            if (complete_byte == '~')
+            {
+                rx_debug_mode_active = rx_debug_active();
+            }
+
             rx_bytes_decoded++;
             rx_current_state      = RX_STATE_WAIT_HIGH;
             rx_stored_high_nibble = 0;

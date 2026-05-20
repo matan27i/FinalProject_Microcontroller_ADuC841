@@ -1,4 +1,4 @@
-BL51 BANKED LINKER/LOCATER V6.22.4.0                                                    05/19/2026  11:54:59  PAGE 1
+BL51 BANKED LINKER/LOCATER V6.22.4.0                                                    05/19/2026  13:14:32  PAGE 1
 
 
 BL51 BANKED LINKER/LOCATER V6.22.4.0, INVOKED BY:
@@ -46,31 +46,31 @@ LINK MAP OF MODULE:  .\Objects\Receiver(Rx) (RX_DECODER)
                     0026H     07DAH                  *** GAP ***
             CODE    0800H     0184H     UNIT         ?PR?_RX_PESEC_CORRECT?RX_ECC
             CODE    0984H     015BH     UNIT         ?PR?_RX_INIT_PESEC_MATRICES?RX_ECC
-            CODE    0ADFH     010EH     UNIT         ?PR?MAIN?RX_MAIN
-            CODE    0BEDH     008CH     UNIT         ?C_C51STARTUP
-            CODE    0C79H     0077H     UNIT         ?C?LIB_CODE
-            CODE    0CF0H     006FH     UNIT         ?PR?_UART_HANDLE_RX_BYTE?RX_HW
-            CODE    0D5FH     0068H     UNIT         ?PR?UART_ISR?RX_HW
-            CODE    0DC7H     004EH     UNIT         ?PR?_RX_PROCESS_BUS_STATE?RX_DECODER
-            CODE    0E15H     0046H     UNIT         ?C_INITSEG
-            CODE    0E5BH     003CH     UNIT         ?PR?_CALC_PESEC_SYNDROME_GENERIC?RX_ECC
-            CODE    0E97H     003AH     UNIT         ?PR?_UART_CRC8?RX_HW
-            CODE    0ED1H     002BH     UNIT         ?PR?_RX_SEND_UART_BYTE?RX_HW
-            CODE    0EFCH     0024H     UNIT         ?PR?RX_UART_INIT?RX_HW
-            CODE    0F20H     001FH     UNIT         ?PR?_RX_COMPUTE_SYNDROME?RX_DECODER
-            CODE    0F3FH     001DH     UNIT         ?PR?_PARITY16?RX_ECC
-BL51 BANKED LINKER/LOCATER V6.22.4.0                                                  05/19/2026  11:54:59  PAGE 2
+            CODE    0ADFH     0104H     UNIT         ?PR?MAIN?RX_MAIN
+            CODE    0BE3H     008CH     UNIT         ?C_C51STARTUP
+            CODE    0C6FH     0077H     UNIT         ?C?LIB_CODE
+            CODE    0CE6H     006AH     UNIT         ?PR?_UART_HANDLE_RX_BYTE?RX_HW
+            CODE    0D50H     0064H     UNIT         ?PR?UART_ISR?RX_HW
+            CODE    0DB4H     004EH     UNIT         ?PR?_RX_PROCESS_BUS_STATE?RX_DECODER
+            CODE    0E02H     0046H     UNIT         ?C_INITSEG
+            CODE    0E48H     003CH     UNIT         ?PR?_CALC_PESEC_SYNDROME_GENERIC?RX_ECC
+            CODE    0E84H     003AH     UNIT         ?PR?_UART_CRC8?RX_HW
+            CODE    0EBEH     002BH     UNIT         ?PR?_RX_SEND_UART_BYTE?RX_HW
+            CODE    0EE9H     0024H     UNIT         ?PR?RX_UART_INIT?RX_HW
+            CODE    0F0DH     001FH     UNIT         ?PR?_RX_COMPUTE_SYNDROME?RX_DECODER
+            CODE    0F2CH     001DH     UNIT         ?PR?_PARITY16?RX_ECC
+BL51 BANKED LINKER/LOCATER V6.22.4.0                                                  05/19/2026  13:14:32  PAGE 2
 
 
-            CODE    0F5CH     0017H     UNIT         ?PR?RX_PERFORM_FULL_RESET?RX_MAIN
-            CODE    0F73H     000FH     UNIT         ?PR?_GET_DATA_SYNDROME?RX_ECC
-            CODE    0F82H     000FH     UNIT         ?PR?_GET_RED_SYNDROME?RX_ECC
-            CODE    0F91H     000EH     UNIT         ?PR?_RX_IS_BUS_RESET?RX_DECODER
-            CODE    0F9FH     000CH     UNIT         ?PR?_RX_SIGNAL_ERROR?RX_HW
-            CODE    0FABH     000AH     UNIT         ?PR?RX_RESET_STATE_MACHINE?RX_DECODER
-            CODE    0FB5H     0007H     UNIT         ?PR?RX_TIMER3_INIT?RX_HW
-            CODE    0FBCH     0003H     UNIT         ?PR?RX_LED_ON?RX_HW
-            CODE    0FBFH     0003H     UNIT         ?PR?RX_LED_OFF?RX_HW
+            CODE    0F49H     0017H     UNIT         ?PR?RX_PERFORM_FULL_RESET?RX_MAIN
+            CODE    0F60H     000FH     UNIT         ?PR?_GET_DATA_SYNDROME?RX_ECC
+            CODE    0F6FH     000FH     UNIT         ?PR?_GET_RED_SYNDROME?RX_ECC
+            CODE    0F7EH     000EH     UNIT         ?PR?_RX_IS_BUS_RESET?RX_DECODER
+            CODE    0F8CH     000AH     UNIT         ?PR?RX_RESET_STATE_MACHINE?RX_DECODER
+            CODE    0F96H     0007H     UNIT         ?PR?RX_TIMER3_INIT?RX_HW
+            CODE    0F9DH     0003H     UNIT         ?PR?RX_LED_ON?RX_HW
+            CODE    0FA0H     0003H     UNIT         ?PR?RX_LED_OFF?RX_HW
+            CODE    0FA3H     0003H     UNIT         ?PR?_RX_SIGNAL_ERROR?RX_HW
 
 
 
@@ -85,7 +85,6 @@ SEGMENT                                           DATA_GROUP
 
 ?PR?_UART_HANDLE_RX_BYTE?RX_HW                  -----    -----
   +--> ?PR?_UART_CRC8?RX_HW
-  +--> ?PR?_RX_SEND_UART_BYTE?RX_HW
 
 ?PR?_UART_CRC8?RX_HW                            0008H    0004H
 
@@ -119,10 +118,10 @@ SEGMENT                                           DATA_GROUP
   +--> ?PR?RX_LED_OFF?RX_HW
 
 ?PR?_RX_PESEC_CORRECT?RX_ECC                    0013H    000AH
-BL51 BANKED LINKER/LOCATER V6.22.4.0                                                  05/19/2026  11:54:59  PAGE 3
-
-
   +--> ?PR?_GET_RED_SYNDROME?RX_ECC
+BL51 BANKED LINKER/LOCATER V6.22.4.0                                                  05/19/2026  13:14:32  PAGE 3
+
+
   +--> ?PR?_GET_DATA_SYNDROME?RX_ECC
   +--> ?PR?_PARITY16?RX_ECC
 
@@ -151,15 +150,15 @@ SYMBOL TABLE OF MODULE:  .\Objects\Receiver(Rx) (RX_DECODER)
 
   -------         MODULE        RX_DECODER
   C:0000H         SYMBOL        _ICE_DUMMY_
-  C:0DC7H         PUBLIC        _rx_process_bus_state
+  C:0DB4H         PUBLIC        _rx_process_bus_state
   X:00D2H         PUBLIC        rx_states_processed
   X:00D4H         PUBLIC        rx_skip_next_frame
   X:00D5H         PUBLIC        rx_bytes_decoded
-  C:0F20H         PUBLIC        _rx_compute_syndrome
-  C:0FABH         PUBLIC        rx_reset_state_machine
+  C:0F0DH         PUBLIC        _rx_compute_syndrome
+  C:0F8CH         PUBLIC        rx_reset_state_machine
   X:00D7H         PUBLIC        rx_stored_high_nibble
   X:00D8H         PUBLIC        rx_current_state
-  C:0F91H         PUBLIC        _rx_is_bus_reset
+  C:0F7EH         PUBLIC        _rx_is_bus_reset
   -------         PROC          _RX_COMPUTE_SYNDROME
   D:0006H         SYMBOL        bus_state
   -------         DO            
@@ -167,23 +166,23 @@ SYMBOL TABLE OF MODULE:  .\Objects\Receiver(Rx) (RX_DECODER)
   D:0004H         SYMBOL        col_idx
   D:0006H         SYMBOL        temp
   -------         ENDDO         
-  C:0F20H         LINE#         50
-  C:0F20H         LINE#         51
-  C:0F20H         LINE#         52
-  C:0F22H         LINE#         56
-  C:0F26H         LINE#         58
-  C:0F28H         LINE#         59
-  C:0F28H         LINE#         60
-  C:0F2CH         LINE#         61
-  C:0F2CH         LINE#         62
-  C:0F2FH         LINE#         63
-  C:0F2FH         LINE#         64
-  C:0F36H         LINE#         65
-BL51 BANKED LINKER/LOCATER V6.22.4.0                                                  05/19/2026  11:54:59  PAGE 4
+  C:0F0DH         LINE#         50
+  C:0F0DH         LINE#         51
+  C:0F0DH         LINE#         52
+  C:0F0FH         LINE#         56
+  C:0F13H         LINE#         58
+  C:0F15H         LINE#         59
+  C:0F15H         LINE#         60
+  C:0F19H         LINE#         61
+  C:0F19H         LINE#         62
+  C:0F1CH         LINE#         63
+  C:0F1CH         LINE#         64
+  C:0F23H         LINE#         65
+  C:0F27H         LINE#         67
+BL51 BANKED LINKER/LOCATER V6.22.4.0                                                  05/19/2026  13:14:32  PAGE 4
 
 
-  C:0F3AH         LINE#         67
-  C:0F3EH         LINE#         68
+  C:0F2BH         LINE#         68
   -------         ENDPROC       _RX_COMPUTE_SYNDROME
   -------         PROC          _RX_PROCESS_BUS_STATE
   D:0006H         SYMBOL        bus_state
@@ -191,70 +190,70 @@ SYMBOL TABLE OF MODULE:  .\Objects\Receiver(Rx) (RX_DECODER)
   D:0007H         SYMBOL        data_nibble
   D:0007H         SYMBOL        complete_byte
   -------         ENDDO         
-  C:0DC7H         LINE#         75
-  C:0DC7H         LINE#         76
-  C:0DC7H         LINE#         83
-  C:0DCDH         LINE#         84
-  C:0DCDH         LINE#         85
-  C:0DD0H         LINE#         87
-  C:0DD0H         LINE#         89
-  C:0DD3H         LINE#         91
-  C:0DDDH         LINE#         92
-  C:0DDDH         LINE#         93
-  C:0DDDH         LINE#         94
-  C:0DE4H         LINE#         95
-  C:0DE8H         LINE#         96
-  C:0DE9H         LINE#         98
-  C:0DE9H         LINE#         99
-  C:0DF6H         LINE#         102
-  C:0DF9H         LINE#         104
-  C:0E07H         LINE#         105
-  C:0E0CH         LINE#         106
-  C:0E10H         LINE#         107
-  C:0E11H         LINE#         109
-  C:0E11H         LINE#         110
-  C:0E14H         LINE#         111
-  C:0E14H         LINE#         112
-  C:0E14H         LINE#         113
+  C:0DB4H         LINE#         75
+  C:0DB4H         LINE#         76
+  C:0DB4H         LINE#         83
+  C:0DBAH         LINE#         84
+  C:0DBAH         LINE#         85
+  C:0DBDH         LINE#         87
+  C:0DBDH         LINE#         89
+  C:0DC0H         LINE#         91
+  C:0DCAH         LINE#         92
+  C:0DCAH         LINE#         93
+  C:0DCAH         LINE#         94
+  C:0DD1H         LINE#         95
+  C:0DD5H         LINE#         96
+  C:0DD6H         LINE#         98
+  C:0DD6H         LINE#         99
+  C:0DE3H         LINE#         102
+  C:0DE6H         LINE#         104
+  C:0DF4H         LINE#         105
+  C:0DF9H         LINE#         106
+  C:0DFDH         LINE#         107
+  C:0DFEH         LINE#         109
+  C:0DFEH         LINE#         110
+  C:0E01H         LINE#         111
+  C:0E01H         LINE#         112
+  C:0E01H         LINE#         113
   -------         ENDPROC       _RX_PROCESS_BUS_STATE
   -------         PROC          RX_RESET_STATE_MACHINE
-  C:0FABH         LINE#         120
-  C:0FABH         LINE#         121
-  C:0FABH         LINE#         122
-  C:0FB0H         LINE#         123
-  C:0FB4H         LINE#         127
+  C:0F8CH         LINE#         120
+  C:0F8CH         LINE#         121
+  C:0F8CH         LINE#         122
+  C:0F91H         LINE#         123
+  C:0F95H         LINE#         127
   -------         ENDPROC       RX_RESET_STATE_MACHINE
   -------         PROC          _RX_IS_BUS_RESET
   D:0006H         SYMBOL        data_bits
   D:0004H         SYMBOL        red_bits
-  C:0F91H         LINE#         134
-  C:0F91H         LINE#         135
-  C:0F91H         LINE#         136
-  C:0F99H         LINE#         137
-  C:0F99H         LINE#         138
-  C:0F9CH         LINE#         139
-  C:0F9CH         LINE#         140
-  C:0F9EH         LINE#         141
+  C:0F7EH         LINE#         134
+  C:0F7EH         LINE#         135
+  C:0F7EH         LINE#         136
+  C:0F86H         LINE#         137
+  C:0F86H         LINE#         138
+  C:0F89H         LINE#         139
+  C:0F89H         LINE#         140
+  C:0F8BH         LINE#         141
   -------         ENDPROC       _RX_IS_BUS_RESET
   -------         ENDMOD        RX_DECODER
 
   -------         MODULE        RX_ECC
-BL51 BANKED LINKER/LOCATER V6.22.4.0                                                  05/19/2026  11:54:59  PAGE 5
-
-
   C:0000H         SYMBOL        _ICE_DUMMY_
-  C:0F3FH         PUBLIC        _parity16
+BL51 BANKED LINKER/LOCATER V6.22.4.0                                                  05/19/2026  13:14:32  PAGE 5
+
+
+  C:0F2CH         PUBLIC        _parity16
   X:0080H         PUBLIC        pesec_chunk_masks
   X:0085H         PUBLIC        pesec_col_offsets
   X:008AH         PUBLIC        pesec_bit_offsets
   X:008FH         PUBLIC        rx_errors_detected
-  C:0F73H         SYMBOL        _get_data_syndrome
+  C:0F60H         SYMBOL        _get_data_syndrome
   X:0091H         PUBLIC        pesec_num_a_cols
   X:0092H         PUBLIC        pesec_num_d_cols
-  C:0E5BH         SYMBOL        _calc_pesec_syndrome_generic
+  C:0E48H         SYMBOL        _calc_pesec_syndrome_generic
   X:0093H         PUBLIC        pesec_num_blocks
   C:0984H         PUBLIC        _rx_init_pesec_matrices
-  C:0F82H         SYMBOL        _get_red_syndrome
+  C:0F6FH         SYMBOL        _get_red_syndrome
   C:0800H         PUBLIC        _rx_pesec_correct
   X:0094H         PUBLIC        PESEC_MAT_A
   X:00BCH         PUBLIC        PESEC_MAT_D
@@ -299,10 +298,10 @@ SYMBOL TABLE OF MODULE:  .\Objects\Receiver(Rx) (RX_DECODER)
   C:0AAEH         LINE#         113
   C:0ABDH         LINE#         114
   C:0ABDH         LINE#         115
-BL51 BANKED LINKER/LOCATER V6.22.4.0                                                  05/19/2026  11:54:59  PAGE 6
-
-
   C:0ABFH         LINE#         116
+BL51 BANKED LINKER/LOCATER V6.22.4.0                                                  05/19/2026  13:14:32  PAGE 6
+
+
   C:0AC1H         LINE#         117
   C:0AC1H         LINE#         118
   C:0AC5H         LINE#         120
@@ -320,49 +319,49 @@ SYMBOL TABLE OF MODULE:  .\Objects\Receiver(Rx) (RX_DECODER)
   D:0005H         SYMBOL        syndrome
   D:0004H         SYMBOL        idx
   -------         ENDDO         
-  C:0E5BH         LINE#         132
-  C:0E65H         LINE#         135
-  C:0E65H         LINE#         136
-  C:0E67H         LINE#         139
-  C:0E6EH         LINE#         140
-  C:0E6EH         LINE#         141
-  C:0E81H         LINE#         142
-  C:0E81H         LINE#         143
-  C:0E91H         LINE#         144
-  C:0E91H         LINE#         145
-  C:0E94H         LINE#         147
-  C:0E96H         LINE#         148
+  C:0E48H         LINE#         132
+  C:0E52H         LINE#         135
+  C:0E52H         LINE#         136
+  C:0E54H         LINE#         139
+  C:0E5BH         LINE#         140
+  C:0E5BH         LINE#         141
+  C:0E6EH         LINE#         142
+  C:0E6EH         LINE#         143
+  C:0E7EH         LINE#         144
+  C:0E7EH         LINE#         145
+  C:0E81H         LINE#         147
+  C:0E83H         LINE#         148
   -------         ENDPROC       _CALC_PESEC_SYNDROME_GENERIC
   -------         PROC          _GET_DATA_SYNDROME
   D:0006H         SYMBOL        data_val
-  C:0F73H         LINE#         151
-  C:0F73H         LINE#         152
-  C:0F73H         LINE#         153
+  C:0F60H         LINE#         151
+  C:0F60H         LINE#         152
+  C:0F60H         LINE#         153
   -------         ENDPROC       _GET_DATA_SYNDROME
   -------         PROC          _GET_RED_SYNDROME
   D:0006H         SYMBOL        red_val
-  C:0F82H         LINE#         158
-  C:0F82H         LINE#         159
-  C:0F82H         LINE#         160
+  C:0F6FH         LINE#         158
+  C:0F6FH         LINE#         159
+  C:0F6FH         LINE#         160
   -------         ENDPROC       _GET_RED_SYNDROME
   -------         PROC          _PARITY16
   D:0004H         SYMBOL        v
   -------         DO            
   D:0007H         SYMBOL        x
   -------         ENDDO         
-  C:0F3FH         LINE#         173
-  C:0F43H         LINE#         174
-  C:0F43H         LINE#         177
-  C:0F46H         LINE#         178
-  C:0F4BH         LINE#         179
-  C:0F52H         LINE#         180
-  C:0F57H         LINE#         182
-  C:0F5BH         LINE#         183
+  C:0F2CH         LINE#         173
+  C:0F30H         LINE#         174
+  C:0F30H         LINE#         177
+  C:0F33H         LINE#         178
+  C:0F38H         LINE#         179
+  C:0F3FH         LINE#         180
+  C:0F44H         LINE#         182
+  C:0F48H         LINE#         183
   -------         ENDPROC       _PARITY16
-BL51 BANKED LINKER/LOCATER V6.22.4.0                                                  05/19/2026  11:54:59  PAGE 7
-
-
   -------         PROC          _RX_PESEC_CORRECT
+BL51 BANKED LINKER/LOCATER V6.22.4.0                                                  05/19/2026  13:14:32  PAGE 7
+
+
   D:0013H         SYMBOL        data_bits
   D:0016H         SYMBOL        red_bits
   D:0019H         SYMBOL        overall_parity
@@ -419,10 +418,10 @@ SYMBOL TABLE OF MODULE:  .\Objects\Receiver(Rx) (RX_DECODER)
   C:096CH         LINE#         319
   C:096FH         LINE#         320
   C:096FH         LINE#         321
-BL51 BANKED LINKER/LOCATER V6.22.4.0                                                  05/19/2026  11:54:59  PAGE 8
-
-
   C:0973H         LINE#         326
+BL51 BANKED LINKER/LOCATER V6.22.4.0                                                  05/19/2026  13:14:32  PAGE 8
+
+
   C:0981H         LINE#         327
   C:0983H         LINE#         328
   -------         ENDPROC       _RX_PESEC_CORRECT
@@ -432,9 +431,9 @@ SYMBOL TABLE OF MODULE:  .\Objects\Receiver(Rx) (RX_DECODER)
   C:0000H         SYMBOL        _ICE_DUMMY_
   D:00B0H         PUBLIC        P3
   X:0000H         SYMBOL        tx_buf
-  C:0D5FH         PUBLIC        UART_ISR
+  C:0D50H         PUBLIC        UART_ISR
   D:0023H         SYMBOL        uart_rx_state
-  C:0E97H         SYMBOL        _uart_crc8
+  C:0E84H         SYMBOL        _uart_crc8
   D:009DH         PUBLIC        T3FD
   D:0024H         SYMBOL        tx_busy
   B:00B0H.4       PUBLIC        RX_ERROR_LED_PIN
@@ -442,21 +441,21 @@ SYMBOL TABLE OF MODULE:  .\Objects\Receiver(Rx) (RX_DECODER)
   B:00A8H.4       PUBLIC        ES
   B:0098H.0       PUBLIC        RI
   B:0098H.1       PUBLIC        TI
-  C:0FBFH         PUBLIC        rx_led_off
+  C:0FA0H         PUBLIC        rx_led_off
   D:0026H         SYMBOL        uart_rx_buf
-  C:0ED1H         PUBLIC        _rx_send_uart_byte
+  C:0EBEH         PUBLIC        _rx_send_uart_byte
   D:0099H         PUBLIC        SBUF
   D:0098H         PUBLIC        SCON
-  C:0FB5H         PUBLIC        RX_Timer3_Init
-  C:0EFCH         PUBLIC        RX_UART_Init
-  C:0FBCH         PUBLIC        rx_led_on
+  C:0F96H         PUBLIC        RX_Timer3_Init
+  C:0EE9H         PUBLIC        RX_UART_Init
+  C:0F9DH         PUBLIC        rx_led_on
   D:002AH         PUBLIC        rx_frame_ready
   D:002BH         PUBLIC        rx_frame_data
   D:002DH         PUBLIC        rx_frame_parity
-  C:0F9FH         PUBLIC        _rx_signal_error
+  C:0FA3H         PUBLIC        _rx_signal_error
   D:002EH         SYMBOL        tx_head
   D:009EH         PUBLIC        T3CON
-  C:0CF0H         SYMBOL        _uart_handle_rx_byte
+  C:0CE6H         SYMBOL        _uart_handle_rx_byte
   D:002FH         PUBLIC        rx_frame_crc_errors
   D:0031H         PUBLIC        rx_frame_red
   D:0033H         SYMBOL        tx_tail
@@ -468,164 +467,162 @@ SYMBOL TABLE OF MODULE:  .\Objects\Receiver(Rx) (RX_DECODER)
   D:0006H         SYMBOL        i
   D:0005H         SYMBOL        j
   -------         ENDDO         
-  C:0E97H         LINE#         116
-  C:0E9FH         LINE#         117
-  C:0E9FH         LINE#         118
-  C:0EA1H         LINE#         121
-  C:0EA8H         LINE#         122
-  C:0EA8H         LINE#         123
-  C:0EB8H         LINE#         124
-  C:0EBAH         LINE#         125
-  C:0EBAH         LINE#         126
-  C:0EBEH         LINE#         127
-  C:0EBEH         LINE#         128
-BL51 BANKED LINKER/LOCATER V6.22.4.0                                                  05/19/2026  11:54:59  PAGE 9
+  C:0E84H         LINE#         116
+  C:0E8CH         LINE#         117
+  C:0E8CH         LINE#         118
+  C:0E8EH         LINE#         121
+  C:0E95H         LINE#         122
+  C:0E95H         LINE#         123
+  C:0EA5H         LINE#         124
+  C:0EA7H         LINE#         125
+  C:0EA7H         LINE#         126
+  C:0EABH         LINE#         127
+  C:0EABH         LINE#         128
+  C:0EB0H         LINE#         129
+BL51 BANKED LINKER/LOCATER V6.22.4.0                                                  05/19/2026  13:14:32  PAGE 9
 
 
-  C:0EC3H         LINE#         129
-  C:0EC5H         LINE#         131
-  C:0EC5H         LINE#         132
-  C:0EC9H         LINE#         133
-  C:0EC9H         LINE#         134
-  C:0ECDH         LINE#         135
-  C:0ED0H         LINE#         136
-  C:0ED0H         LINE#         137
+  C:0EB2H         LINE#         131
+  C:0EB2H         LINE#         132
+  C:0EB6H         LINE#         133
+  C:0EB6H         LINE#         134
+  C:0EBAH         LINE#         135
+  C:0EBDH         LINE#         136
+  C:0EBDH         LINE#         137
   -------         ENDPROC       _UART_CRC8
   -------         PROC          _UART_HANDLE_RX_BYTE
   D:0004H         SYMBOL        rx_byte
-  C:0CF0H         LINE#         147
-  C:0CF2H         LINE#         148
-  C:0CF2H         LINE#         149
-  C:0CFAH         LINE#         150
-  C:0CFAH         LINE#         151
-  C:0CFAH         LINE#         152
-  C:0CFFH         LINE#         153
-  C:0CFFH         LINE#         154
-  C:0D01H         LINE#         155
-  C:0D04H         LINE#         156
-  C:0D04H         LINE#         157
-  C:0D05H         LINE#         159
-  C:0D05H         LINE#         160
-  C:0D0FH         LINE#         161
-  C:0D16H         LINE#         162
-  C:0D16H         LINE#         163
-  C:0D19H         LINE#         164
-  C:0D19H         LINE#         165
-  C:0D1AH         LINE#         167
-  C:0D1AH         LINE#         168
-  C:0D1AH         LINE#         169
-  C:0D29H         LINE#         170
-  C:0D29H         LINE#         175
-  C:0D34H         LINE#         177
-  C:0D3FH         LINE#         178
-  C:0D49H         LINE#         179
-  C:0D4CH         LINE#         180
-  C:0D4EH         LINE#         182
-  C:0D4EH         LINE#         183
-  C:0D56H         LINE#         190
-  C:0D5BH         LINE#         192
-  C:0D5BH         LINE#         193
-  C:0D5EH         LINE#         194
-  C:0D5EH         LINE#         195
-  C:0D5EH         LINE#         196
+  C:0CE6H         LINE#         147
+  C:0CE8H         LINE#         148
+  C:0CE8H         LINE#         149
+  C:0CF0H         LINE#         150
+  C:0CF0H         LINE#         151
+  C:0CF0H         LINE#         152
+  C:0CF5H         LINE#         153
+  C:0CF5H         LINE#         154
+  C:0CF7H         LINE#         155
+  C:0CFAH         LINE#         156
+  C:0CFAH         LINE#         157
+  C:0CFBH         LINE#         159
+  C:0CFBH         LINE#         160
+  C:0D05H         LINE#         161
+  C:0D0CH         LINE#         162
+  C:0D0CH         LINE#         163
+  C:0D0FH         LINE#         164
+  C:0D0FH         LINE#         165
+  C:0D10H         LINE#         167
+  C:0D10H         LINE#         168
+  C:0D10H         LINE#         169
+  C:0D1FH         LINE#         170
+  C:0D1FH         LINE#         175
+  C:0D2AH         LINE#         177
+  C:0D35H         LINE#         178
+  C:0D3FH         LINE#         179
+  C:0D42H         LINE#         180
+  C:0D44H         LINE#         182
+  C:0D44H         LINE#         183
+  C:0D4CH         LINE#         192
+  C:0D4CH         LINE#         193
+  C:0D4FH         LINE#         194
+  C:0D4FH         LINE#         195
+  C:0D4FH         LINE#         196
   -------         ENDPROC       _UART_HANDLE_RX_BYTE
   -------         PROC          UART_ISR
   -------         DO            
   D:0007H         SYMBOL        rx_byte
   -------         ENDDO         
-  C:0D5FH         LINE#         211
-  C:0D7CH         LINE#         215
-  C:0D7FH         LINE#         216
-  C:0D7FH         LINE#         217
-  C:0D81H         LINE#         218
-  C:0D83H         LINE#         219
-BL51 BANKED LINKER/LOCATER V6.22.4.0                                                  05/19/2026  11:54:59  PAGE 10
+  C:0D50H         LINE#         211
+  C:0D6BH         LINE#         215
+  C:0D6EH         LINE#         216
+  C:0D6EH         LINE#         217
+  C:0D70H         LINE#         218
+  C:0D72H         LINE#         219
+  C:0D75H         LINE#         220
+  C:0D75H         LINE#         222
+BL51 BANKED LINKER/LOCATER V6.22.4.0                                                  05/19/2026  13:14:32  PAGE 10
 
 
-  C:0D86H         LINE#         220
-  C:0D86H         LINE#         222
-  C:0D89H         LINE#         223
-  C:0D89H         LINE#         224
-  C:0D8BH         LINE#         225
-  C:0D91H         LINE#         226
-  C:0D91H         LINE#         227
-  C:0DA0H         LINE#         228
-  C:0DA7H         LINE#         229
-  C:0DA9H         LINE#         231
-  C:0DA9H         LINE#         232
-  C:0DACH         LINE#         233
-  C:0DACH         LINE#         234
-  C:0DACH         LINE#         235
+  C:0D78H         LINE#         223
+  C:0D78H         LINE#         224
+  C:0D7AH         LINE#         225
+  C:0D80H         LINE#         226
+  C:0D80H         LINE#         227
+  C:0D8FH         LINE#         228
+  C:0D96H         LINE#         229
+  C:0D98H         LINE#         231
+  C:0D98H         LINE#         232
+  C:0D9BH         LINE#         233
+  C:0D9BH         LINE#         234
+  C:0D9BH         LINE#         235
   -------         ENDPROC       UART_ISR
   -------         PROC          RX_TIMER3_INIT
-  C:0FB5H         LINE#         251
-  C:0FB5H         LINE#         252
-  C:0FB5H         LINE#         253
-  C:0FB8H         LINE#         254
-  C:0FBBH         LINE#         255
+  C:0F96H         LINE#         251
+  C:0F96H         LINE#         252
+  C:0F96H         LINE#         253
+  C:0F99H         LINE#         254
+  C:0F9CH         LINE#         255
   -------         ENDPROC       RX_TIMER3_INIT
   -------         PROC          RX_UART_INIT
-  C:0EFCH         LINE#         279
-  C:0EFCH         LINE#         280
-  C:0EFCH         LINE#         281
-  C:0EFFH         LINE#         282
-  C:0F02H         LINE#         283
-  C:0F04H         LINE#         284
-  C:0F06H         LINE#         285
-  C:0F08H         LINE#         286
-  C:0F0AH         LINE#         287
-  C:0F0CH         LINE#         288
-  C:0F10H         LINE#         289
-  C:0F14H         LINE#         290
-  C:0F16H         LINE#         291
-  C:0F1AH         LINE#         297
-  C:0F1DH         LINE#         299
-  C:0F1FH         LINE#         301
+  C:0EE9H         LINE#         279
+  C:0EE9H         LINE#         280
+  C:0EE9H         LINE#         281
+  C:0EECH         LINE#         282
+  C:0EEFH         LINE#         283
+  C:0EF1H         LINE#         284
+  C:0EF3H         LINE#         285
+  C:0EF5H         LINE#         286
+  C:0EF7H         LINE#         287
+  C:0EF9H         LINE#         288
+  C:0EFDH         LINE#         289
+  C:0F01H         LINE#         290
+  C:0F03H         LINE#         291
+  C:0F07H         LINE#         297
+  C:0F0AH         LINE#         299
+  C:0F0CH         LINE#         301
   -------         ENDPROC       RX_UART_INIT
   -------         PROC          _RX_SEND_UART_BYTE
   D:0007H         SYMBOL        data_byte
   -------         DO            
   D:0006H         SYMBOL        next_head
   -------         ENDDO         
-  C:0ED1H         LINE#         313
-  C:0ED1H         LINE#         314
-  C:0ED1H         LINE#         317
-  C:0ED3H         LINE#         319
-  C:0ED7H         LINE#         320
-  C:0ED7H         LINE#         321
-  C:0EDAH         LINE#         322
-  C:0EDCH         LINE#         323
-  C:0EDFH         LINE#         325
-  C:0EDFH         LINE#         327
-  C:0EE5H         LINE#         328
-  C:0EE9H         LINE#         329
-BL51 BANKED LINKER/LOCATER V6.22.4.0                                                  05/19/2026  11:54:59  PAGE 11
+  C:0EBEH         LINE#         313
+  C:0EBEH         LINE#         314
+  C:0EBEH         LINE#         317
+  C:0EC0H         LINE#         319
+  C:0EC4H         LINE#         320
+  C:0EC4H         LINE#         321
+  C:0EC7H         LINE#         322
+  C:0EC9H         LINE#         323
+  C:0ECCH         LINE#         325
+  C:0ECCH         LINE#         327
+  C:0ED2H         LINE#         328
+  C:0ED6H         LINE#         329
+  C:0ED6H         LINE#         330
+  C:0EE4H         LINE#         331
+BL51 BANKED LINKER/LOCATER V6.22.4.0                                                  05/19/2026  13:14:32  PAGE 11
 
 
-  C:0EE9H         LINE#         330
-  C:0EF7H         LINE#         331
-  C:0EF9H         LINE#         332
-  C:0EF9H         LINE#         335
-  C:0EFBH         LINE#         336
+  C:0EE6H         LINE#         332
+  C:0EE6H         LINE#         335
+  C:0EE8H         LINE#         336
   -------         ENDPROC       _RX_SEND_UART_BYTE
   -------         PROC          RX_LED_ON
-  C:0FBCH         LINE#         346
-  C:0FBCH         LINE#         347
-  C:0FBCH         LINE#         348
-  C:0FBEH         LINE#         349
+  C:0F9DH         LINE#         346
+  C:0F9DH         LINE#         347
+  C:0F9DH         LINE#         348
+  C:0F9FH         LINE#         349
   -------         ENDPROC       RX_LED_ON
   -------         PROC          RX_LED_OFF
-  C:0FBFH         LINE#         351
-  C:0FBFH         LINE#         352
-  C:0FBFH         LINE#         353
-  C:0FC1H         LINE#         354
+  C:0FA0H         LINE#         351
+  C:0FA0H         LINE#         352
+  C:0FA0H         LINE#         353
+  C:0FA2H         LINE#         354
   -------         ENDPROC       RX_LED_OFF
   -------         PROC          _RX_SIGNAL_ERROR
-  D:0004H         SYMBOL        kind
-  C:0F9FH         LINE#         373
-  C:0FA1H         LINE#         374
-  C:0FA1H         LINE#         375
-  C:0FA6H         LINE#         376
+  D:0007H         SYMBOL        kind
+  C:0FA3H         LINE#         373
+  C:0FA3H         LINE#         374
+  C:0FA3H         LINE#         378
   -------         ENDPROC       _RX_SIGNAL_ERROR
   -------         ENDMOD        RX_HW
 
@@ -634,17 +631,17 @@ SYMBOL TABLE OF MODULE:  .\Objects\Receiver(Rx) (RX_DECODER)
   B:00A8H.7       PUBLIC        EA
   C:0ADFH         PUBLIC        main
   D:00D7H         PUBLIC        PLLCON
-  C:0F5CH         SYMBOL        rx_perform_full_reset
+  C:0F49H         SYMBOL        rx_perform_full_reset
   D:0034H         SYMBOL        pesec_config
   D:00AFH         PUBLIC        CFG841
   -------         PROC          RX_PERFORM_FULL_RESET
-  C:0F5CH         LINE#         48
-  C:0F5CH         LINE#         49
-  C:0F5CH         LINE#         50
-  C:0F63H         LINE#         51
-  C:0F69H         LINE#         53
-  C:0F6DH         LINE#         55
-  C:0F70H         LINE#         57
+  C:0F49H         LINE#         48
+  C:0F49H         LINE#         49
+  C:0F49H         LINE#         50
+  C:0F50H         LINE#         51
+  C:0F56H         LINE#         53
+  C:0F5AH         LINE#         55
+  C:0F5DH         LINE#         57
   -------         ENDPROC       RX_PERFORM_FULL_RESET
   -------         PROC          MAIN
   -------         DO            
@@ -659,12 +656,12 @@ SYMBOL TABLE OF MODULE:  .\Objects\Receiver(Rx) (RX_DECODER)
   C:0ADFH         LINE#         64
   C:0ADFH         LINE#         65
   C:0ADFH         LINE#         71
-BL51 BANKED LINKER/LOCATER V6.22.4.0                                                  05/19/2026  11:54:59  PAGE 12
-
-
   C:0AE2H         LINE#         74
   C:0AE5H         LINE#         77
   C:0AE8H         LINE#         78
+BL51 BANKED LINKER/LOCATER V6.22.4.0                                                  05/19/2026  13:14:32  PAGE 12
+
+
   C:0AEBH         LINE#         81
   C:0AF6H         LINE#         84
   C:0AF9H         LINE#         85
@@ -691,72 +688,70 @@ SYMBOL TABLE OF MODULE:  .\Objects\Receiver(Rx) (RX_DECODER)
   C:0B4FH         LINE#         120
   C:0B52H         LINE#         121
   C:0B54H         LINE#         123
-  C:0B56H         LINE#         129
-  C:0B5BH         LINE#         135
-  C:0B69H         LINE#         136
-  C:0B69H         LINE#         138
-  C:0B6EH         LINE#         140
-  C:0B71H         LINE#         143
-  C:0B73H         LINE#         144
-  C:0B73H         LINE#         149
-  C:0B8AH         LINE#         151
-  C:0B8FH         LINE#         152
-  C:0B8FH         LINE#         185
-  C:0B94H         LINE#         186
-  C:0B97H         LINE#         188
-  C:0B9DH         LINE#         189
-  C:0B9DH         LINE#         190
-  C:0BA4H         LINE#         191
-  C:0BA4H         LINE#         193
-  C:0BA7H         LINE#         194
-  C:0BA9H         LINE#         195
-  C:0BA9H         LINE#         199
-  C:0BAEH         LINE#         200
-  C:0BAEH         LINE#         201
-  C:0BB0H         LINE#         202
-  C:0BB0H         LINE#         203
-  C:0BB2H         LINE#         204
-  C:0BB7H         LINE#         205
-  C:0BB7H         LINE#         206
-  C:0BB9H         LINE#         207
-BL51 BANKED LINKER/LOCATER V6.22.4.0                                                  05/19/2026  11:54:59  PAGE 13
+  C:0B56H         LINE#         135
+  C:0B64H         LINE#         136
+  C:0B64H         LINE#         140
+  C:0B67H         LINE#         143
+  C:0B69H         LINE#         144
+  C:0B69H         LINE#         149
+  C:0B80H         LINE#         151
+  C:0B85H         LINE#         152
+  C:0B85H         LINE#         185
+  C:0B8AH         LINE#         186
+  C:0B8DH         LINE#         188
+  C:0B93H         LINE#         189
+  C:0B93H         LINE#         190
+  C:0B9AH         LINE#         191
+  C:0B9AH         LINE#         193
+  C:0B9DH         LINE#         194
+  C:0B9FH         LINE#         195
+  C:0B9FH         LINE#         199
+  C:0BA4H         LINE#         200
+  C:0BA4H         LINE#         201
+  C:0BA6H         LINE#         202
+  C:0BA6H         LINE#         203
+  C:0BA8H         LINE#         204
+  C:0BADH         LINE#         205
+  C:0BADH         LINE#         206
+  C:0BAFH         LINE#         207
+  C:0BAFH         LINE#         208
+  C:0BB1H         LINE#         209
+  C:0BB6H         LINE#         210
+  C:0BB6H         LINE#         211
+  C:0BBBH         LINE#         212
+BL51 BANKED LINKER/LOCATER V6.22.4.0                                                  05/19/2026  13:14:32  PAGE 13
 
 
-  C:0BB9H         LINE#         208
-  C:0BBBH         LINE#         209
-  C:0BC0H         LINE#         210
-  C:0BC0H         LINE#         211
-  C:0BC5H         LINE#         212
-  C:0BC8H         LINE#         213
-  C:0BC8H         LINE#         226
-  C:0BCFH         LINE#         228
-  C:0BDDH         LINE#         241
-  C:0BE1H         LINE#         242
-  C:0BE1H         LINE#         243
-  C:0BE4H         LINE#         244
-  C:0BE7H         LINE#         246
-  C:0BE7H         LINE#         247
-  C:0BEAH         LINE#         248
-  C:0BEAH         LINE#         249
-  C:0BEAH         LINE#         250
+  C:0BBEH         LINE#         213
+  C:0BBEH         LINE#         225
+  C:0BC5H         LINE#         227
+  C:0BD3H         LINE#         240
+  C:0BD7H         LINE#         241
+  C:0BD7H         LINE#         242
+  C:0BDAH         LINE#         243
+  C:0BDDH         LINE#         245
+  C:0BDDH         LINE#         246
+  C:0BE0H         LINE#         247
+  C:0BE0H         LINE#         248
+  C:0BE0H         LINE#         249
   -------         ENDPROC       MAIN
   -------         ENDMOD        RX_MAIN
 
   -------         MODULE        ?C?CLDOPTR
-  C:0C79H         PUBLIC        ?C?CLDOPTR
+  C:0C6FH         PUBLIC        ?C?CLDOPTR
   -------         ENDMOD        ?C?CLDOPTR
 
   -------         MODULE        ?C?ILDPTR
-  C:0CA6H         PUBLIC        ?C?ILDPTR
+  C:0C9CH         PUBLIC        ?C?ILDPTR
   -------         ENDMOD        ?C?ILDPTR
 
   -------         MODULE        ?C?ISTPTR
-  C:0CD1H         PUBLIC        ?C?ISTPTR
+  C:0CC7H         PUBLIC        ?C?ISTPTR
   -------         ENDMOD        ?C?ISTPTR
 
 ******************************************************************************
-* RESTRICTED VERSION WITH 0800H BYTE CODE SIZE LIMIT; USED: 06C1H BYTE (84%) *
+* RESTRICTED VERSION WITH 0800H BYTE CODE SIZE LIMIT; USED: 06A5H BYTE (83%) *
 ******************************************************************************
 
-Program Size: data=55.0 xdata=217 code=1992
+Program Size: data=55.0 xdata=217 code=1964
 LINK/LOCATE RUN COMPLETE.  0 WARNING(S),  0 ERROR(S)
