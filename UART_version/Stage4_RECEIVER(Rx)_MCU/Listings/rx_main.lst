@@ -1,4 +1,4 @@
-C51 COMPILER V9.60.7.0   RX_MAIN                                                           04/25/2026 20:51:51 PAGE 1   
+C51 COMPILER V9.60.7.0   RX_MAIN                                                           05/19/2026 13:14:32 PAGE 1   
 
 
 C51 COMPILER V9.60.7.0, COMPILATION OF MODULE RX_MAIN
@@ -12,161 +12,268 @@ line level    source
    2             File: rx_main.c
    3             Module: Group 1 Main entry point and pipeline loop (UART Frame version)
    4          
-   5             INGRESS PATH REFACTOR:
-   6               The ingress path was changed from SPI slave to framed UART.  The
-   7               main pipeline is otherwise identical: the UART ISR now populates
-   8               rx_frame_data / rx_frame_red / rx_frame_parity exactly as the SPI
-   9               ISR did, and pulses rx_frame_ready when a CRC-valid packet has
-  10               arrived.  rx_is_bus_reset() still detects the TX '=' reset by the
-  11               all-zero 26-bit bus condition.
-  12          
-  13             Pipeline stages:
-  14               (Stage A: handled by UART ISR -- see rx_hw.c)
-  15               Stage B: rx_is_bus_reset()        (decoder -- reset detect)
-  16               Stage C: rx_pesec_correct()       (ecc -- 26-bit SEC+DED)
-  17               Stage D: rx_correct_bus_state()   (ecc -- H1 differential)
-  18               Stage E: rx_process_bus_state()   (decoder -- nibble FSM)
-  19          */
-  20          
-  21          #include "rx_system.h"
-  22          
-  23          /*
-  24             PESEC block configuration -- MUST MATCH THE TX ENCODER.
-  25          */
-  26          static uint8_t pesec_config[] = {3, 2};
+   5             INGRESS PATH:
+   6               UART_ISR (in rx_hw.c) hunts for the 0xAA SOF byte, collects the
+   7               4-byte payload, verifies CRC-8, and stages a 26-bit codeword in
+   8               rx_frame_data / rx_frame_red / rx_frame_parity.  rx_frame_ready
+   9               pulses to 1 to hand the frame off to the main loop.
+  10          
+  11             Pipeline stages (post H1-removal):
+  12               (Stage A: UART ISR -- see rx_hw.c)
+  13               Stage B: rx_is_bus_reset()        (decoder -- reset detect)
+  14               Stage C: rx_pesec_correct()       (ecc -- 26-bit SEC+DED)
+  15               Stage D: rx_process_bus_state()   (decoder -- absolute nibble decode + FSM)
+  16          
+  17             The previous Stage D (rx_correct_bus_state, H1 differential validation)
+  18             was removed per design directive.  Nibble extraction in the new Stage D
+  19             relies on the TX invariant
+  20                  syndrome(current_bus_state) == last_input_nibble
+  21             so the absolute syndrome of the PESEC-corrected data is itself the
+  22             recovered nibble -- no "previous bus state" anchor needs to be
+  23             maintained, and no resynchronisation handshake is required after a
+  24             dropped frame.  Byte-boundary alignment in the FSM is handled
+  25             independently by rx_skip_next_frame in rx_decoder.c.
+  26          */
   27          
-  28          
-  29          /*
-  30             rx_perform_full_reset
-  31          */
-  32          static void rx_perform_full_reset(void)
-  33          {
-  34   1          rx_previous_bus_state = 0;
-  35   1      
-  36   1          rx_errors_corrected  = 0;
-  37   1          rx_errors_detected   = 0;
-  38   1          rx_pesec_corrections = 0;
-  39   1      
-  40   1          rx_reset_state_machine();
-  41   1      }
-  42          
-  43          
-  44          /*
-  45             main
-  46          */
-  47          void main(void)
-  48          {
-  49   1          uint16_t raw_data;
-  50   1          uint16_t raw_red;
-  51   1          uint8_t  raw_parity;
-  52   1          uint16_t corrected_data;
-  53   1      
-  54   1          /* Set core clock to full crystal speed. */
-C51 COMPILER V9.60.7.0   RX_MAIN                                                           04/25/2026 20:51:51 PAGE 2   
+  28          #include "rx_system.h"
+  29          
+  30          /*
+  31             PESEC block configuration -- MUST MATCH THE TX ENCODER.
+  32          */
+  33          static uint8_t pesec_config[] = {3, 2};
+  34          
+  35          
+  36          /*
+  37             rx_perform_full_reset
+  38             ---
+  39             Triggered when the TX sends an all-zero "bus reset" frame (the '='
+  40             command on the host).  Restores the receiver to a clean baseline:
+  41               - PESEC diagnostic counters cleared
+  42               - Nibble FSM rewound to WAIT_HIGH so the next frame starts a byte
+  43               - Byte-alignment skip cleared (explicit reset overrides any
+  44                 in-flight nibble-parity realignment)
+  45               - Error LED extinguished (the link is by definition healthy after
+  46                 a clean reset handshake)
+  47          */
+  48          static void rx_perform_full_reset(void)
+  49          {
+  50   1          rx_errors_detected   = 0;
+  51   1          rx_pesec_corrections = 0;
+  52   1      
+  53   1          rx_skip_next_frame   = 0;   /* explicit '=' reset overrides any pending realignment */
+  54   1      
+C51 COMPILER V9.60.7.0   RX_MAIN                                                           05/19/2026 13:14:32 PAGE 2   
 
-  55   1          PLLCON = 0x00;
+  55   1          rx_reset_state_machine();
   56   1      
-  57   1          /* Enable internal 2 KB XRAM. */
-  58   1          CFG841 |= 0x01;
-  59   1      
-  60   1          /* Hardware initialisation. */
-  61   1          RX_Timer3_Init();
-  62   1          RX_UART_Init();
-  63   1      
-  64   1          /* PESEC matrix initialisation. */
-  65   1          rx_init_pesec_matrices(pesec_config, 2);
-  66   1      
-  67   1          /* Decoder and error-correction module reset. */
-  68   1          rx_reset_state_machine();
-  69   1          rx_previous_bus_state = 0;
-  70   1          rx_errors_corrected   = 0;
-  71   1          rx_errors_detected    = 0;
-  72   1          rx_pesec_corrections  = 0;
-  73   1      
-  74   1          /* Enable global interrupts LAST. */
-  75   1          EA = 1;
-  76   1      
-  77   1          /* Boot-message handshake.  Seeing "RX-READY\r\n" on PuTTY confirms
-  78   1             the UART TX path (SCON mode + Timer 3 baud + TxD pin) is working,
-  79   1             independently of any bridge input or PESEC/H1 logic. */
-  80   1          rx_send_uart_byte('R');
-  81   1          rx_send_uart_byte('X');
-  82   1          rx_send_uart_byte('-');
-  83   1          rx_send_uart_byte('R');
-  84   1          rx_send_uart_byte('E');
-  85   1          rx_send_uart_byte('A');
-  86   1          rx_send_uart_byte('D');
-  87   1          rx_send_uart_byte('Y');
-  88   1          rx_send_uart_byte('\r');
-  89   1          rx_send_uart_byte('\n');
+  57   1          rx_led_off();
+  58   1      }
+  59          
+  60          
+  61          /*
+  62             main
+  63          */
+  64          void main(void)
+  65          {
+  66   1          uint16_t raw_data;
+  67   1          uint16_t raw_red;
+  68   1          uint8_t  raw_parity;
+  69   1      
+  70   1          /* Set core clock to full crystal speed. */
+  71   1          PLLCON = 0x00;
+  72   1      
+  73   1          /* Enable internal 2 KB XRAM. */
+  74   1          CFG841 |= 0x01;
+  75   1      
+  76   1          /* Hardware initialisation. */
+  77   1          RX_Timer3_Init();
+  78   1          RX_UART_Init();
+  79   1      
+  80   1          /* PESEC matrix initialisation. */
+  81   1          rx_init_pesec_matrices(pesec_config, 2);
+  82   1      
+  83   1          /* Decoder and error-correction module reset. */
+  84   1          rx_reset_state_machine();
+  85   1          rx_errors_detected    = 0;
+  86   1          rx_pesec_corrections  = 0;
+  87   1      
+  88   1          /* Enable global interrupts LAST. */
+  89   1          EA = 1;
   90   1      
-  91   1          /* Main pipeline loop. */
-  92   1          while (1)
-  93   1          {
-  94   2              if (rx_frame_ready)
-  95   2              {
-  96   3                  uint8_t pesec_result;
-  97   3      
-  98   3                  /* Atomically snapshot the frame staging registers. */
-  99   3                  EA = 0;
- 100   3                  raw_data       = rx_frame_data;
- 101   3                  raw_red        = rx_frame_red;
- 102   3                  raw_parity     = rx_frame_parity;
- 103   3                  rx_frame_ready = 0;
- 104   3                  EA = 1;
- 105   3      
- 106   3      #if RX_DEBUG
+  91   1          /* Boot-message handshake.  Seeing "RX-READY\r\n" on PuTTY confirms
+  92   1             the UART TX path (SCON mode + Timer 3 baud + TxD pin) is working,
+  93   1             independently of any bridge input or PESEC logic. */
+  94   1          rx_send_uart_byte('R');
+  95   1          rx_send_uart_byte('X');
+  96   1          rx_send_uart_byte('-');
+  97   1          rx_send_uart_byte('R');
+  98   1          rx_send_uart_byte('E');
+  99   1          rx_send_uart_byte('A');
+ 100   1          rx_send_uart_byte('D');
+ 101   1          rx_send_uart_byte('Y');
+ 102   1          rx_send_uart_byte('\r');
+ 103   1          rx_send_uart_byte('\n');
+ 104   1      
+ 105   1          /* Main pipeline loop. */
+ 106   1          while (1)
+ 107   1          {
+ 108   2              if (rx_frame_ready)
+ 109   2              {
+ 110   3                  uint8_t pesec_result;
+ 111   3                  uint8_t frame_had_error;
+ 112   3      
+ 113   3                  /* Atomically snapshot the frame staging registers.  EA=0 is
+ 114   3                     the smallest critical section that protects the multi-byte
+ 115   3                     read against a concurrent UART_ISR write of the next frame. */
+ 116   3                  EA = 0;
+C51 COMPILER V9.60.7.0   RX_MAIN                                                           05/19/2026 13:14:32 PAGE 3   
+
+ 117   3                  raw_data       = rx_frame_data;
+ 118   3                  raw_red        = rx_frame_red;
+ 119   3                  raw_parity     = rx_frame_parity;
+ 120   3                  rx_frame_ready = 0;
+ 121   3                  EA = 1;
+ 122   3      
+ 123   3                  frame_had_error = 0;
+ 124   3      
+ 125   3      #if RX_DEBUG
                           /* 'F' = a CRC-valid 4-byte payload was handed to the main
                              loop.  Seeing 'F' but no decoded byte means the frame is
-                             arriving cleanly but PESEC or H1 is rejecting it. */
+                             arriving cleanly but PESEC is rejecting it. */
                           rx_send_uart_byte('F');
               #endif
- 112   3      
- 113   3                  /* Stage B: TX reset detection. */
- 114   3                  if (rx_is_bus_reset(raw_data, raw_red))
- 115   3                  {
- 116   4      #if RX_DEBUG
-C51 COMPILER V9.60.7.0   RX_MAIN                                                           04/25/2026 20:51:51 PAGE 3   
-
+ 131   3      
+ 132   3                  /* ============================================================
+ 133   3                     Stage B: TX reset detection
+ 134   3                     ============================================================ */
+ 135   3                  if (rx_is_bus_reset(raw_data, raw_red))
+ 136   3                  {
+ 137   4      #if RX_DEBUG
                               rx_send_uart_byte('R');
               #endif
- 119   4                      rx_perform_full_reset();
- 120   4                      continue;
- 121   4                  }
- 122   3      
- 123   3                  /* Stage C: SEC+DED PESEC error correction. */
- 124   3                  pesec_result = rx_pesec_correct(&raw_data, &raw_red, raw_parity);
- 125   3                  if (pesec_result == PESEC_UNCORRECTABLE)
- 126   3                  {
- 127   4      #if RX_DEBUG
-                              rx_send_uart_byte('U');
-              #endif
- 130   4                      continue;
- 131   4                  }
- 132   3      #if RX_DEBUG
-                          if (pesec_result == PESEC_CORRECTED_DATA)   rx_send_uart_byte('d');
-                          if (pesec_result == PESEC_CORRECTED_RED)    rx_send_uart_byte('r');
-                          if (pesec_result == PESEC_CORRECTED_PARITY) rx_send_uart_byte('p');
-              #endif
- 137   3      
- 138   3                  /* Stage D: H1 differential validation. */
- 139   3                  corrected_data = rx_correct_bus_state(raw_data);
- 140   3      
- 141   3                  /* Stage E: Nibble extraction and byte reassembly. */
- 142   3                  rx_process_bus_state(corrected_data);
- 143   3      
- 144   3                  rx_states_processed++;
- 145   3              }
- 146   2          }
- 147   1      }
+ 140   4                      rx_perform_full_reset();
+ 141   4                      /* rx_perform_full_reset() turns the LED off explicitly --
+ 142   4                         a clean reset handshake means the link is healthy. */
+ 143   4                      continue;
+ 144   4                  }
+ 145   3      
+ 146   3                  /* ============================================================
+ 147   3                     Stage C: SEC+DED PESEC error correction
+ 148   3                     ============================================================ */
+ 149   3                  pesec_result = rx_pesec_correct(&raw_data, &raw_red, raw_parity);
+ 150   3      
+ 151   3                  if (pesec_result == PESEC_UNCORRECTABLE)
+ 152   3                  {
+ 153   4                      /* Double error -- the data + red field are unreliable.
+ 154   4                         Drop the frame and run the byte-alignment recovery
+ 155   4                         protocol:
+ 156   4      
+ 157   4                         (1) NIBBLE PARITY  (rx_skip_next_frame ^= 1 if WAIT_HIGH)
+ 158   4                             Each uncorrectable drops exactly one nibble; the
+ 159   4                             nibble FSM must remain even-aligned with the TX
+ 160   4                             byte boundaries.  If the FSM was WAIT_HIGH at the
+ 161   4                             time of the drop, the dropped nibble was a HIGH
+ 162   4                             and its LOW partner (the next clean frame) must
+ 163   4                             be skipped to restore even parity.  If the FSM
+ 164   4                             was WAIT_LOW, the FSM reset below already
+ 165   4                             accounts for the dropped LOW (it discards the
+ 166   4                             orphaned stored HIGH), so no extra skip is
+ 167   4                             needed.  Toggling (^=) lets two successive drops
+ 168   4                             in WAIT_HIGH self-cancel: skip 0 -> 1 -> 0.
+ 169   4      
+ 170   4                         (2) FSM RESET
+ 171   4                             Always rewind to WAIT_HIGH so any in-progress
+ 172   4                             byte (with a stored HIGH) is discarded -- it
+ 173   4                             could not have been completed cleanly anyway.
+ 174   4      
+ 175   4                         (3) USER-VISIBLE INDICATION
+ 176   4                             '!U' UART marker (always-on, may drop on ring
+ 177   4                             overflow) plus the LED (sticky, survives bursts).
+ 178   4      
+C51 COMPILER V9.60.7.0   RX_MAIN                                                           05/19/2026 13:14:32 PAGE 4   
+
+ 179   4                         NOTE: Because the receiver no longer maintains a
+ 180   4                         "previous bus state" anchor (H1 differential layer
+ 181   4                         was removed), there is no bus-state desync to repair
+ 182   4                         after a dropped frame -- each subsequent clean frame
+ 183   4                         carries its own absolute bus state from which the
+ 184   4                         nibble is decoded directly. */
+ 185   4                      rx_signal_error('U');
+ 186   4                      rx_led_on();
+ 187   4      
+ 188   4                      if (rx_current_state == RX_STATE_WAIT_HIGH)
+ 189   4                      {
+ 190   5                          rx_skip_next_frame ^= 1u;
+ 191   5                      }
+ 192   4      
+ 193   4                      rx_reset_state_machine();
+ 194   4                      continue;
+ 195   4                  }
+ 196   3      
+ 197   3                  /* PESEC fixed a single error somewhere -- frame is still
+ 198   3                     usable, but record the event for the LED + UART trace. */
+ 199   3                  if (pesec_result == PESEC_CORRECTED_DATA)
+ 200   3                  {
+ 201   4                      rx_signal_error('d');
+ 202   4                      frame_had_error = 1;
+ 203   4                  }
+ 204   3                  else if (pesec_result == PESEC_CORRECTED_RED)
+ 205   3                  {
+ 206   4                      rx_signal_error('r');
+ 207   4                      frame_had_error = 1;
+ 208   4                  }
+ 209   3                  else if (pesec_result == PESEC_CORRECTED_PARITY)
+ 210   3                  {
+ 211   4                      rx_signal_error('p');
+ 212   4                      frame_had_error = 1;
+ 213   4                  }
+ 214   3                  /* else PESEC_NO_ERROR -- nothing to log */
+ 215   3      
+ 216   3                  /* 
+ 217   3                     Stage D: Nibble extraction and byte reassembly
+ 218   3                     After PESEC, raw_data is the 15-bit data field that the
+ 219   3                     TX shifted out for this frame.  The TX maintains
+ 220   3                        syndrome(current_bus_state) == last_input_nibble
+ 221   3                     as an invariant, so passing raw_data directly to
+ 222   3                     rx_process_bus_state lets the syndrome of the absolute
+ 223   3                     bus state recover the nibble without any reference to
+ 224   3                     previous frames. */
+ 225   3                  rx_process_bus_state(raw_data);
+ 226   3      
+ 227   3                  rx_states_processed++;
+ 228   3      
+ 229   3                  /* ============================================================
+ 230   3                     LED follows latest frame quality
+ 231   3                     ============================================================
+ 232   3                     ON  if PESEC corrected anything this frame
+ 233   3                     OFF if the frame was processed entirely cleanly
+ 234   3      
+ 235   3                     The UART '!x' markers are real-time but can be dropped
+ 236   3                     if the TX ring saturates; the LED is sticky and survives
+ 237   3                     bursts.  It clears only when a whole frame passes through
+ 238   3                     without any correction -- exactly the contract specified
+ 239   3                     in the requirements. */
+ 240   3                  if (frame_had_error)
+C51 COMPILER V9.60.7.0   RX_MAIN                                                           05/19/2026 13:14:32 PAGE 5   
+
+ 241   3                  {
+ 242   4                      rx_led_on();
+ 243   4                  }
+ 244   3                  else
+ 245   3                  {
+ 246   4                      rx_led_off();
+ 247   4                  }
+ 248   3              }
+ 249   2          }
+ 250   1      }
 
 
 MODULE INFORMATION:   STATIC OVERLAYABLE
-   CODE SIZE        =    235    ----
+   CODE SIZE        =    283    ----
    CONSTANT SIZE    =   ----    ----
    XDATA SIZE       =   ----    ----
    PDATA SIZE       =   ----    ----
-   DATA SIZE        =      2       8
+   DATA SIZE        =      2       7
    IDATA SIZE       =   ----    ----
    BIT SIZE         =   ----    ----
 END OF MODULE INFORMATION.

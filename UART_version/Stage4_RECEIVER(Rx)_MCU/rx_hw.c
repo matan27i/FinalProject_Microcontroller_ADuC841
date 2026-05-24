@@ -32,9 +32,71 @@
 /*
    UART FRAME PROTOCOL CONSTANTS -- must match the Mega bridge
 */
-#define UART_SOF            0xAAu // Start Of Frame
-#define UART_PAYLOAD_LEN    4u    // 
+#define UART_SOF            0xAAu
+#define UART_PAYLOAD_LEN    4u
 #define UART_CRC_POLY       0x07u
+
+
+/*
+   ONBOARD ERROR-INDICATOR LED
+   ---
+   Hardware fallback for ECC events when the UART trace is too slow,
+   saturated, or filtered out.  Driven directly from the main loop:
+     ON  on any error event in the current frame (PESEC corrected
+         single-bit error, or PESEC uncorrectable double-bit error)
+     OFF when a frame is processed entirely cleanly
+
+   PIN: P3.4 (T0 alternate, but unused in this project so it works as a
+   plain GPIO).  Active-low by default because most ADuC eval boards wire
+   the LED with the anode to VCC and cathode to the pin via a series
+   resistor.  Flip RX_LED_ACTIVE_LEVEL to 1 if your board is active-high.
+*/
+sbit RX_ERROR_LED_PIN = P3^4;
+
+#ifndef RX_LED_ACTIVE_LEVEL
+#define RX_LED_ACTIVE_LEVEL 0   /* 0 = active-low (LED on when pin = 0) */
+#endif
+
+
+/*
+   DEBUG-MODE STRAP PIN
+   ---
+   Runtime control for the link-trace markers ('F', 'R', 'C').  At reset
+   all 8052 port pins are written to 0xFF, so this pin floats to logic 1
+   via the internal weak pull-up -- debug OFF by default.  Tie the pin
+   to GND externally (jumper to any GND header) to force it low and
+   activate the trace markers.
+
+   The always-on ECC markers ('!U', '!d', '!r', '!p') and the onboard
+   error LED on P3.4 are NOT gated by this strap -- they always reflect
+   real error events regardless of debug mode.
+
+   PIN: P3.5 (T1 alternate, but Timer 1 is unused in this project so it
+   works as a plain input).  Reading the pin is a single 8052 MOV C, bit
+   instruction; the cost per check is negligible against the 520 us UART
+   frame inter-arrival time.
+*/
+sbit RX_DEBUG_STRAP_PIN = P3^5;
+
+
+/*
+   CACHED DEBUG-MODE FLAG
+   ---
+   Mirrors the latched debug state.  Updated only when the host sends
+   '~' and the decoder asks rx_debug_active() to re-sample P3.5; read
+   by the main loop and by UART_ISR for every CRC-valid frame and every
+   CRC mismatch respectively.
+
+   Caching this in xdata instead of polling the strap pin every frame
+   trades one xdata read (~3-5 cycles on the ADuC841 single-cycle core)
+   for one sbit read + function call (~8-12 cycles), and -- more
+   importantly -- makes the debug state deterministic across long
+   bursts: it cannot accidentally flip mid-burst from noise on the
+   strap line.
+
+   Initial value 0: debug OFF at boot, regardless of strap state, until
+   the operator sends '~' to capture the current strap level. */
+volatile uint8_t xdata rx_debug_mode_active = 0;
 
 
 /*
@@ -160,14 +222,20 @@ static void uart_handle_rx_byte(uint8_t rx_byte)
             else
             {
                 rx_frame_crc_errors++;
-#if RX_DEBUG
-                /* 'C' = bridge-link CRC mismatch.  Nested call into
-                   rx_send_uart_byte() from the UART ISR is safe: the
-                   ES=0/ES=1 guards are idempotent while already inside
-                   the vector-4 handler, and SBUF's RX and TX halves are
-                   independent hardware. */
-                rx_send_uart_byte('C');
-#endif
+                /* 'C' = bridge-link CRC mismatch.  Gated by the latched
+                   debug-mode flag (refreshed only when '~' arrives at
+                   rx_process_bus_state).  Reading the xdata byte from
+                   inside the ISR is faster than calling rx_debug_active(),
+                   which would pin-sample + branch + return.
+
+                   Nested call into rx_send_uart_byte() from the UART
+                   ISR is safe: the ES=0/ES=1 guards are idempotent
+                   while already inside vector 4, and SBUF's RX and TX
+                   halves are independent hardware. */
+                if (rx_debug_mode_active)
+                {
+                    rx_send_uart_byte('C');
+                }
             }
             uart_rx_state = UART_RX_WAIT_SOF;
             break;
@@ -246,10 +314,14 @@ void RX_Timer3_Init(void)
    ES=1 enables the serial interrupt; the ISR handles both RI and TI.
    TI starts at 0: the first rx_send_uart_byte() will prime SBUF.
 
-   The MOV-as-byte style (rather than individual sbit writes to SM0/SM1)
-   avoids the SMOD0 trap documented on the TX side -- when SMOD0=1 in
-   PCON, SM0 aliases to a framing-error flag and sbit writes silently
-   miss SCON.7.
+   The byte-write style (SCON = 0x50u) is preferred over six individual
+   sbit assignments: it produces a single MOV instruction, is atomic with
+   respect to interrupts, and is portable across 8052 derivatives.  Note
+   that the "SMOD0 / SM0 aliases as framing-error flag" feature seen on
+   some Silicon Labs C8051 parts does NOT exist on the ADuC841/842/843 --
+   PCON.6 on this chip is SERIPD (datasheet Rev.B Table 7, p.29) -- so
+   sbit writes to SM0 would also work here.  The byte-write is still the
+   better style for the reasons above.
 */
 void RX_UART_Init(void)
 {
@@ -264,6 +336,18 @@ void RX_UART_Init(void)
     rx_frame_red        = 0;
     rx_frame_parity     = 0;
     rx_frame_crc_errors = 0;
+
+    /* Drive the error LED to its OFF level at boot.  P3.4 powers up
+       weakly pulled high (= LED off if active-low) but writing it
+       explicitly makes the initial state independent of the reset
+       value of P3 in case any other code touched it. */
+    rx_led_off();
+
+    /* Configure the debug strap (P3.5) as a quasi-bidirectional input:
+       writing 1 enables the weak pull-up so the pin floats high when
+       no external strap is applied (= debug OFF).  Pulling the pin to
+       GND externally then drives it strongly low (= debug ON). */
+    RX_DEBUG_STRAP_PIN = 1;
 
     ES = 1;
     /* EA is set by the caller after all peripherals are initialised. */
@@ -302,4 +386,65 @@ void rx_send_uart_byte(uint8_t data_byte)
     /* else: ring full, byte dropped */
 
     ES = 1;
+}
+
+
+/*
+   ERROR-INDICATOR LED HELPERS
+   ---
+   Single-instruction sbit writes; safe to call from anywhere (main loop
+   or ISR).  No ES guard needed because the bit-addressable port pin is
+   not shared with the UART machinery.
+*/
+void rx_led_on(void)
+{
+    RX_ERROR_LED_PIN = RX_LED_ACTIVE_LEVEL;
+}
+
+void rx_led_off(void)
+{
+    RX_ERROR_LED_PIN = (uint8_t)(!RX_LED_ACTIVE_LEVEL);
+}
+
+
+/*
+   UART ERROR MARKER
+   ---
+   Compact 2-byte marker '!' + kind for ECC events:
+     '!U'  PESEC double-error / uncorrectable, frame dropped
+     '!d'  PESEC corrected a single data-bit error
+     '!r'  PESEC corrected a single redundancy-bit error
+     '!p'  PESEC corrected the overall parity bit itself
+   The leading '!' makes the marker stand out in a stream that may
+   otherwise contain printable payload bytes.
+
+   The function itself is unconditional; the CALLER (rx_main.c) decides
+   whether to invoke it based on the cached debug-mode strap state.
+   In normal operation (strap floating) no markers are emitted and the
+   payload stream is clean -- the LED on P3.4 is the always-on visual
+   indicator that an error event occurred.
+
+   Non-blocking: rx_send_uart_byte() enqueues into the 128-byte TX ring
+   drained by UART_ISR's TI handler.  If the ring is full the marker is
+   silently dropped.
+*/
+void rx_signal_error(uint8_t kind)
+{
+    rx_send_uart_byte('!');
+    rx_send_uart_byte(kind);
+}
+
+
+/*
+   DEBUG STRAP READOUT
+   ---
+   Returns 1 if the strap is currently tied low (debug mode active),
+   0 if the strap floats high (normal silent operation).
+
+   Single sbit compare, no state held -- so a user can toggle the strap
+   live and the very next frame's trace markers reflect the new state.
+*/
+uint8_t rx_debug_active(void)
+{
+    return (RX_DEBUG_STRAP_PIN == 0u) ? 1u : 0u;
 }

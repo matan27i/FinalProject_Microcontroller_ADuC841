@@ -8,10 +8,6 @@
 #ifndef TX_MAIN_H
 #define TX_MAIN_H
 
-/* ---- UART / Main-Loop State Variables ---- */
-extern volatile bit    buffer_flag;
-extern volatile uint8_t buffer_count;
-
 /* ---- UART Receive Ring Buffer ---- */
 extern volatile uint8_t rx_buf[RX_BUF_SIZE];
 extern volatile uint8_t rx_head;

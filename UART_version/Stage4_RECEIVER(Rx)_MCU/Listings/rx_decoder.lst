@@ -1,4 +1,4 @@
-C51 COMPILER V9.60.7.0   RX_DECODER                                                        04/25/2026 20:51:51 PAGE 1   
+C51 COMPILER V9.60.7.0   RX_DECODER                                                        05/19/2026 13:14:32 PAGE 1   
 
 
 C51 COMPILER V9.60.7.0, COMPILATION OF MODULE RX_DECODER
@@ -31,104 +31,132 @@ line level    source
   21          
   22          rx_state_t xdata rx_current_state    = RX_STATE_WAIT_HIGH;
   23          uint8_t    xdata rx_stored_high_nibble = 0;
-  24          uint8_t    xdata rx_byte_ready       = 0;
-  25          uint16_t   xdata rx_bytes_decoded    = 0;
-  26          uint16_t   xdata rx_states_processed = 0;
-  27          
-  28          
-  29          /* 
-  30             rx_compute_syndrome
-  31          */
-  32          uint8_t rx_compute_syndrome(uint16_t bus_state)
-  33          {
-  34   1          uint8_t  syndrome = 0;
-  35   1          uint8_t  col_idx;
-  36   1          uint16_t temp;
-  37   1      
-  38   1          temp = bus_state & BUS_STATE_MASK;
-  39   1      
-  40   1          for (col_idx = 1; col_idx <= HAMMING_N; col_idx++)
-  41   1          {
-  42   2              if (temp & 0x0001u)
-  43   2              {
-  44   3                  syndrome ^= col_idx;
-  45   3              }
-  46   2              temp >>= 1;
-  47   2          }
-  48   1      
-  49   1          return (syndrome & 0x0Fu);
-  50   1      }
-  51          
-  52          
-  53          /* 
-  54             rx_process_bus_state
-C51 COMPILER V9.60.7.0   RX_DECODER                                                        04/25/2026 20:51:51 PAGE 2   
+  24          uint16_t   xdata rx_bytes_decoded    = 0;
+  25          uint16_t   xdata rx_states_processed = 0;
+  26          
+  27          /* Byte-alignment recovery flag.
+  28             ---
+  29             Each uncorrectable PESEC frame drops exactly one nibble.  For the
+  30             nibble FSM to remain aligned to TX byte boundaries, the total number
+  31             of dropped nibbles per recovery window must be EVEN.  When the FSM
+  32             was WAIT_HIGH at the time of an uncorrectable, we dropped a HIGH
+  33             nibble (odd count) -- the next clean frame is its LOW partner and
+  34             must be skipped to restore even parity.  When the FSM was WAIT_LOW,
+  35             resetting the FSM also discards the orphaned stored HIGH, which
+  36             already accounts for two effective drops (the stored HIGH + the
+  37             uncorrectable LOW), so no extra skip is needed.
+  38          
+  39             Toggle (^=1) rather than set (=1) so consecutive uncorrectables
+  40             self-cancel correctly: e.g. two uncorrectables in WAIT_HIGH drop two
+  41             nibbles total -- skip count goes 0 -> 1 -> 0, no extra skip needed.
+  42          
+  43             [MEM] XDATA. */
+  44          volatile uint8_t xdata rx_skip_next_frame = 0;
+  45          
+  46          
+  47          /* 
+  48             rx_compute_syndrome
+  49          */
+  50          uint8_t rx_compute_syndrome(uint16_t bus_state)
+  51          {
+  52   1          uint8_t  syndrome = 0;
+  53   1          uint8_t  col_idx;
+  54   1          uint16_t temp;
+C51 COMPILER V9.60.7.0   RX_DECODER                                                        05/19/2026 13:14:32 PAGE 2   
 
-  55             
-  56          */
-  57          void rx_process_bus_state(uint16_t bus_state)
-  58          {
-  59   1          uint8_t data_nibble;
-  60   1          uint8_t complete_byte;
-  61   1      
-  62   1          data_nibble = rx_compute_syndrome(bus_state);
-  63   1      
-  64   1          switch (rx_current_state)
-  65   1          {
-  66   2              case RX_STATE_WAIT_HIGH:
-  67   2                  rx_stored_high_nibble = data_nibble & 0x0Fu;
-  68   2                  rx_current_state      = RX_STATE_WAIT_LOW;
-  69   2                  break;
-  70   2      
-  71   2              case RX_STATE_WAIT_LOW:
-  72   2                  complete_byte = (uint8_t)((rx_stored_high_nibble << 4)
-  73   2                                   | (data_nibble & 0x0Fu));
-  74   2      
-  75   2                  rx_send_uart_byte(complete_byte);
-  76   2      
-  77   2                  rx_bytes_decoded++;
-  78   2                  rx_byte_ready         = 1;
-  79   2                  rx_current_state      = RX_STATE_WAIT_HIGH;
-  80   2                  rx_stored_high_nibble = 0;
-  81   2                  break;
-  82   2      
-  83   2              default:
-  84   2                  rx_reset_state_machine();
-  85   2                  break;
-  86   2          }
-  87   1      }
-  88          
-  89          
-  90          /* 
-  91             rx_reset_state_machine
-  92             
-  93          */
-  94          void rx_reset_state_machine(void)
-  95          {
-  96   1          rx_current_state      = RX_STATE_WAIT_HIGH;
-  97   1          rx_stored_high_nibble = 0;
-  98   1          rx_byte_ready         = 0;
-  99   1      }
- 100          
- 101          
- 102          /* 
- 103             rx_is_bus_reset
- 104             
- 105          */
- 106          uint8_t rx_is_bus_reset(uint16_t data_bits, uint16_t red_bits)
- 107          {
- 108   1          if ((data_bits == 0) && (red_bits == 0))
- 109   1          {
- 110   2              return 1;
- 111   2          }
- 112   1          return 0;
+  55   1      
+  56   1          temp = bus_state & BUS_STATE_MASK;
+  57   1      
+  58   1          for (col_idx = 1; col_idx <= HAMMING_N; col_idx++)
+  59   1          {
+  60   2              if (temp & 0x0001u)
+  61   2              {
+  62   3                  syndrome ^= col_idx;
+  63   3              }
+  64   2              temp >>= 1;
+  65   2          }
+  66   1      
+  67   1          return (syndrome & 0x0Fu);
+  68   1      }
+  69          
+  70          
+  71          /* 
+  72             rx_process_bus_state
+  73             
+  74          */
+  75          void rx_process_bus_state(uint16_t bus_state)
+  76          {
+  77   1          uint8_t data_nibble;
+  78   1          uint8_t complete_byte;
+  79   1      
+  80   1          /* Alignment recovery: if a previous PESEC_UNCORRECTABLE event left
+  81   1             us off by one nibble, drop this frame to restore even parity with
+  82   1             the TX byte boundary.  See rx_skip_next_frame in this file. */
+  83   1          if (rx_skip_next_frame)
+  84   1          {
+  85   2              rx_skip_next_frame = 0;
+  86   2              return;
+  87   2          }
+  88   1      
+  89   1          data_nibble = rx_compute_syndrome(bus_state);
+  90   1      
+  91   1          switch (rx_current_state)
+  92   1          {
+  93   2              case RX_STATE_WAIT_HIGH:
+  94   2                  rx_stored_high_nibble = data_nibble & 0x0Fu;
+  95   2                  rx_current_state      = RX_STATE_WAIT_LOW;
+  96   2                  break;
+  97   2      
+  98   2              case RX_STATE_WAIT_LOW:
+  99   2                  complete_byte = (uint8_t)((rx_stored_high_nibble << 4)
+ 100   2                                   | (data_nibble & 0x0Fu));
+ 101   2      
+ 102   2                  rx_send_uart_byte(complete_byte);
+ 103   2      
+ 104   2                  rx_bytes_decoded++;
+ 105   2                  rx_current_state      = RX_STATE_WAIT_HIGH;
+ 106   2                  rx_stored_high_nibble = 0;
+ 107   2                  break;
+ 108   2      
+ 109   2              default:
+ 110   2                  rx_reset_state_machine();
+ 111   2                  break;
+ 112   2          }
  113   1      }
+ 114          
+ 115          
+ 116          /* 
+C51 COMPILER V9.60.7.0   RX_DECODER                                                        05/19/2026 13:14:32 PAGE 3   
+
+ 117             rx_reset_state_machine
+ 118             
+ 119          */
+ 120          void rx_reset_state_machine(void)
+ 121          {
+ 122   1          rx_current_state      = RX_STATE_WAIT_HIGH;
+ 123   1          rx_stored_high_nibble = 0;
+ 124   1          /* rx_skip_next_frame is intentionally NOT cleared here -- alignment
+ 125   1             recovery is decoupled from FSM reset.  A bus-reset frame ('=' from
+ 126   1             the host) clears it explicitly via rx_perform_full_reset. */
+ 127   1      }
+ 128          
+ 129          
+ 130          /* 
+ 131             rx_is_bus_reset
+ 132             
+ 133          */
+ 134          uint8_t rx_is_bus_reset(uint16_t data_bits, uint16_t red_bits)
+ 135          {
+ 136   1          if ((data_bits == 0) && (red_bits == 0))
+ 137   1          {
+ 138   2              return 1;
+ 139   2          }
+ 140   1          return 0;
+ 141   1      }
 
 
 MODULE INFORMATION:   STATIC OVERLAYABLE
-C51 COMPILER V9.60.7.0   RX_DECODER                                                        04/25/2026 20:51:51 PAGE 3   
-
-   CODE SIZE        =    134    ----
+   CODE SIZE        =    133    ----
    CONSTANT SIZE    =   ----    ----
    XDATA SIZE       =      7    ----
    PDATA SIZE       =   ----    ----

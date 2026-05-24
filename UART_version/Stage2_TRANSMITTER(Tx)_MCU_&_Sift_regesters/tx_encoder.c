@@ -93,10 +93,10 @@ void tx_handler(uint8_t rx_char)
     uint8_t high_nibble;
     uint8_t low_nibble;
 
-    /* --- Batch terminators --- */
+    /* --- Batch terminators -- silently discard '\r' and '\n' so the
+       host can use either line ending without encoding it as data. */
     if (rx_char == '\r' || rx_char == '\n')
     {
-        buffer_flag = 1;
         return;
     }
 
@@ -123,7 +123,6 @@ void tx_handler(uint8_t rx_char)
 
         while (TR2 == 1);
 
-        buffer_flag = 1;
         return;
     }
 
@@ -134,9 +133,4 @@ void tx_handler(uint8_t rx_char)
     process_nibble(high_nibble);
 
     process_nibble(low_nibble);
-
-    if (buffer_count <= 253)
-    {
-        buffer_count += 2;
-    }
 }
