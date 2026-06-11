@@ -1,4 +1,4 @@
-C51 COMPILER V9.60.7.0   RX_MAIN                                                           05/19/2026 13:14:32 PAGE 1   
+C51 COMPILER V9.60.7.0   RX_MAIN                                                           05/24/2026 15:37:29 PAGE 1   
 
 
 C51 COMPILER V9.60.7.0, COMPILATION OF MODULE RX_MAIN
@@ -62,7 +62,7 @@ line level    source
   52   1      
   53   1          rx_skip_next_frame   = 0;   /* explicit '=' reset overrides any pending realignment */
   54   1      
-C51 COMPILER V9.60.7.0   RX_MAIN                                                           05/19/2026 13:14:32 PAGE 2   
+C51 COMPILER V9.60.7.0   RX_MAIN                                                           05/24/2026 15:37:29 PAGE 2   
 
   55   1          rx_reset_state_machine();
   56   1      
@@ -121,159 +121,182 @@ line level    source
  109   2              {
  110   3                  uint8_t pesec_result;
  111   3                  uint8_t frame_had_error;
- 112   3      
- 113   3                  /* Atomically snapshot the frame staging registers.  EA=0 is
- 114   3                     the smallest critical section that protects the multi-byte
- 115   3                     read against a concurrent UART_ISR write of the next frame. */
- 116   3                  EA = 0;
-C51 COMPILER V9.60.7.0   RX_MAIN                                                           05/19/2026 13:14:32 PAGE 3   
+ 112   3                  uint8_t debug_on;
+ 113   3      
+ 114   3                  /* Atomically snapshot the frame staging registers.  EA=0 is
+ 115   3                     the smallest critical section that protects the multi-byte
+ 116   3                     read against a concurrent UART_ISR write of the next frame. */
+C51 COMPILER V9.60.7.0   RX_MAIN                                                           05/24/2026 15:37:29 PAGE 3   
 
- 117   3                  raw_data       = rx_frame_data;
- 118   3                  raw_red        = rx_frame_red;
- 119   3                  raw_parity     = rx_frame_parity;
- 120   3                  rx_frame_ready = 0;
- 121   3                  EA = 1;
- 122   3      
- 123   3                  frame_had_error = 0;
- 124   3      
- 125   3      #if RX_DEBUG
-                          /* 'F' = a CRC-valid 4-byte payload was handed to the main
-                             loop.  Seeing 'F' but no decoded byte means the frame is
-                             arriving cleanly but PESEC is rejecting it. */
-                          rx_send_uart_byte('F');
-              #endif
- 131   3      
- 132   3                  /* ============================================================
- 133   3                     Stage B: TX reset detection
- 134   3                     ============================================================ */
- 135   3                  if (rx_is_bus_reset(raw_data, raw_red))
- 136   3                  {
- 137   4      #if RX_DEBUG
-                              rx_send_uart_byte('R');
-              #endif
- 140   4                      rx_perform_full_reset();
- 141   4                      /* rx_perform_full_reset() turns the LED off explicitly --
- 142   4                         a clean reset handshake means the link is healthy. */
- 143   4                      continue;
- 144   4                  }
- 145   3      
- 146   3                  /* ============================================================
- 147   3                     Stage C: SEC+DED PESEC error correction
- 148   3                     ============================================================ */
- 149   3                  pesec_result = rx_pesec_correct(&raw_data, &raw_red, raw_parity);
- 150   3      
- 151   3                  if (pesec_result == PESEC_UNCORRECTABLE)
- 152   3                  {
- 153   4                      /* Double error -- the data + red field are unreliable.
- 154   4                         Drop the frame and run the byte-alignment recovery
- 155   4                         protocol:
- 156   4      
- 157   4                         (1) NIBBLE PARITY  (rx_skip_next_frame ^= 1 if WAIT_HIGH)
- 158   4                             Each uncorrectable drops exactly one nibble; the
- 159   4                             nibble FSM must remain even-aligned with the TX
- 160   4                             byte boundaries.  If the FSM was WAIT_HIGH at the
- 161   4                             time of the drop, the dropped nibble was a HIGH
- 162   4                             and its LOW partner (the next clean frame) must
- 163   4                             be skipped to restore even parity.  If the FSM
- 164   4                             was WAIT_LOW, the FSM reset below already
- 165   4                             accounts for the dropped LOW (it discards the
- 166   4                             orphaned stored HIGH), so no extra skip is
- 167   4                             needed.  Toggling (^=) lets two successive drops
- 168   4                             in WAIT_HIGH self-cancel: skip 0 -> 1 -> 0.
- 169   4      
- 170   4                         (2) FSM RESET
- 171   4                             Always rewind to WAIT_HIGH so any in-progress
- 172   4                             byte (with a stored HIGH) is discarded -- it
- 173   4                             could not have been completed cleanly anyway.
- 174   4      
- 175   4                         (3) USER-VISIBLE INDICATION
- 176   4                             '!U' UART marker (always-on, may drop on ring
- 177   4                             overflow) plus the LED (sticky, survives bursts).
- 178   4      
-C51 COMPILER V9.60.7.0   RX_MAIN                                                           05/19/2026 13:14:32 PAGE 4   
+ 117   3                  EA = 0;
+ 118   3                  raw_data       = rx_frame_data;
+ 119   3                  raw_red        = rx_frame_red;
+ 120   3                  raw_parity     = rx_frame_parity;
+ 121   3                  rx_frame_ready = 0;
+ 122   3                  EA = 1;
+ 123   3      
+ 124   3                  frame_had_error = 0;
+ 125   3      
+ 126   3                  /* Read the LATCHED debug-mode flag.  This is just a byte
+ 127   3                     load from xdata -- no strap pin sample, no function call.
+ 128   3                     The flag is refreshed only when the host sends '~' (the
+ 129   3                     decoder samples P3.5 at that moment and writes the result
+ 130   3                     into rx_debug_mode_active).  Saves a per-frame pin read +
+ 131   3                     function call.  Latency to a strap change is now bounded
+ 132   3                     by the round-trip from the host: send '~', wait for the
+ 133   3                     byte to encode, transmit, decode, then the next frame's
+ 134   3                     markers reflect the new mode. */
+ 135   3                  debug_on = rx_debug_mode_active;
+ 136   3      
+ 137   3                  /* 'F' = a CRC-valid 4-byte payload was handed to the main
+ 138   3                     loop.  Seeing 'F' but no decoded byte means the frame is
+ 139   3                     arriving cleanly but PESEC is rejecting it. */
+ 140   3                  if (debug_on)
+ 141   3                  {
+ 142   4                      rx_send_uart_byte('F');
+ 143   4                  }
+ 144   3      
+ 145   3                  /* ============================================================
+ 146   3                     Stage B: TX reset detection
+ 147   3                     ============================================================ */
+ 148   3                  if (rx_is_bus_reset(raw_data, raw_red))
+ 149   3                  {
+ 150   4                      if (debug_on)
+ 151   4                      {
+ 152   5                          rx_send_uart_byte('R');
+ 153   5                      }
+ 154   4                      rx_perform_full_reset();
+ 155   4                      /* rx_perform_full_reset() turns the LED off explicitly --
+ 156   4                         a clean reset handshake means the link is healthy. */
+ 157   4                      continue;
+ 158   4                  }
+ 159   3      
+ 160   3                  /* ============================================================
+ 161   3                     Stage C: SEC+DED PESEC error correction
+ 162   3                     ============================================================ */
+ 163   3                  pesec_result = rx_pesec_correct(&raw_data, &raw_red, raw_parity);
+ 164   3      
+ 165   3                  if (pesec_result == PESEC_UNCORRECTABLE)
+ 166   3                  {
+ 167   4                      /* Double error -- the data + red field are unreliable.
+ 168   4                         Drop the frame and run the byte-alignment recovery
+ 169   4                         protocol:
+ 170   4      
+ 171   4                         (1) NIBBLE PARITY  (rx_skip_next_frame ^= 1 if WAIT_HIGH)
+ 172   4                             Each uncorrectable drops exactly one nibble; the
+ 173   4                             nibble FSM must remain even-aligned with the TX
+ 174   4                             byte boundaries.  If the FSM was WAIT_HIGH at the
+ 175   4                             time of the drop, the dropped nibble was a HIGH
+ 176   4                             and its LOW partner (the next clean frame) must
+ 177   4                             be skipped to restore even parity.  If the FSM
+ 178   4                             was WAIT_LOW, the FSM reset below already
+C51 COMPILER V9.60.7.0   RX_MAIN                                                           05/24/2026 15:37:29 PAGE 4   
 
- 179   4                         NOTE: Because the receiver no longer maintains a
- 180   4                         "previous bus state" anchor (H1 differential layer
- 181   4                         was removed), there is no bus-state desync to repair
- 182   4                         after a dropped frame -- each subsequent clean frame
- 183   4                         carries its own absolute bus state from which the
- 184   4                         nibble is decoded directly. */
- 185   4                      rx_signal_error('U');
- 186   4                      rx_led_on();
- 187   4      
- 188   4                      if (rx_current_state == RX_STATE_WAIT_HIGH)
- 189   4                      {
- 190   5                          rx_skip_next_frame ^= 1u;
- 191   5                      }
- 192   4      
- 193   4                      rx_reset_state_machine();
- 194   4                      continue;
- 195   4                  }
- 196   3      
- 197   3                  /* PESEC fixed a single error somewhere -- frame is still
- 198   3                     usable, but record the event for the LED + UART trace. */
- 199   3                  if (pesec_result == PESEC_CORRECTED_DATA)
- 200   3                  {
- 201   4                      rx_signal_error('d');
- 202   4                      frame_had_error = 1;
- 203   4                  }
- 204   3                  else if (pesec_result == PESEC_CORRECTED_RED)
- 205   3                  {
- 206   4                      rx_signal_error('r');
- 207   4                      frame_had_error = 1;
- 208   4                  }
- 209   3                  else if (pesec_result == PESEC_CORRECTED_PARITY)
- 210   3                  {
- 211   4                      rx_signal_error('p');
- 212   4                      frame_had_error = 1;
- 213   4                  }
- 214   3                  /* else PESEC_NO_ERROR -- nothing to log */
- 215   3      
- 216   3                  /* 
- 217   3                     Stage D: Nibble extraction and byte reassembly
- 218   3                     After PESEC, raw_data is the 15-bit data field that the
- 219   3                     TX shifted out for this frame.  The TX maintains
- 220   3                        syndrome(current_bus_state) == last_input_nibble
- 221   3                     as an invariant, so passing raw_data directly to
- 222   3                     rx_process_bus_state lets the syndrome of the absolute
- 223   3                     bus state recover the nibble without any reference to
- 224   3                     previous frames. */
- 225   3                  rx_process_bus_state(raw_data);
- 226   3      
- 227   3                  rx_states_processed++;
- 228   3      
- 229   3                  /* ============================================================
- 230   3                     LED follows latest frame quality
- 231   3                     ============================================================
- 232   3                     ON  if PESEC corrected anything this frame
- 233   3                     OFF if the frame was processed entirely cleanly
- 234   3      
- 235   3                     The UART '!x' markers are real-time but can be dropped
- 236   3                     if the TX ring saturates; the LED is sticky and survives
- 237   3                     bursts.  It clears only when a whole frame passes through
- 238   3                     without any correction -- exactly the contract specified
- 239   3                     in the requirements. */
- 240   3                  if (frame_had_error)
-C51 COMPILER V9.60.7.0   RX_MAIN                                                           05/19/2026 13:14:32 PAGE 5   
+ 179   4                             accounts for the dropped LOW (it discards the
+ 180   4                             orphaned stored HIGH), so no extra skip is
+ 181   4                             needed.  Toggling (^=) lets two successive drops
+ 182   4                             in WAIT_HIGH self-cancel: skip 0 -> 1 -> 0.
+ 183   4      
+ 184   4                         (2) FSM RESET
+ 185   4                             Always rewind to WAIT_HIGH so any in-progress
+ 186   4                             byte (with a stored HIGH) is discarded -- it
+ 187   4                             could not have been completed cleanly anyway.
+ 188   4      
+ 189   4                         (3) USER-VISIBLE INDICATION
+ 190   4                             The LED (sticky, survives bursts) is always lit
+ 191   4                             for error events.  The '!U' UART marker is gated
+ 192   4                             by the debug strap so normal-mode output stays
+ 193   4                             clean -- the LED is the single non-negotiable
+ 194   4                             indication that something went wrong.
+ 195   4      
+ 196   4                         NOTE: Because the receiver no longer maintains a
+ 197   4                         "previous bus state" anchor (H1 differential layer
+ 198   4                         was removed), there is no bus-state desync to repair
+ 199   4                         after a dropped frame -- each subsequent clean frame
+ 200   4                         carries its own absolute bus state from which the
+ 201   4                         nibble is decoded directly. */
+ 202   4                      if (debug_on)
+ 203   4                      {
+ 204   5                          rx_signal_error('U');
+ 205   5                      }
+ 206   4                      rx_led_on();
+ 207   4      
+ 208   4                      if (rx_current_state == RX_STATE_WAIT_HIGH)
+ 209   4                      {
+ 210   5                          rx_skip_next_frame ^= 1u;
+ 211   5                      }
+ 212   4      
+ 213   4                      rx_reset_state_machine();
+ 214   4                      continue;
+ 215   4                  }
+ 216   3      
+ 217   3                  /* PESEC fixed a single error somewhere -- frame is still
+ 218   3                     usable.  Always flag frame_had_error so the LED reflects
+ 219   3                     the event regardless of debug strap; emit the '!x' UART
+ 220   3                     marker only when the strap is low (debug on). */
+ 221   3                  if (pesec_result == PESEC_CORRECTED_DATA)
+ 222   3                  {
+ 223   4                      if (debug_on) rx_signal_error('d');
+ 224   4                      frame_had_error = 1;
+ 225   4                  }
+ 226   3                  else if (pesec_result == PESEC_CORRECTED_RED)
+ 227   3                  {
+ 228   4                      if (debug_on) rx_signal_error('r');
+ 229   4                      frame_had_error = 1;
+ 230   4                  }
+ 231   3                  else if (pesec_result == PESEC_CORRECTED_PARITY)
+ 232   3                  {
+ 233   4                      if (debug_on) rx_signal_error('p');
+ 234   4                      frame_had_error = 1;
+ 235   4                  }
+ 236   3                  /* else PESEC_NO_ERROR -- nothing to log */
+ 237   3      
+ 238   3                  /* ============================================================
+ 239   3                     Stage D: Nibble extraction and byte reassembly
+ 240   3                     ============================================================
+C51 COMPILER V9.60.7.0   RX_MAIN                                                           05/24/2026 15:37:29 PAGE 5   
 
- 241   3                  {
- 242   4                      rx_led_on();
- 243   4                  }
- 244   3                  else
- 245   3                  {
- 246   4                      rx_led_off();
- 247   4                  }
- 248   3              }
- 249   2          }
- 250   1      }
+ 241   3                     After PESEC, raw_data is the 15-bit data field that the
+ 242   3                     TX shifted out for this frame.  The TX maintains
+ 243   3                        syndrome(current_bus_state) == last_input_nibble
+ 244   3                     as an invariant, so passing raw_data directly to
+ 245   3                     rx_process_bus_state lets the syndrome of the absolute
+ 246   3                     bus state recover the nibble without any reference to
+ 247   3                     previous frames. */
+ 248   3                  rx_process_bus_state(raw_data);
+ 249   3      
+ 250   3                  rx_states_processed++;
+ 251   3      
+ 252   3                  /* ============================================================
+ 253   3                     LED follows latest frame quality
+ 254   3                     ============================================================
+ 255   3                     ON  if PESEC corrected anything this frame
+ 256   3                     OFF if the frame was processed entirely cleanly
+ 257   3      
+ 258   3                     The UART '!x' markers are real-time but can be dropped
+ 259   3                     if the TX ring saturates; the LED is sticky and survives
+ 260   3                     bursts.  It clears only when a whole frame passes through
+ 261   3                     without any correction -- exactly the contract specified
+ 262   3                     in the requirements. */
+ 263   3                  if (frame_had_error)
+ 264   3                  {
+ 265   4                      rx_led_on();
+ 266   4                  }
+ 267   3                  else
+ 268   3                  {
+ 269   4                      rx_led_off();
+ 270   4                  }
+ 271   3              }
+ 272   2          }
+ 273   1      }
 
 
 MODULE INFORMATION:   STATIC OVERLAYABLE
-   CODE SIZE        =    283    ----
+   CODE SIZE        =    327    ----
    CONSTANT SIZE    =   ----    ----
    XDATA SIZE       =   ----    ----
    PDATA SIZE       =   ----    ----
-   DATA SIZE        =      2       7
+   DATA SIZE        =      2       8
    IDATA SIZE       =   ----    ----
    BIT SIZE         =   ----    ----
 END OF MODULE INFORMATION.

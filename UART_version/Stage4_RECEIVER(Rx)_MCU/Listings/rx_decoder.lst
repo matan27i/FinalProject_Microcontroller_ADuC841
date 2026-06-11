@@ -1,4 +1,4 @@
-C51 COMPILER V9.60.7.0   RX_DECODER                                                        05/19/2026 13:14:32 PAGE 1   
+C51 COMPILER V9.60.7.0   RX_DECODER                                                        05/24/2026 15:37:29 PAGE 1   
 
 
 C51 COMPILER V9.60.7.0, COMPILATION OF MODULE RX_DECODER
@@ -62,7 +62,7 @@ line level    source
   52   1          uint8_t  syndrome = 0;
   53   1          uint8_t  col_idx;
   54   1          uint16_t temp;
-C51 COMPILER V9.60.7.0   RX_DECODER                                                        05/19/2026 13:14:32 PAGE 2   
+C51 COMPILER V9.60.7.0   RX_DECODER                                                        05/24/2026 15:37:29 PAGE 2   
 
   55   1      
   56   1          temp = bus_state & BUS_STATE_MASK;
@@ -113,54 +113,65 @@ line level    source
  101   2      
  102   2                  rx_send_uart_byte(complete_byte);
  103   2      
- 104   2                  rx_bytes_decoded++;
- 105   2                  rx_current_state      = RX_STATE_WAIT_HIGH;
- 106   2                  rx_stored_high_nibble = 0;
- 107   2                  break;
- 108   2      
- 109   2              default:
- 110   2                  rx_reset_state_machine();
- 111   2                  break;
- 112   2          }
- 113   1      }
- 114          
- 115          
- 116          /* 
-C51 COMPILER V9.60.7.0   RX_DECODER                                                        05/19/2026 13:14:32 PAGE 3   
+ 104   2                  /* Debug-mode latch command: when the host sends '~', sample
+ 105   2                     the strap pin once and freeze the result in the cached
+ 106   2                     flag.  '~' is still echoed normally (rx_send_uart_byte
+ 107   2                     above) so the operator sees the command acknowledged on
+ 108   2                     PuTTY.  Cost: one rx_debug_active() call per '~' byte
+ 109   2                     instead of one per frame -- see savings analysis. */
+ 110   2                  if (complete_byte == '~')
+ 111   2                  {
+ 112   3                      rx_debug_mode_active = rx_debug_active();
+ 113   3                  }
+ 114   2      
+ 115   2                  rx_bytes_decoded++;
+ 116   2                  rx_current_state      = RX_STATE_WAIT_HIGH;
+C51 COMPILER V9.60.7.0   RX_DECODER                                                        05/24/2026 15:37:29 PAGE 3   
 
- 117             rx_reset_state_machine
- 118             
- 119          */
- 120          void rx_reset_state_machine(void)
- 121          {
- 122   1          rx_current_state      = RX_STATE_WAIT_HIGH;
- 123   1          rx_stored_high_nibble = 0;
- 124   1          /* rx_skip_next_frame is intentionally NOT cleared here -- alignment
- 125   1             recovery is decoupled from FSM reset.  A bus-reset frame ('=' from
- 126   1             the host) clears it explicitly via rx_perform_full_reset. */
- 127   1      }
- 128          
- 129          
- 130          /* 
- 131             rx_is_bus_reset
- 132             
- 133          */
- 134          uint8_t rx_is_bus_reset(uint16_t data_bits, uint16_t red_bits)
- 135          {
- 136   1          if ((data_bits == 0) && (red_bits == 0))
- 137   1          {
- 138   2              return 1;
- 139   2          }
- 140   1          return 0;
- 141   1      }
+ 117   2                  rx_stored_high_nibble = 0;
+ 118   2                  break;
+ 119   2      
+ 120   2              default:
+ 121   2                  rx_reset_state_machine();
+ 122   2                  break;
+ 123   2          }
+ 124   1      }
+ 125          
+ 126          
+ 127          /* 
+ 128             rx_reset_state_machine
+ 129             
+ 130          */
+ 131          void rx_reset_state_machine(void)
+ 132          {
+ 133   1          rx_current_state      = RX_STATE_WAIT_HIGH;
+ 134   1          rx_stored_high_nibble = 0;
+ 135   1          /* rx_skip_next_frame is intentionally NOT cleared here -- alignment
+ 136   1             recovery is decoupled from FSM reset.  A bus-reset frame ('=' from
+ 137   1             the host) clears it explicitly via rx_perform_full_reset. */
+ 138   1      }
+ 139          
+ 140          
+ 141          /* 
+ 142             rx_is_bus_reset
+ 143             
+ 144          */
+ 145          uint8_t rx_is_bus_reset(uint16_t data_bits, uint16_t red_bits)
+ 146          {
+ 147   1          if ((data_bits == 0) && (red_bits == 0))
+ 148   1          {
+ 149   2              return 1;
+ 150   2          }
+ 151   1          return 0;
+ 152   1      }
 
 
 MODULE INFORMATION:   STATIC OVERLAYABLE
-   CODE SIZE        =    133    ----
+   CODE SIZE        =    148    ----
    CONSTANT SIZE    =   ----    ----
    XDATA SIZE       =      7    ----
    PDATA SIZE       =   ----    ----
-   DATA SIZE        =   ----    ----
+   DATA SIZE        =   ----       1
    IDATA SIZE       =   ----    ----
    BIT SIZE         =   ----    ----
 END OF MODULE INFORMATION.

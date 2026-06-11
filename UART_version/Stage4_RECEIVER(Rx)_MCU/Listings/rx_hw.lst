@@ -1,4 +1,4 @@
-C51 COMPILER V9.60.7.0   RX_HW                                                             05/19/2026 13:14:32 PAGE 1   
+C51 COMPILER V9.60.7.0   RX_HW                                                             05/24/2026 15:37:29 PAGE 1   
 
 
 C51 COMPILER V9.60.7.0, COMPILATION OF MODULE RX_HW
@@ -62,7 +62,7 @@ line level    source
   52             resistor.  Flip RX_LED_ACTIVE_LEVEL to 1 if your board is active-high.
   53          */
   54          sbit RX_ERROR_LED_PIN = P3^4;
-C51 COMPILER V9.60.7.0   RX_HW                                                             05/19/2026 13:14:32 PAGE 2   
+C51 COMPILER V9.60.7.0   RX_HW                                                             05/24/2026 15:37:29 PAGE 2   
 
   55          
   56          #ifndef RX_LED_ACTIVE_LEVEL
@@ -71,340 +71,413 @@ line level    source
   59          
   60          
   61          /*
-  62             UART FRAME RECEIVE STATE VARIABLES
-  63          */
-  64          
-  65          /* Staging registers: written from ISR when a complete CRC-valid frame
-  66             has been assembled, read from main loop under EA=0 guard. */
-  67          volatile uint16_t rx_frame_data        = 0;
-  68          volatile uint16_t rx_frame_red         = 0;
-  69          volatile uint8_t  rx_frame_parity      = 0;
-  70          volatile uint8_t  rx_frame_ready       = 0;
-  71          volatile uint16_t rx_frame_crc_errors  = 0;
-  72          
-  73          /* ISR-private state machine and byte accumulation buffer.  volatile
-  74             solely to prevent the compiler from hoisting accesses out of the ISR
-  75             (they are already single-threaded within the ISR itself). */
-  76          typedef enum
-  77          {
-  78              UART_RX_WAIT_SOF  = 0,
-  79              UART_RX_COLLECT   = 1,
-  80              UART_RX_WAIT_CRC  = 2
-  81          } uart_rx_state_t;
-  82          
-  83          static volatile uart_rx_state_t uart_rx_state    = UART_RX_WAIT_SOF;
-  84          static volatile uint8_t         uart_rx_count    = 0;
-  85          static uint8_t                  uart_rx_buf[UART_PAYLOAD_LEN];
-  86          
-  87          
-  88          /*
-  89             UART TRANSMIT RING (interrupt-driven)
-  90             ---
-  91             Capacity bumped from 64 to 128 in the SPI revision to absorb bursts
-  92             during PuTTY flow-control pauses.  Kept at 128 here.
-  93          */
-  94          #define TX_BUF_SIZE 128u
-  95          static uint8_t xdata tx_buf[TX_BUF_SIZE];
-  96          static volatile uint8_t tx_head = 0;   /* producer: main loop */
-  97          static volatile uint8_t tx_tail = 0;   /* consumer: ISR       */
-  98          
-  99          /* tx_busy = 1 when SBUF currently holds an outbound byte whose TI has
- 100             not yet been serviced.  While tx_busy=0, the ISR will not re-fire
- 101             on TI (we keep TI cleared) and the next rx_send_uart_byte() will
- 102             prime SBUF directly. */
- 103          static volatile uint8_t tx_busy = 0;
- 104          
+  62             DEBUG-MODE STRAP PIN
+  63             ---
+  64             Runtime control for the link-trace markers ('F', 'R', 'C').  At reset
+  65             all 8052 port pins are written to 0xFF, so this pin floats to logic 1
+  66             via the internal weak pull-up -- debug OFF by default.  Tie the pin
+  67             to GND externally (jumper to any GND header) to force it low and
+  68             activate the trace markers.
+  69          
+  70             The always-on ECC markers ('!U', '!d', '!r', '!p') and the onboard
+  71             error LED on P3.4 are NOT gated by this strap -- they always reflect
+  72             real error events regardless of debug mode.
+  73          
+  74             PIN: P3.5 (T1 alternate, but Timer 1 is unused in this project so it
+  75             works as a plain input).  Reading the pin is a single 8052 MOV C, bit
+  76             instruction; the cost per check is negligible against the 520 us UART
+  77             frame inter-arrival time.
+  78          */
+  79          sbit RX_DEBUG_STRAP_PIN = P3^5;
+  80          
+  81          
+  82          /*
+  83             CACHED DEBUG-MODE FLAG
+  84             ---
+  85             Mirrors the latched debug state.  Updated only when the host sends
+  86             '~' and the decoder asks rx_debug_active() to re-sample P3.5; read
+  87             by the main loop and by UART_ISR for every CRC-valid frame and every
+  88             CRC mismatch respectively.
+  89          
+  90             Caching this in xdata instead of polling the strap pin every frame
+  91             trades one xdata read (~3-5 cycles on the ADuC841 single-cycle core)
+  92             for one sbit read + function call (~8-12 cycles), and -- more
+  93             importantly -- makes the debug state deterministic across long
+  94             bursts: it cannot accidentally flip mid-burst from noise on the
+  95             strap line.
+  96          
+  97             Initial value 0: debug OFF at boot, regardless of strap state, until
+  98             the operator sends '~' to capture the current strap level. */
+  99          volatile uint8_t xdata rx_debug_mode_active = 0;
+ 100          
+ 101          
+ 102          /*
+ 103             UART FRAME RECEIVE STATE VARIABLES
+ 104          */
  105          
- 106          /*
- 107             CRC-8 HELPER (poly 0x07, init 0x00, no reflection)
- 108             ---
- 109             Must match the bridge's crc8().  Keil C51 generates ~8 cycles per
- 110             inner iteration, so 32 iterations per frame = ~23 us at 11.0592 MHz
- 111             core -- well under the 87 us UART byte time.
- 112          */
- 113          /* NOTE: parameter is named `buf` rather than `data` because `data` is a
- 114             Keil C51 reserved memory-space keyword (alongside xdata/idata/code/
- 115             pdata/bdata) -- using it as an identifier yields C141 syntax errors. */
- 116          static uint8_t uart_crc8(uint8_t *buf, uint8_t len)
-C51 COMPILER V9.60.7.0   RX_HW                                                             05/19/2026 13:14:32 PAGE 3   
+ 106          /* Staging registers: written from ISR when a complete CRC-valid frame
+ 107             has been assembled, read from main loop under EA=0 guard. */
+ 108          volatile uint16_t rx_frame_data        = 0;
+ 109          volatile uint16_t rx_frame_red         = 0;
+ 110          volatile uint8_t  rx_frame_parity      = 0;
+ 111          volatile uint8_t  rx_frame_ready       = 0;
+ 112          volatile uint16_t rx_frame_crc_errors  = 0;
+ 113          
+ 114          /* ISR-private state machine and byte accumulation buffer.  volatile
+ 115             solely to prevent the compiler from hoisting accesses out of the ISR
+ 116             (they are already single-threaded within the ISR itself). */
+C51 COMPILER V9.60.7.0   RX_HW                                                             05/24/2026 15:37:29 PAGE 3   
 
- 117          {
- 118   1          uint8_t crc = 0u;
- 119   1          uint8_t i, j;
- 120   1      
- 121   1          for (i = 0u; i < len; i++)
- 122   1          {
- 123   2              crc ^= buf[i];
- 124   2              for (j = 0u; j < 8u; j++)
- 125   2              {
- 126   3                  if (crc & 0x80u)
- 127   3                  {
- 128   4                      crc = (uint8_t)((crc << 1) ^ UART_CRC_POLY);
- 129   4                  }
- 130   3                  else
- 131   3                  {
- 132   4                      crc = (uint8_t)(crc << 1);
- 133   4                  }
- 134   3              }
- 135   2          }
- 136   1          return crc;
- 137   1      }
- 138          
+ 117          typedef enum
+ 118          {
+ 119              UART_RX_WAIT_SOF  = 0,
+ 120              UART_RX_COLLECT   = 1,
+ 121              UART_RX_WAIT_CRC  = 2
+ 122          } uart_rx_state_t;
+ 123          
+ 124          static volatile uart_rx_state_t uart_rx_state    = UART_RX_WAIT_SOF;
+ 125          static volatile uint8_t         uart_rx_count    = 0;
+ 126          static uint8_t                  uart_rx_buf[UART_PAYLOAD_LEN];
+ 127          
+ 128          
+ 129          /*
+ 130             UART TRANSMIT RING (interrupt-driven)
+ 131             ---
+ 132             Capacity bumped from 64 to 128 in the SPI revision to absorb bursts
+ 133             during PuTTY flow-control pauses.  Kept at 128 here.
+ 134          */
+ 135          #define TX_BUF_SIZE 128u
+ 136          static uint8_t xdata tx_buf[TX_BUF_SIZE];
+ 137          static volatile uint8_t tx_head = 0;   /* producer: main loop */
+ 138          static volatile uint8_t tx_tail = 0;   /* consumer: ISR       */
  139          
- 140          /*
- 141             UART RX BYTE HANDLER -- called from the ISR
- 142             ---
- 143             A single CRC mismatch aborts the current frame and returns the state
- 144             machine to SOF hunt.  A stray 0xAA in the middle of a corrupted
- 145             stream will therefore resync at most one frame later.
- 146          */
- 147          static void uart_handle_rx_byte(uint8_t rx_byte)
- 148          {
- 149   1          switch (uart_rx_state)
- 150   1          {
- 151   2              case UART_RX_WAIT_SOF:
- 152   2                  if (rx_byte == UART_SOF)
- 153   2                  {
- 154   3                      uart_rx_count = 0u;
- 155   3                      uart_rx_state = UART_RX_COLLECT;
- 156   3                  }
- 157   2                  break;
- 158   2      
- 159   2              case UART_RX_COLLECT:
- 160   2                  uart_rx_buf[uart_rx_count++] = rx_byte;
- 161   2                  if (uart_rx_count >= UART_PAYLOAD_LEN)
- 162   2                  {
- 163   3                      uart_rx_state = UART_RX_WAIT_CRC;
- 164   3                  }
- 165   2                  break;
- 166   2      
- 167   2              case UART_RX_WAIT_CRC:
- 168   2              default:
- 169   2                  if (rx_byte == uart_crc8(uart_rx_buf, UART_PAYLOAD_LEN))
- 170   2                  {
- 171   3                      /* Frame is valid -- assemble the 26-bit word.  If the
- 172   3                         main loop has not consumed the previous frame yet we
- 173   3                         overwrite it; the newer data is always preferred. */
- 174   3                      rx_frame_data   = (uint16_t)uart_rx_buf[0]
- 175   3                                      | (((uint16_t)(uart_rx_buf[1] & 0x7Fu)) << 8);
- 176   3                      rx_frame_red    = (uint16_t)uart_rx_buf[2]
- 177   3                                      | (((uint16_t)(uart_rx_buf[3] & 0x03u)) << 8);
- 178   3                      rx_frame_parity = (uart_rx_buf[1] >> 7) & 0x01u;
-C51 COMPILER V9.60.7.0   RX_HW                                                             05/19/2026 13:14:32 PAGE 4   
+ 140          /* tx_busy = 1 when SBUF currently holds an outbound byte whose TI has
+ 141             not yet been serviced.  While tx_busy=0, the ISR will not re-fire
+ 142             on TI (we keep TI cleared) and the next rx_send_uart_byte() will
+ 143             prime SBUF directly. */
+ 144          static volatile uint8_t tx_busy = 0;
+ 145          
+ 146          
+ 147          /*
+ 148             CRC-8 HELPER (poly 0x07, init 0x00, no reflection)
+ 149             ---
+ 150             Must match the bridge's crc8().  Keil C51 generates ~8 cycles per
+ 151             inner iteration, so 32 iterations per frame = ~23 us at 11.0592 MHz
+ 152             core -- well under the 87 us UART byte time.
+ 153          */
+ 154          /* NOTE: parameter is named `buf` rather than `data` because `data` is a
+ 155             Keil C51 reserved memory-space keyword (alongside xdata/idata/code/
+ 156             pdata/bdata) -- using it as an identifier yields C141 syntax errors. */
+ 157          static uint8_t uart_crc8(uint8_t *buf, uint8_t len)
+ 158          {
+ 159   1          uint8_t crc = 0u;
+ 160   1          uint8_t i, j;
+ 161   1      
+ 162   1          for (i = 0u; i < len; i++)
+ 163   1          {
+ 164   2              crc ^= buf[i];
+ 165   2              for (j = 0u; j < 8u; j++)
+ 166   2              {
+ 167   3                  if (crc & 0x80u)
+ 168   3                  {
+ 169   4                      crc = (uint8_t)((crc << 1) ^ UART_CRC_POLY);
+ 170   4                  }
+ 171   3                  else
+ 172   3                  {
+ 173   4                      crc = (uint8_t)(crc << 1);
+ 174   4                  }
+ 175   3              }
+ 176   2          }
+ 177   1          return crc;
+ 178   1      }
+C51 COMPILER V9.60.7.0   RX_HW                                                             05/24/2026 15:37:29 PAGE 4   
 
- 179   3                      rx_frame_ready  = 1u;
- 180   3                  }
- 181   2                  else
- 182   2                  {
- 183   3                      rx_frame_crc_errors++;
- 184   3      #if RX_DEBUG
-                              /* 'C' = bridge-link CRC mismatch.  Nested call into
-                                 rx_send_uart_byte() from the UART ISR is safe: the
-                                 ES=0/ES=1 guards are idempotent while already inside
-                                 the vector-4 handler, and SBUF's RX and TX halves are
-                                 independent hardware. */
-                              rx_send_uart_byte('C');
-              #endif
- 192   3                  }
- 193   2                  uart_rx_state = UART_RX_WAIT_SOF;
- 194   2                  break;
- 195   2          }
- 196   1      }
- 197          
- 198          
- 199          /*
- 200             UART ISR (vector 4, address 0x23)
- 201             ---
- 202             Serves both RI (receive) and TI (transmit) on the single 8052 UART.
- 203             Priority-wise RI is handled first so that a simultaneous RI+TI (rare
- 204             at 115200, but possible when a new start bit arrives as the previous
- 205             byte finishes shifting out) is drained promptly.
- 206          
- 207             TI handling: if there is buffered data, shove the next byte into
- 208             SBUF and keep tx_busy = 1.  Otherwise clear tx_busy and leave TI = 0
- 209             so the ISR does not re-fire until the next send primes SBUF again.
- 210          */
- 211          void UART_ISR(void) interrupt 4
- 212          {
- 213   1          uint8_t rx_byte;
- 214   1      
- 215   1          if (RI)
- 216   1          {
- 217   2              rx_byte = SBUF;
- 218   2              RI = 0;
- 219   2              uart_handle_rx_byte(rx_byte);
- 220   2          }
- 221   1      
- 222   1          if (TI)
- 223   1          {
- 224   2              TI = 0;
- 225   2              if (tx_tail != tx_head)
- 226   2              {
- 227   3                  SBUF = tx_buf[tx_tail];
- 228   3                  tx_tail = (tx_tail + 1u) % TX_BUF_SIZE;
- 229   3              }
- 230   2              else
- 231   2              {
- 232   3                  tx_busy = 0;
- 233   3              }
- 234   2          }
- 235   1      }
- 236          
- 237          
- 238          /*
- 239             PERIPHERAL INITIALISATION
- 240          */
-C51 COMPILER V9.60.7.0   RX_HW                                                             05/19/2026 13:14:32 PAGE 5   
+ 179          
+ 180          
+ 181          /*
+ 182             UART RX BYTE HANDLER -- called from the ISR
+ 183             ---
+ 184             A single CRC mismatch aborts the current frame and returns the state
+ 185             machine to SOF hunt.  A stray 0xAA in the middle of a corrupted
+ 186             stream will therefore resync at most one frame later.
+ 187          */
+ 188          static void uart_handle_rx_byte(uint8_t rx_byte)
+ 189          {
+ 190   1          switch (uart_rx_state)
+ 191   1          {
+ 192   2              case UART_RX_WAIT_SOF:
+ 193   2                  if (rx_byte == UART_SOF)
+ 194   2                  {
+ 195   3                      uart_rx_count = 0u;
+ 196   3                      uart_rx_state = UART_RX_COLLECT;
+ 197   3                  }
+ 198   2                  break;
+ 199   2      
+ 200   2              case UART_RX_COLLECT:
+ 201   2                  uart_rx_buf[uart_rx_count++] = rx_byte;
+ 202   2                  if (uart_rx_count >= UART_PAYLOAD_LEN)
+ 203   2                  {
+ 204   3                      uart_rx_state = UART_RX_WAIT_CRC;
+ 205   3                  }
+ 206   2                  break;
+ 207   2      
+ 208   2              case UART_RX_WAIT_CRC:
+ 209   2              default:
+ 210   2                  if (rx_byte == uart_crc8(uart_rx_buf, UART_PAYLOAD_LEN))
+ 211   2                  {
+ 212   3                      /* Frame is valid -- assemble the 26-bit word.  If the
+ 213   3                         main loop has not consumed the previous frame yet we
+ 214   3                         overwrite it; the newer data is always preferred. */
+ 215   3                      rx_frame_data   = (uint16_t)uart_rx_buf[0]
+ 216   3                                      | (((uint16_t)(uart_rx_buf[1] & 0x7Fu)) << 8);
+ 217   3                      rx_frame_red    = (uint16_t)uart_rx_buf[2]
+ 218   3                                      | (((uint16_t)(uart_rx_buf[3] & 0x03u)) << 8);
+ 219   3                      rx_frame_parity = (uart_rx_buf[1] >> 7) & 0x01u;
+ 220   3                      rx_frame_ready  = 1u;
+ 221   3                  }
+ 222   2                  else
+ 223   2                  {
+ 224   3                      rx_frame_crc_errors++;
+ 225   3                      /* 'C' = bridge-link CRC mismatch.  Gated by the latched
+ 226   3                         debug-mode flag (refreshed only when '~' arrives at
+ 227   3                         rx_process_bus_state).  Reading the xdata byte from
+ 228   3                         inside the ISR is faster than calling rx_debug_active(),
+ 229   3                         which would pin-sample + branch + return.
+ 230   3      
+ 231   3                         Nested call into rx_send_uart_byte() from the UART
+ 232   3                         ISR is safe: the ES=0/ES=1 guards are idempotent
+ 233   3                         while already inside vector 4, and SBUF's RX and TX
+ 234   3                         halves are independent hardware. */
+ 235   3                      if (rx_debug_mode_active)
+ 236   3                      {
+ 237   4                          rx_send_uart_byte('C');
+ 238   4                      }
+ 239   3                  }
+ 240   2                  uart_rx_state = UART_RX_WAIT_SOF;
+C51 COMPILER V9.60.7.0   RX_HW                                                             05/24/2026 15:37:29 PAGE 5   
 
- 241          
- 242          /*
- 243             RX_Timer3_Init -- Timer 3 as UART baud rate generator.
+ 241   2                  break;
+ 242   2          }
+ 243   1      }
  244          
- 245             Per the ADuC841 datasheet (Table 35, p.76): with the PLL at fCORE =
- 246             11.0592 MHz (CD=0, PLL=1), T3CON = 0x82 and T3FD = 0x20 give an
- 247             exact 115200 baud.  Verified by the datasheet formula
- 248               actual_baud = (2 * fCORE) / (2^(DIV-1) * (T3FD + 64))
- 249                           = (22118400) / (2 * 96) = 115200.
- 250          */
- 251          void RX_Timer3_Init(void)
- 252          {
- 253   1          T3FD  = 0x20u;   /* Fractional divider = 32 */
- 254   1          T3CON = 0x82u;   /* T3BAUDEN=1, DIV=2 (binary 010) */
- 255   1      }
- 256          
- 257          
- 258          /*
- 259             RX_UART_Init -- SCON Mode 1, full-duplex, interrupt-driven.
- 260          
- 261             SCON = 0x50:
- 262               SM0=0, SM1=1   -> Mode 1 (8-bit async UART, variable baud)
- 263               SM2=0          -> No multiprocessor framing
- 264               REN=1          -> Receive enabled (NEW: was 0 in SPI version)
- 265               TB8=RB8=TI=RI = 0
- 266          
- 267             ES=1 enables the serial interrupt; the ISR handles both RI and TI.
- 268             TI starts at 0: the first rx_send_uart_byte() will prime SBUF.
- 269          
- 270             The byte-write style (SCON = 0x50u) is preferred over six individual
- 271             sbit assignments: it produces a single MOV instruction, is atomic with
- 272             respect to interrupts, and is portable across 8052 derivatives.  Note
- 273             that the "SMOD0 / SM0 aliases as framing-error flag" feature seen on
- 274             some Silicon Labs C8051 parts does NOT exist on the ADuC841/842/843 --
- 275             PCON.6 on this chip is SERIPD (datasheet Rev.B Table 7, p.29) -- so
- 276             sbit writes to SM0 would also work here.  The byte-write is still the
- 277             better style for the reasons above.
- 278          */
- 279          void RX_UART_Init(void)
- 280          {
- 281   1          SCON    = 0x50u;
- 282   1          tx_busy = 0;
- 283   1          tx_head = 0;
- 284   1          tx_tail = 0;
- 285   1          uart_rx_state       = UART_RX_WAIT_SOF;
- 286   1          uart_rx_count       = 0;
- 287   1          rx_frame_ready      = 0;
- 288   1          rx_frame_data       = 0;
- 289   1          rx_frame_red        = 0;
- 290   1          rx_frame_parity     = 0;
- 291   1          rx_frame_crc_errors = 0;
- 292   1      
- 293   1          /* Drive the error LED to its OFF level at boot.  P3.4 powers up
- 294   1             weakly pulled high (= LED off if active-low) but writing it
- 295   1             explicitly makes the initial state independent of the reset
- 296   1             value of P3 in case any other code touched it. */
- 297   1          rx_led_off();
- 298   1      
- 299   1          ES = 1;
- 300   1          /* EA is set by the caller after all peripherals are initialised. */
- 301   1      }
- 302          
-C51 COMPILER V9.60.7.0   RX_HW                                                             05/19/2026 13:14:32 PAGE 6   
+ 245          
+ 246          /*
+ 247             UART ISR (vector 4, address 0x23)
+ 248             ---
+ 249             Serves both RI (receive) and TI (transmit) on the single 8052 UART.
+ 250             Priority-wise RI is handled first so that a simultaneous RI+TI (rare
+ 251             at 115200, but possible when a new start bit arrives as the previous
+ 252             byte finishes shifting out) is drained promptly.
+ 253          
+ 254             TI handling: if there is buffered data, shove the next byte into
+ 255             SBUF and keep tx_busy = 1.  Otherwise clear tx_busy and leave TI = 0
+ 256             so the ISR does not re-fire until the next send primes SBUF again.
+ 257          */
+ 258          void UART_ISR(void) interrupt 4
+ 259          {
+ 260   1          uint8_t rx_byte;
+ 261   1      
+ 262   1          if (RI)
+ 263   1          {
+ 264   2              rx_byte = SBUF;
+ 265   2              RI = 0;
+ 266   2              uart_handle_rx_byte(rx_byte);
+ 267   2          }
+ 268   1      
+ 269   1          if (TI)
+ 270   1          {
+ 271   2              TI = 0;
+ 272   2              if (tx_tail != tx_head)
+ 273   2              {
+ 274   3                  SBUF = tx_buf[tx_tail];
+ 275   3                  tx_tail = (tx_tail + 1u) % TX_BUF_SIZE;
+ 276   3              }
+ 277   2              else
+ 278   2              {
+ 279   3                  tx_busy = 0;
+ 280   3              }
+ 281   2          }
+ 282   1      }
+ 283          
+ 284          
+ 285          /*
+ 286             PERIPHERAL INITIALISATION
+ 287          */
+ 288          
+ 289          /*
+ 290             RX_Timer3_Init -- Timer 3 as UART baud rate generator.
+ 291          
+ 292             Per the ADuC841 datasheet (Table 35, p.76): with the PLL at fCORE =
+ 293             11.0592 MHz (CD=0, PLL=1), T3CON = 0x82 and T3FD = 0x20 give an
+ 294             exact 115200 baud.  Verified by the datasheet formula
+ 295               actual_baud = (2 * fCORE) / (2^(DIV-1) * (T3FD + 64))
+ 296                           = (22118400) / (2 * 96) = 115200.
+ 297          */
+ 298          void RX_Timer3_Init(void)
+ 299          {
+ 300   1          T3FD  = 0x20u;   /* Fractional divider = 32 */
+ 301   1          T3CON = 0x82u;   /* T3BAUDEN=1, DIV=2 (binary 010) */
+ 302   1      }
+C51 COMPILER V9.60.7.0   RX_HW                                                             05/24/2026 15:37:29 PAGE 6   
 
  303          
- 304          /*
- 305             NON-BLOCKING UART TX ENQUEUE
- 306             ---
- 307             If the transmitter is idle, write SBUF directly and mark tx_busy.
- 308             If busy, push into the ring buffer; dropped on overflow.
- 309          
- 310             ES is toggled around the shared state update to prevent the ISR
- 311             from racing on tx_busy / tx_head.
- 312          */
- 313          void rx_send_uart_byte(uint8_t data_byte)
- 314          {
- 315   1          uint8_t next_head;
- 316   1      
- 317   1          ES = 0;
- 318   1      
- 319   1          if (!tx_busy)
- 320   1          {
- 321   2              tx_busy = 1;
- 322   2              SBUF    = data_byte;
- 323   2              ES      = 1;
- 324   2              return;
- 325   2          }
- 326   1      
- 327   1          next_head = (tx_head + 1u) % TX_BUF_SIZE;
- 328   1          if (next_head != tx_tail)
- 329   1          {
- 330   2              tx_buf[tx_head] = data_byte;
- 331   2              tx_head         = next_head;
- 332   2          }
- 333   1          /* else: ring full, byte dropped */
- 334   1      
- 335   1          ES = 1;
- 336   1      }
- 337          
- 338          
- 339          /*
- 340             ERROR-INDICATOR LED HELPERS
- 341             ---
- 342             Single-instruction sbit writes; safe to call from anywhere (main loop
- 343             or ISR).  No ES guard needed because the bit-addressable port pin is
- 344             not shared with the UART machinery.
- 345          */
- 346          void rx_led_on(void)
- 347          {
- 348   1          RX_ERROR_LED_PIN = RX_LED_ACTIVE_LEVEL;
- 349   1      }
- 350          
- 351          void rx_led_off(void)
- 352          {
- 353   1          RX_ERROR_LED_PIN = (uint8_t)(!RX_LED_ACTIVE_LEVEL);
+ 304          
+ 305          /*
+ 306             RX_UART_Init -- SCON Mode 1, full-duplex, interrupt-driven.
+ 307          
+ 308             SCON = 0x50:
+ 309               SM0=0, SM1=1   -> Mode 1 (8-bit async UART, variable baud)
+ 310               SM2=0          -> No multiprocessor framing
+ 311               REN=1          -> Receive enabled (NEW: was 0 in SPI version)
+ 312               TB8=RB8=TI=RI = 0
+ 313          
+ 314             ES=1 enables the serial interrupt; the ISR handles both RI and TI.
+ 315             TI starts at 0: the first rx_send_uart_byte() will prime SBUF.
+ 316          
+ 317             The byte-write style (SCON = 0x50u) is preferred over six individual
+ 318             sbit assignments: it produces a single MOV instruction, is atomic with
+ 319             respect to interrupts, and is portable across 8052 derivatives.  Note
+ 320             that the "SMOD0 / SM0 aliases as framing-error flag" feature seen on
+ 321             some Silicon Labs C8051 parts does NOT exist on the ADuC841/842/843 --
+ 322             PCON.6 on this chip is SERIPD (datasheet Rev.B Table 7, p.29) -- so
+ 323             sbit writes to SM0 would also work here.  The byte-write is still the
+ 324             better style for the reasons above.
+ 325          */
+ 326          void RX_UART_Init(void)
+ 327          {
+ 328   1          SCON    = 0x50u;
+ 329   1          tx_busy = 0;
+ 330   1          tx_head = 0;
+ 331   1          tx_tail = 0;
+ 332   1          uart_rx_state       = UART_RX_WAIT_SOF;
+ 333   1          uart_rx_count       = 0;
+ 334   1          rx_frame_ready      = 0;
+ 335   1          rx_frame_data       = 0;
+ 336   1          rx_frame_red        = 0;
+ 337   1          rx_frame_parity     = 0;
+ 338   1          rx_frame_crc_errors = 0;
+ 339   1      
+ 340   1          /* Drive the error LED to its OFF level at boot.  P3.4 powers up
+ 341   1             weakly pulled high (= LED off if active-low) but writing it
+ 342   1             explicitly makes the initial state independent of the reset
+ 343   1             value of P3 in case any other code touched it. */
+ 344   1          rx_led_off();
+ 345   1      
+ 346   1          /* Configure the debug strap (P3.5) as a quasi-bidirectional input:
+ 347   1             writing 1 enables the weak pull-up so the pin floats high when
+ 348   1             no external strap is applied (= debug OFF).  Pulling the pin to
+ 349   1             GND externally then drives it strongly low (= debug ON). */
+ 350   1          RX_DEBUG_STRAP_PIN = 1;
+ 351   1      
+ 352   1          ES = 1;
+ 353   1          /* EA is set by the caller after all peripherals are initialised. */
  354   1      }
  355          
  356          
  357          /*
- 358             UART ERROR MARKER
+ 358             NON-BLOCKING UART TX ENQUEUE
  359             ---
- 360             Always-on (not RX_DEBUG-gated) compact 2-byte marker for ECC events:
- 361               '!U'  PESEC double-error / uncorrectable, frame dropped
- 362               '!d'  PESEC corrected a single data-bit error
- 363               '!r'  PESEC corrected a single redundancy-bit error
- 364               '!p'  PESEC corrected the overall parity bit itself
-C51 COMPILER V9.60.7.0   RX_HW                                                             05/19/2026 13:14:32 PAGE 7   
+ 360             If the transmitter is idle, write SBUF directly and mark tx_busy.
+ 361             If busy, push into the ring buffer; dropped on overflow.
+ 362          
+ 363             ES is toggled around the shared state update to prevent the ISR
+ 364             from racing on tx_busy / tx_head.
+C51 COMPILER V9.60.7.0   RX_HW                                                             05/24/2026 15:37:29 PAGE 7   
 
- 365             The leading '!' makes the marker stand out in a stream that may
- 366             otherwise contain printable payload bytes.
- 367          
- 368             This routine itself is non-blocking: rx_send_uart_byte() enqueues the
- 369             bytes into the existing 128-byte TX ring buffer drained by UART_ISR's
- 370             TI handler.  If the ring is full the marker is dropped silently --
- 371             that's exactly the case the LED indicator is designed to cover.
- 372          */
- 373          void rx_signal_error(uint8_t kind)
- 374          {
- 375   1      #ifdef debug  
-                  rx_send_uart_byte('!');
-              #endif
- 378   1          rx_send_uart_byte(kind);
- 379   1      }
+ 365          */
+ 366          void rx_send_uart_byte(uint8_t data_byte)
+ 367          {
+ 368   1          uint8_t next_head;
+ 369   1      
+ 370   1          ES = 0;
+ 371   1      
+ 372   1          if (!tx_busy)
+ 373   1          {
+ 374   2              tx_busy = 1;
+ 375   2              SBUF    = data_byte;
+ 376   2              ES      = 1;
+ 377   2              return;
+ 378   2          }
+ 379   1      
+ 380   1          next_head = (tx_head + 1u) % TX_BUF_SIZE;
+ 381   1          if (next_head != tx_tail)
+ 382   1          {
+ 383   2              tx_buf[tx_head] = data_byte;
+ 384   2              tx_head         = next_head;
+ 385   2          }
+ 386   1          /* else: ring full, byte dropped */
+ 387   1      
+ 388   1          ES = 1;
+ 389   1      }
+ 390          
+ 391          
+ 392          /*
+ 393             ERROR-INDICATOR LED HELPERS
+ 394             ---
+ 395             Single-instruction sbit writes; safe to call from anywhere (main loop
+ 396             or ISR).  No ES guard needed because the bit-addressable port pin is
+ 397             not shared with the UART machinery.
+ 398          */
+ 399          void rx_led_on(void)
+ 400          {
+ 401   1          RX_ERROR_LED_PIN = RX_LED_ACTIVE_LEVEL;
+ 402   1      }
+ 403          
+ 404          void rx_led_off(void)
+ 405          {
+ 406   1          RX_ERROR_LED_PIN = (uint8_t)(!RX_LED_ACTIVE_LEVEL);
+ 407   1      }
+ 408          
+ 409          
+ 410          /*
+ 411             UART ERROR MARKER
+ 412             ---
+ 413             Compact 2-byte marker '!' + kind for ECC events:
+ 414               '!U'  PESEC double-error / uncorrectable, frame dropped
+ 415               '!d'  PESEC corrected a single data-bit error
+ 416               '!r'  PESEC corrected a single redundancy-bit error
+ 417               '!p'  PESEC corrected the overall parity bit itself
+ 418             The leading '!' makes the marker stand out in a stream that may
+ 419             otherwise contain printable payload bytes.
+ 420          
+ 421             The function itself is unconditional; the CALLER (rx_main.c) decides
+ 422             whether to invoke it based on the cached debug-mode strap state.
+ 423             In normal operation (strap floating) no markers are emitted and the
+ 424             payload stream is clean -- the LED on P3.4 is the always-on visual
+ 425             indicator that an error event occurred.
+ 426          
+C51 COMPILER V9.60.7.0   RX_HW                                                             05/24/2026 15:37:29 PAGE 8   
+
+ 427             Non-blocking: rx_send_uart_byte() enqueues into the 128-byte TX ring
+ 428             drained by UART_ISR's TI handler.  If the ring is full the marker is
+ 429             silently dropped.
+ 430          */
+ 431          void rx_signal_error(uint8_t kind)
+ 432          {
+ 433   1          rx_send_uart_byte('!');
+ 434   1          rx_send_uart_byte(kind);
+ 435   1      }
+ 436          
+ 437          
+ 438          /*
+ 439             DEBUG STRAP READOUT
+ 440             ---
+ 441             Returns 1 if the strap is currently tied low (debug mode active),
+ 442             0 if the strap floats high (normal silent operation).
+ 443          
+ 444             Single sbit compare, no state held -- so a user can toggle the strap
+ 445             live and the very next frame's trace markers reflect the new state.
+ 446          */
+ 447          uint8_t rx_debug_active(void)
+ 448          {
+ 449   1          return (RX_DEBUG_STRAP_PIN == 0u) ? 1u : 0u;
+ 450   1      }
 
 
 MODULE INFORMATION:   STATIC OVERLAYABLE
-   CODE SIZE        =    359    ----
+   CODE SIZE        =    394    ----
    CONSTANT SIZE    =   ----    ----
-   XDATA SIZE       =    128    ----
+   XDATA SIZE       =    129    ----
    PDATA SIZE       =   ----    ----
    DATA SIZE        =     17       4
    IDATA SIZE       =   ----    ----
